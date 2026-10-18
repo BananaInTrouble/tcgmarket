@@ -37,7 +37,10 @@ export const aeonis: Species = (c: DrawCtx) => {
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4';
   const skin = pal.light, skinShade = pal.body, stone = hsl(c.hue + 190, 14, 60);
-  let s = '<g transform="translate(-12 4)">';
+  // Lumière principale : l'arbre-galaxie au-dessus (haut centre) ; contour sarcelle venu du vide.
+  const TEAL = hsl(c.hue + 20, 70, 66);
+  const LT = { light: [0.5, 0.02] as [number, number], hi: pal.glow, lo: pal.deep, rim: TEAL, ao: 0.55 };
+  let s = '<g transform="translate(111 -36) scale(0.9) translate(-111 36) translate(-12 4)">';
 
   // ---------- Couronne-galaxie de l'arbre (derrière tout) ----------
   const GX = 112, GY = -4;
@@ -60,24 +63,24 @@ export const aeonis: Species = (c: DrawCtx) => {
 
   // ---------- Nageoire antérieure lointaine (relevée) ----------
   const farFlip = 'M178 150 C186 132 198 112 214 94 C220 88 226 90 224 98 C214 118 200 140 190 160 Z';
-  s += ink(farFlip, skinShade, 1.2) + shadow(farFlip, INK, 0.45, 'xhatch');
+  s += V(farFlip, skinShade, { ...LT, hi: skin, lo: '#05030C', rim: undefined });
   s += line('M190 130 l8 4 M198 118 l8 4 M206 106 l7 4', 0.7, INK, ' opacity="0.6"');
 
   // ---------- Nageoire postérieure + queue ----------
   const rear = 'M46 170 C34 180 18 190 2 194 C-4 196 -4 190 2 187 C16 180 28 172 36 162 Z';
-  s += ink(rear, skin, 1.3) + shadow('M46 170 C34 180 18 190 2 194 C-4 196 -4 190 -1 189 C14 186 30 178 42 166 Z', skinShade, 0.7, 'fine');
+  s += V(rear, skin, LT) + shadow('M46 170 C34 180 18 190 2 194 C-4 196 -4 190 -1 189 C14 186 30 178 42 166 Z', skinShade, 0.7, 'fine');
   s += line('M30 176 l-3 -5 M20 182 l-3 -5 M12 186 l-2 -4', 0.7);
   s += ink('M30 168 L12 172 L28 176 Z', skin, 1);
 
   // ---------- Cou et tête (vieille tortue de mer, bec crochu) ----------
   const neck = 'M168 146 C180 140 188 138 194 140 C198 150 198 162 194 168 C186 172 178 174 170 174 Z';
-  s += ink(neck, skin, 1.4);
+  s += V(neck, skin, LT);
   s += shadow('M170 164 C180 166 192 168 200 166 C200 170 196 172 190 172 C182 173 176 174 170 174 Z', skinShade, 0.8, 'fine');
   s += line('M178 150 c2 6 2 14 0 20 M186 148 c2 7 2 14 0 21 M193 147 c2 6 2 12 0 18', 0.8, INK, ' opacity="0.65"');
   // Tête : repère local (museau vers +x), origine à la jonction du cou.
   let hd = '';
   const headP = 'M0 -8 C6 -14 16 -17 26 -16 C34 -15 40 -10 41 -3 C42 2 40 6 37 8 C36 11 33 12 30 11 C24 14 14 15 4 14 C0 10 -1 0 0 -8 Z';
-  hd += ink(headP, skin, 1.5);
+  hd += V(headP, skin, { ...LT, light: [0.45, 0.1] });
   hd += shadow('M4 14 C14 15 24 14 30 11 C24 9 14 8 4 6 C2 8 2 12 4 14 Z', skinShade, 0.8, 'fine');
   // Écailles céphaliques gravées (préfrontales, frontale, pariétales, post-orbitales).
   hd += `<path d="M28 -15 L36 -11 L33 -6 L26 -8 Z M18 -16 L28 -15 L26 -8 L18 -9 Z M8 -14 L18 -16 L18 -9 L10 -6 Z M1 -9 L8 -14 L10 -6 L3 -1 Z M10 -6 L18 -9 L19 -3 L12 1 Z M3 -1 L12 1 L10 7 L1 5 Z M12 1 L19 -3 L21 3 L15 7 Z" fill="${pal.body}" opacity="0.9"/>`;
@@ -92,11 +95,11 @@ export const aeonis: Species = (c: DrawCtx) => {
   s += `<g transform="translate(190 152) rotate(-4) scale(1.1)">${hd}</g>`;
 
   // ---------- Plastron et carapace ----------
-  s += ink('M38 172 C80 186 140 186 184 170 C182 178 170 184 150 186 C110 190 70 188 44 180 Z', pal.belly, 1.2);
+  s += V('M38 172 C80 186 140 186 184 170 C182 178 170 184 150 186 C110 190 70 188 44 180 Z', pal.belly, { ...LT, hi: CREAM, lo: pal.shade });
   s += line('M70 184 l2 -6 M100 187 l1 -7 M130 186 l0 -7 M156 182 l-1 -6', 0.7, INK, ' opacity="0.6"');
   const shell = 'M22 168 C22 146 54 120 106 116 C152 114 184 134 192 158 C194 166 190 172 182 174 C140 178 80 178 40 178 C30 178 22 174 22 168 Z';
   s += `<defs><clipPath id="${id}-sh"><path d="${shell}"/></clipPath></defs>`;
-  s += `<path d="${shell}" fill="${pal.body}"/>`;
+  s += V(shell, pal.body, { ...LT, ao: 0.7 });
   s += `<g clip-path="url(#${id}-sh)">`
     // Écailles costales : plaques avec stries de croissance gravées.
     + [[30, 60], [60, 96], [96, 132], [132, 166], [166, 196]].map(([x0, x1], i) => {
@@ -114,10 +117,10 @@ export const aeonis: Species = (c: DrawCtx) => {
 
   // ---------- Le monde porté : sol, forêts, montagnes ----------
   const land = 'M26 150 C40 134 70 124 106 122 C146 120 176 132 188 150 C170 142 150 140 130 142 C110 140 80 142 60 146 C46 148 34 150 26 150 Z';
-  s += ink(land, hsl(c.hue + 80, 25, 34), 1.2);
+  s += V(land, hsl(c.hue + 80, 30, 30), { light: [0.5, 0.0], hi: pal.glow, lo: '#05030C' });
   // Montagnes (gauche, droite, puis massif central).
   const mountain = (d: string, shade: string, snow: string, light: string) =>
-    ink(d, stone, 1.3) + shadow(shade, pal.deep, 0.55, 'fine') + ink(snow, CREAM, 0.9) + rim(light, pal.glow, 0.9);
+    V(d, stone, { light: [0.45, 0.0], hi: CREAM, lo: hsl(c.hue + 220, 40, 14), rim: TEAL, ao: 0.6 }) + shadow(shade, hsl(c.hue + 220, 45, 16), 0.7) + V(snow, CREAM, { light: [0.3, 0.1], hi: '#FFFFFF', lo: pal.light, ao: 0.3 }) + rim(light, pal.glow, 0.9);
   s += `<path d="M44 132 L70 92 L80 100 L94 70 L104 84 L120 60 L134 82 L146 76 L170 120 Z" fill="${hsl(c.hue + 190, 18, 74)}" opacity="0.55"/>`;
   s += mountain('M34 146 L50 112 L58 118 L68 98 L80 120 L88 116 L100 138 Z', 'M68 98 L80 120 L88 116 L100 138 L70 142 C74 128 72 112 68 98 Z',
     'M60 108 L68 98 L74 110 L69 108 L65 113 Z', 'M34 146 L50 112 L58 118 L68 98');
@@ -145,7 +148,7 @@ export const aeonis: Species = (c: DrawCtx) => {
 
   // ---------- Arbre de lumière (racines sur le sommet, ramure qui rejoint la galaxie) ----------
   s += `<circle cx="112" cy="20" r="16" fill="${pal.glow}" opacity="0.45" filter="url(#b8)"/>`;
-  s += ink('M108 50 C109 40 110 26 108 12 L111 4 L116 12 C114 26 115 40 117 50 C114 48 111 48 108 50 Z', CREAM, 1.2);
+  s += bloom(112, 30, 14, pal.glow, 0.7) + V('M108 50 C109 40 110 26 108 12 L111 4 L116 12 C114 26 115 40 117 50 C114 48 111 48 108 50 Z', CREAM, { light: [0.4, 0.2], hi: '#FFFFFF', lo: pal.glow, ao: 0.3 });
   s += line('M108 50 c-6 2 -10 6 -12 12 M117 50 c5 2 9 6 10 12 M112 49 c0 6 -1 10 -3 14', 1, CREAM);
   s += line('M110 14 C100 8 90 6 80 8 M113 10 C122 2 134 0 146 4 M111 6 C108 -4 100 -10 92 -12 M114 4 C120 -6 130 -10 140 -10', 1.6, CREAM);
   s += line('M80 8 C74 9 70 12 68 16 M146 4 C152 6 156 10 158 14 M92 -12 C86 -14 80 -12 76 -8', 1, CREAM, ' opacity="0.8"');
@@ -156,7 +159,7 @@ export const aeonis: Species = (c: DrawCtx) => {
 
   // ---------- Nageoire antérieure proche (en pleine brasse) ----------
   const flip = 'M158 168 C174 172 180 184 172 198 C158 220 132 236 102 246 C94 248 92 242 98 238 C122 222 140 204 146 186 C148 178 152 172 158 168 Z';
-  s += `<defs><clipPath id="${id}-fl"><path d="${flip}"/></clipPath></defs>${ink(flip, skin, 1.6)}`;
+  s += `<defs><clipPath id="${id}-fl"><path d="${flip}"/></clipPath></defs>${V(flip, skin, { ...LT, light: [0.6, 0.05] })}`;
   s += `<g clip-path="url(#${id}-fl)">`
     + shadow('M172 198 C158 220 132 236 102 246 L96 240 C124 228 150 212 166 190 Z', skinShade, 0.8, 'fine')
     + Array.from({ length: 9 }, (_, i) => {
