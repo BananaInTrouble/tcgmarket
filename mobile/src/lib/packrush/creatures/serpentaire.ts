@@ -1,4 +1,5 @@
-import { constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle, setKit } from './v4kit.ts';
 
 /**
  * Serpentaire → Nébulisse → Astrocoatl : serpent de poussière d'étoiles. Planche d'herpétologie céleste : corps
@@ -73,7 +74,7 @@ function tube(c: DrawCtx, id: string, B: Body, i0: number, i1: number, o: { star
   g += `<path d="${poly(V)}L${poly(bl.slice().reverse()).slice(1)}Z" fill="${pal.belly}" opacity="0.85"/>`;
   for (let k = 0; k < idx.length; k += 2) {
     const i = idx[k], a = off(i, 0.55), b = off(i, 1);
-    g += `<path d="M${f(a[0])} ${f(a[1])} L${f(b[0])} ${f(b[1])}" stroke="${pal.ink}" stroke-width="0.6" opacity="0.65"/>`;
+    g += `<path d="M${f(a[0])} ${f(a[1])} L${f(b[0])} ${f(b[1])}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.65"/>`;
   }
   g += `<path d="${poly(V)}L${poly(bl.slice().reverse()).slice(1)}Z" fill="url(#fine)" opacity="0.6"/>`;
   // Losanges dorsaux.
@@ -82,7 +83,7 @@ function tube(c: DrawCtx, id: string, B: Body, i0: number, i1: number, o: { star
     if (w < 3) continue;
     const [x, y] = off(i, -0.35), [nx, ny2] = B.n[i], tx = ny2, ty = -nx;
     const d = `M${f(x + tx * w * 0.9)} ${f(y + ty * w * 0.9)} L${f(x + nx * w * 0.4)} ${f(y + ny2 * w * 0.4)} L${f(x - tx * w * 0.9)} ${f(y - ty * w * 0.9)} L${f(x - nx * w * 0.4)} ${f(y - ny2 * w * 0.4)}Z`;
-    g += `<path d="${d}" fill="${pal.deep}" opacity="0.8" stroke="${pal.ink}" stroke-width="0.5"/>`;
+    g += `<path d="${d}" fill="${pal.deep}" opacity="0.8" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.5"/>`;
     g += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(Math.min(1.4, w * 0.16))}" fill="#FFF6D8"/>`;
   }
   // Poussière d'étoiles sur le dos.
@@ -92,8 +93,8 @@ function tube(c: DrawCtx, id: string, B: Body, i0: number, i1: number, o: { star
     g += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(0.4 + c.r() * 0.7)}" fill="#FFF6D8" opacity="0.9"/>`;
   }
   let s = clip(id, shape, g);
-  s += `<path d="${poly(V)}" fill="none" stroke="${pal.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
-  s += `<path d="${poly(D)}" fill="none" stroke="${pal.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
+  s += `<path d="${poly(V)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="1.6" stroke-linejoin="round"/>`;
+  s += `<path d="${poly(D)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="1.6" stroke-linejoin="round"/>`;
   s += rim(poly(idx.map((i) => off(i, -0.78))), pal.glow, 1);
   return s;
 }
@@ -192,6 +193,7 @@ function placeHead(B: Body, extra = 0): string {
 export const serpentaire: Species = (c) => {
   const { pal, stage } = c;
   const id = `serpentaire-${stage}`;
+  setKit(id, c.pal, ([c.pal.glow, '#B48CFF', '#FFE9A8'])[Math.min(2, stage)]);
   if (stage === 0) {
     // Jeune lové au sol, tête à peine levée.
     const { B, front } = helixBody({ th0: 300, th1: 700, cx: 120, cy0: 192, cy1: 186, rx0: 22, rx1: 46, ry: 14 }, [[154, 172], [140, 156], [116, 148], [94, 150]], (t) => 1.5 + 6.5 * Math.pow(Math.min(1, t * 1.6), 0.8) - (t > 0.88 ? (t - 0.88) * 14 : 0));
@@ -263,11 +265,11 @@ function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, op = 0.85): strin
 function column(x: number, y: number, w: number, h: number, fill: string, broken: boolean): string {
   const top = broken ? `L${f(x + w / 2)} ${f(y - h + 6)} L${f(x + w * 0.2)} ${f(y - h)} L${f(x - w * 0.1)} ${f(y - h + 8)} L${f(x - w / 2)} ${f(y - h + 3)}` : `L${f(x + w / 2)} ${f(y - h)} L${f(x - w / 2)} ${f(y - h)}`;
   const d = `M${f(x - w / 2)} ${f(y)} L${f(x + w / 2)} ${f(y)} ${top}Z`;
-  let s = `<path d="${d}" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
+  let s = `<path d="${d}" fill="${fill}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
   s += `<path d="M${f(x + w * 0.1)} ${f(y)} L${f(x + w / 2)} ${f(y)} L${f(x + w / 2)} ${f(y - h + 6)} L${f(x + w * 0.1)} ${f(y - h + 6)}Z" fill="url(#fine)" opacity="0.8"/>`;
-  for (let k = -1; k <= 1; k++) s += `<path d="M${f(x + k * w * 0.22)} ${f(y - 2)} V${f(y - h + 10)}" stroke="#140F24" stroke-width="0.5" opacity="0.6"/>`;
-  if (!broken) s += `<rect x="${f(x - w * 0.7)}" y="${f(y - h - 6)}" width="${f(w * 1.4)}" height="6" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
-  s += `<rect x="${f(x - w * 0.65)}" y="${f(y - 4)}" width="${f(w * 1.3)}" height="5" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
+  for (let k = -1; k <= 1; k++) s += `<path d="M${f(x + k * w * 0.22)} ${f(y - 2)} V${f(y - h + 10)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.5" opacity="0.6"/>`;
+  if (!broken) s += `<rect x="${f(x - w * 0.7)}" y="${f(y - h - 6)}" width="${f(w * 1.4)}" height="6" fill="${fill}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
+  s += `<rect x="${f(x - w * 0.65)}" y="${f(y - 4)}" width="${f(w * 1.3)}" height="5" fill="${fill}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
   return s;
 }
 
@@ -281,6 +283,7 @@ function reed(x: number, y: number, h: number, lean: number, col: string): strin
 serpentaire.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, pal } = c;
   const id = `serpentaire-${stage}-bg`;
+  setKit(id, c.pal, ([c.pal.glow, '#B48CFF', '#FFE9A8'])[Math.min(2, stage)]);
   const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
   const G = 160 + (c.hue - 150) * 0.15;
   let s = '';
@@ -288,14 +291,14 @@ serpentaire.scene = (c: DrawCtx, b: Bounds): string => {
     // Dalles d'un temple en ruine au crépuscule : colonnes brisées, mousse, champignons luisants.
     s += `<defs>${grad(`${id}-sky`, [[0, hsl(G + 100, 40, 10)], [0.7, hsl(G + 80, 30, 26)], [1, hsl(G + 40, 30, 36)]])}</defs>`;
     s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 50, 110);
-    s += `<path d="M120 140 V70 A30 30 0 0 1 180 70 V140 H168 V74 A18 18 0 0 0 132 74 V140Z" fill="${hsl(G + 80, 18, 32)}" stroke="#140F24" stroke-width="0.6" opacity="0.8"/>`;
+    s += `<path d="M120 140 V70 A30 30 0 0 1 180 70 V140 H168 V74 A18 18 0 0 0 132 74 V140Z" fill="${hsl(G + 80, 18, 32)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.8"/>`;
     s += column(30, 160, 18, 100, hsl(G + 60, 14, 40), true) + column(196, 168, 16, 60, hsl(G + 60, 14, 38), true);
     const floor = `M${b.x0 - 10} 150 L${b.x1 + 10} 150 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
     s += `<path d="${floor}" fill="${hsl(G + 50, 16, 30)}"/>`;
     let tiles = '';
     for (let k = 0; k < 6; k++) tiles += `M${b.x0 - 10} ${f(150 + k * k * 3 + k * 4)} H${b.x1 + 10} `;
     for (let k = -6; k <= 6; k++) tiles += `M${f(111 + k * 14)} 150 L${f(111 + k * 46)} ${b.y1 + 10} `;
-    s += clip(`${id}-fl`, floor, `<path d="${tiles}" fill="none" stroke="#140F24" stroke-width="0.7" opacity="0.6"/>` + `<path d="${floor}" fill="url(#fine)" opacity="0.4"/>`
+    s += clip(`${id}-fl`, floor, `<path d="${tiles}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.7" opacity="0.6"/>` + `<path d="${floor}" fill="url(#fine)" opacity="0.4"/>`
       + `<ellipse cx="40" cy="214" rx="50" ry="14" fill="${hsl(G, 30, 28)}" opacity="0.9"/><ellipse cx="190" cy="196" rx="34" ry="9" fill="${hsl(G, 30, 28)}" opacity="0.9"/>`);
     for (const [x, y, k] of [[22, 206, 1], [32, 210, 0.7], [178, 192, 0.8], [200, 196, 1]] as const) {
       s += `<circle cx="${x}" cy="${y - 6 * k}" r="${8 * k}" fill="${pal.glow}" opacity="0.35" filter="url(#soft)"/>`
@@ -323,8 +326,8 @@ serpentaire.scene = (c: DrawCtx, b: Bounds): string => {
   // Sanctuaire sous une coupole étoilée : colonnes, arc, constellations gravées.
   s += `<defs>${grad(`${id}-sky`, [[0, hsl(G + 90, 45, 7)], [1, hsl(G + 70, 35, 22)]])}</defs>`;
   s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 80, 200);
-  s += `<path d="M${b.x0 - 10} ${b.y0 - 10} H${b.x1 + 10} V200 H196 V100 A85 85 0 0 0 26 100 V200 H${b.x0 - 10}Z" fill="${hsl(G + 70, 16, 18)}" stroke="#140F24" stroke-width="0.8"/>`;
-  s += `<path d="M26 100 A85 85 0 0 1 196 100" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.6"/><path d="M34 100 A77 77 0 0 1 188 100" fill="none" stroke="#140F24" stroke-width="0.6" stroke-dasharray="3 3"/>`;
+  s += `<path d="M${b.x0 - 10} ${b.y0 - 10} H${b.x1 + 10} V200 H196 V100 A85 85 0 0 0 26 100 V200 H${b.x0 - 10}Z" fill="${hsl(G + 70, 16, 18)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
+  s += `<path d="M26 100 A85 85 0 0 1 196 100" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.6"/><path d="M34 100 A77 77 0 0 1 188 100" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" stroke-dasharray="3 3"/>`;
   s += constellation([[60, 40], [80, 30], [100, 36], [92, 52]], pal.gold) + constellation([[140, 34], [158, 44], [172, 36]], pal.gold);
   s += column(16, 214, 20, 150, hsl(G + 60, 14, 30), false) + column(206, 214, 20, 150, hsl(G + 60, 14, 30), false);
   s += `<path d="M${b.x0 - 10} 200 H${b.x1 + 10} V${b.y1 + 10} H${b.x0 - 10}Z" fill="${hsl(G + 60, 16, 22)}"/>`;

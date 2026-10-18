@@ -1,5 +1,5 @@
-import { constellation, eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { along, band, f, frames, grad, P, starfish, tube, type Pt } from './legendkit.ts';
+import { bloom, gloss, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { along, band, f, frames, grad, lum, P, soften, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Koiluna : deux carpes koï célestes, l'une d'ivoire, l'autre d'encre et d'or, qui tournent sans fin autour d'une
@@ -10,6 +10,7 @@ const CX = 111, CY = 112;
 function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: string, dark: boolean): string {
   const { pal } = c;
   const id = `koiluna-${c.stage}-${tag}`;
+  const { ink, body: vbody, line, shadow, rim, gild, eyeA } = lum(`${id}-l`, c, [0.5, 0.5], '#FFF6D8');
   // Ligne médiane : arc autour de la lune, légère ondulation.
   const spine: Pt[] = [];
   for (let i = 0; i <= 60; i++) {
@@ -64,11 +65,11 @@ function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: strin
   const bodyPts = spine.filter((_, i) => i <= Math.round(tb * 60));
   const body = tube(bodyPts, (u) => -0 + wv(u * tb), (u) => wd(u * tb));
   o += `<defs><clipPath id="${id}"><path d="${body}"/></clipPath></defs>`;
-  let inner = `<path d="${body}" fill="${base}"/>`;
+  let inner = vbody(body, base, { light: [0.5, 0.5], hi: dark ? pal.shade : '#FFFFFF', lo: dark ? '#05030C' : pal.shade, rim: dark ? pal.glow : '#FFF6D8', ao: 0.7 });
   // Motifs de koï (taches), clippés au corps.
   for (const [u, k, rx, ry, col] of [[0.07, 4, 10, 7, patch], [0.3, 6, 16, 11, patch], [0.5, -4, 11, 9, patch2], [0.62, 7, 9, 6, patch], [0.43, 12, 6, 5, patch2]] as [number, number, number, number, string][]) {
     const [x, y] = out(u, k), t0 = tan(u);
-    inner += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${rx}" ry="${ry}" fill="${col}" opacity="0.92" transform="rotate(${f((Math.atan2(t0[1], t0[0]) * 180) / Math.PI)} ${f(x)} ${f(y)})"/>`;
+    inner += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${rx}" ry="${ry}" fill="${col}" opacity="0.8" transform="rotate(${f((Math.atan2(t0[1], t0[0]) * 180) / Math.PI)} ${f(x)} ${f(y)})"/>`;
   }
   // Ombre du dos (extérieur, loin de la lune) et lumière lunaire au ventre.
   inner += shadow(band(bodyPts, (u) => wd(u * tb), -1.05, -0.35), dark ? '#000' : pal.shade, dark ? 0.45 : 0.45, 'fine');
@@ -87,6 +88,7 @@ function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: strin
   inner += `<path d="M${bodyPts.filter((_, i) => i > 8 && i % 3 === 0).map(({ 0: x, 1: y }, i) => { const u = (9 + i * 3) / 60; const [a, b] = out(u, 1); return `${f(a)} ${f(b)}`; }).join(' L')}" fill="none" stroke="${dark ? pal.light : pal.shade}" stroke-width="0.5" stroke-dasharray="1.5 2" opacity="0.6"/>`;
   if (dark) inner += speckles(c, ...out(0.45, 0), 30, 12, 10);
   o += `<g clip-path="url(#${id})">${inner}</g>`;
+  for (const u of [0.2, 0.32, 0.44]) { const [gx, gy] = out(u, wd(u) * 0.45), t0 = tan(u); o += gloss(gx, gy, 6, 1.6, (Math.atan2(t0[1], t0[0]) * 180) / Math.PI, dark ? 0.3 : 0.55); }
   o += `<path d="${body}" fill="none" stroke="${pal.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
   // Lumière de lune sur le ventre.
   o += rim(`M${fr.filter(({ u }) => u > 0.05 && u < 0.75).filter((_, i) => i % 2 === 0).map(({ u }) => P(out(u, -wv(u) + 1))).join(' L')}`, '#FFF6D8', 1);
@@ -109,6 +111,7 @@ function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: strin
 export const koiluna: Species = (c) => {
   const { pal } = c;
   const id = `koiluna-${c.stage}`;
+  const { rim, shadow, constellation } = lum(`${id}-l`, c);
   let s = '';
   // Courants célestes : cercles gravés.
   s += `<circle cx="${CX}" cy="${CY}" r="58" fill="${pal.glow}" opacity="0.18" filter="url(#soft)"/>`;
@@ -129,7 +132,9 @@ export const koiluna: Species = (c) => {
   moon += shadow(`M${CX + 6} ${CY - R - 1} A${R} ${R} 0 0 1 ${CX + 6} ${CY + R + 1} A${R * 0.62} ${R} 0 0 0 ${CX + 6} ${CY - R - 1} Z`, pal.shade, 0.55, 'fine');
   moon += shadow(`M${CX + 16} ${CY - R} A${R} ${R} 0 0 1 ${CX + 16} ${CY + R} A${R * 0.4} ${R} 0 0 0 ${CX + 16} ${CY - R} Z`, pal.deep, 0.5, 'xhatch');
   s += `<circle cx="${CX}" cy="${CY}" r="${R + 6}" fill="#FFF6D8" opacity="0.35" filter="url(#soft)"/>`;
+  s += bloom(CX, CY, 46, '#FFF6D8', 0.35);
   s += `<g clip-path="url(#${id}-m)">${moon}</g>`;
+  s += gloss(CX - 12, CY - 14, 9, 5, -35, 0.35);
   s += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${pal.ink}" stroke-width="1.4"/>`;
   s += `<circle cx="${CX}" cy="${CY}" r="${R + 4}" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
   s += rim(`M${CX - 22} ${CY - 22} A${R} ${R} 0 0 1 ${CX + 4} ${CY - R}`, '#FFFFFF', 1.2);
@@ -141,7 +146,7 @@ export const koiluna: Species = (c) => {
   // Bulles d'étoiles et constellation.
   s += constellation([[22, 30], [34, 22], [46, 28]], pal.gold) + constellation([[176, 200], [190, 192], [202, 200]], pal.gold);
   for (const [x, y, z] of [[196, 30, 3.4], [24, 196, 3], [111, 18, 2.2], [111, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return s;
+  return soften(s, pal.deep);
 };
 
 /**
@@ -185,5 +190,5 @@ koiluna.scene = (c: DrawCtx, b: Bounds) => {
   // Alevins-étoiles et pétales qui dérivent.
   for (const [x, y, a] of [[190, 70, 120], [198, 80, 130], [184, 84, 110], [30, 150, -60], [24, 140, -50]] as const) s += starfish(x, y, 0.55, a, hsl(wh, 30, 66), pal.glow);
   for (const [x, y, a] of [[60, 210, 30], [150, 20, -20], [206, 150, 70]] as const) s += `<path d="M0 0 C-2 -3 -1 -7 0 -8 C1 -7 2 -3 0 0 Z" fill="#F6E8D4" stroke="#140F24" stroke-width="0.4" transform="translate(${x} ${y}) rotate(${a})"/>`;
-  return s;
+  return soften(s, pal.deep);
 };

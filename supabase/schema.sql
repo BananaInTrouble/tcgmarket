@@ -523,7 +523,7 @@ insert into public.pr_cards (id, set_id, number, rarity, name, art) values
   ('es1-052', 'es1', 52, 'SR', 'Abyssquid', '{"kind": "abyssquid", "stage": 4, "hue": 275, "seed": 411788}'::jsonb),
   ('es1-053', 'es1', 53, 'SR', 'Griffastre', '{"kind": "griffastre", "stage": 4, "hue": 40, "seed": 419707}'::jsonb),
   ('es1-054', 'es1', 54, 'SR', 'Koiluna', '{"kind": "koiluna", "stage": 4, "hue": 200, "seed": 427626}'::jsonb),
-  ('es1-055', 'es1', 55, 'SR', 'Sphinxlipse', '{"kind": "sphinxlipse", "stage": 4, "hue": 30, "seed": 435545}'::jsonb),
+  ('es1-055', 'es1', 55, 'SR', 'Sphinxlipse', '{"kind": "sphinxlipse", "stage": 4, "hue": 260, "seed": 435545}'::jsonb),
   ('es1-056', 'es1', 56, 'SSR', 'Lunaphage', '{"kind": "lunaphage", "stage": 4, "hue": 235, "seed": 443464}'::jsonb),
   ('es1-057', 'es1', 57, 'SSR', 'Aeonis', '{"kind": "aeonis", "stage": 4, "hue": 160, "seed": 451383}'::jsonb),
   ('es1-058', 'es1', 58, 'SSR', 'Ophalia', '{"kind": "ophalia", "stage": 4, "hue": 30, "seed": 459302}'::jsonb)

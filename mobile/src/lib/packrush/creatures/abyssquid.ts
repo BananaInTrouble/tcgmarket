@@ -1,5 +1,5 @@
-import { eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { along, band, f, frames, grad, smooth, spline, starfish, tube, type Pt } from './legendkit.ts';
+import { bloom, gloss, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { along, band, f, frames, grad, lum, smooth, soften, spline, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Abyssquid : calmar géant des abysses du ciel, manteau dressé en diagonale, qui enlace de ses bras un trou noir
@@ -8,6 +8,7 @@ import { along, band, f, frames, grad, smooth, spline, starfish, tube, type Pt }
 export const abyssquid: Species = (c) => {
   const { pal } = c;
   const id = `abyssquid-${c.stage}`;
+  const { ink, body, line, shadow, rim, gild, eyeA } = lum(`${id}-l`, c, [0.45, 0.8], pal.glow);
   const BH: Pt = [113, 166];
 
   // Bras : ligne médiane, largeur à la base, devant/derrière le trou noir, massue (tentacule).
@@ -115,7 +116,7 @@ export const abyssquid: Species = (c) => {
   const tip = along(spline(arms[4].pts, 9), 1).p;
   s += sparkle(tip[0], tip[1], 3, pal.gold, false);
   for (const [x, y, z] of [[30, 40, 3.4], [48, 92, 2.4], [190, 228, 2.6], [16, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return s;
+  return soften(s, pal.deep);
 };
 
 /**
@@ -181,5 +182,5 @@ abyssquid.scene = (c: DrawCtx, b: Bounds) => {
     + `<circle cx="-7" cy="-4" r="1.1" fill="${pal.eye}"/></g>`;
   // Avant-plan : gros blocs sombres en coin (cadrage).
   s += rock(b.x0 + 8, 228, 22, false) + rock(b.x1 - 6, 70, 14, false) + rock(b.x1 - 14, 226, 16, false);
-  return s;
+  return soften(s, pal.deep);
 };

@@ -1,5 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, hsl, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { part, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
+import { aura, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, constellation, eyeA, gild, gloss, ground, line, noInk, part, rim, setLook, shadow, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -11,7 +11,7 @@ function scales(x0: number, y0: number, x1: number, y1: number, sz: number, op =
   for (let y = y0; y < y1; y += sz * 0.8, row++) {
     for (let x = x0 + (row % 2) * sz * 0.5; x < x1; x += sz) d += `M${f(x)} ${f(y)} q${f(sz / 2)} ${f(sz * 0.55)} ${f(sz)} 0 `;
   }
-  return `<path d="${d}" fill="none" stroke="#140F24" stroke-width="0.5" opacity="${op}"/>`;
+  return `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="0.45" opacity="${f(op * 0.55)}"/>`;
 }
 
 /** Comète : noyau éclatant et chevelure de traînées. `ang` = direction de la traîne (degrés). */
@@ -197,7 +197,7 @@ function dragon(c: DrawCtx, P: Pose, st: number, extraFront = ''): string {
  * Drakomet → Wyvernova → Comethéon : dragon des comètes. Nouveau-né sortant d'un œuf-météorite, jeune wyverne
  * perchée sur un astéroïde, puis grand dragon cabré aux ailes-ciel nocturne, dont la queue s'achève en comète.
  */
-export const drakomet: Species = (c) => {
+function drawDrak(c: DrawCtx): string {
   const { pal } = c;
   const st = Math.min(c.stage, 2);
   let s = '';
@@ -274,12 +274,18 @@ export const drakomet: Species = (c) => {
   ei += shadow('M150 130 C172 150 180 182 172 204 L150 204 C164 182 160 154 140 136 Z', pal.deep, 0.6, 'fine');
   for (const [x, y, r] of [[70, 172, 7], [118, 182, 5], [150, 162, 4], [92, 154, 3.4]] as const) ei += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#140F24" stroke-width="0.8" opacity="0.6"/><path d="M${x - r} ${y} a${r} ${r} 0 0 1 ${r * 2} 0" fill="none" stroke="${pal.light}" stroke-width="0.7" opacity="0.5"/>`;
   ei += line('M96 150 l-6 14 l8 6 l-4 12', 0.8, pal.glow, ' opacity="0.9"') + line('M140 146 l6 12 l-6 8', 0.8, pal.glow, ' opacity="0.9"');
-  s += part('drakomet-0-e', egg, pal.shade, ei, 1.7);
+  s += part('drakomet-0-e', egg, pal.shade, ei + bloom(96, 164, 8, pal.glow, 0.5) + bloom(144, 154, 6, pal.glow, 0.5), 1.7) + gloss(66, 156, 6, 20, 18, 0.3);
   s += rim('M48 204 C40 176 44 144 62 128', pal.glow, 1.2);
   // Patte posée sur le bord de la coquille.
   s += limb(c, 'drakomet-0-lp', [[88, 142, 4], [78, 136, 3.2], [72, 134, 2.8]], pal.body, false);
   s += sparkle(40, 80, 3, pal.glow, false) + sparkle(182, 70, 2.4, '#FFF6D8', false) + speckles(c, 112, 112, 60, 20, 5, pal.glow);
   return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${s}</g>`;
+}
+
+export const drakomet: Species = (c) => {
+  const st = Math.min(c.stage, 2);
+  setLook(`drakomet-${st}`, c.pal, ['#FFA060', '#7CE8FF', '#FFC4A0'][st]);
+  return noInk(drawDrak(c));
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -299,7 +305,8 @@ function asteroid(c: DrawCtx, x: number, y: number, r: number, fill: string, det
   return o;
 }
 
-drakomet.scene = (c: DrawCtx, b: Bounds) => {
+drakomet.scene = (c: DrawCtx, b: Bounds) => noInk(drakScene(c, b), '#05030C');
+function drakScene(c: DrawCtx, b: Bounds): string {
   const st = Math.min(c.stage, 2);
   const id = `drakomet-${st}-bg`;
   const h = c.hue;
@@ -367,4 +374,5 @@ drakomet.scene = (c: DrawCtx, b: Bounds) => {
   }
   if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
   return o;
-};
+}
+

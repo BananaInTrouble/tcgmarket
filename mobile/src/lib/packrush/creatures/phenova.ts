@@ -1,4 +1,5 @@
-import { constellation, eyeA, fur, gild, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, fur, gild, ink, line, rim, shadow, sparkle, setKit } from './v4kit.ts';
 
 /**
  * Phenova → Pyrastrel → Supernovis : oiseau de supernova. Planche d'ornithologie céleste : rapace à crête de
@@ -43,11 +44,11 @@ function feather(x: number, y: number, ang: number, len: number, w: number, fill
   if (barbs) {
     for (let t = 0.25; t < 0.92; t += 0.11) {
       const cx = L * t, cy = b * t * t;
-      s += `<path d="M${f(cx)} ${f(cy)} L${f(cx + L * 0.07)} ${f(cy + w * 0.6)}" stroke="#140F24" stroke-width="0.5" opacity="0.5"/>`;
+      s += `<path d="M${f(cx)} ${f(cy)} L${f(cx + L * 0.07)} ${f(cy + w * 0.6)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.5" opacity="0.5"/>`;
     }
   }
-  s += `<path d="M0 0 Q${f(L * 0.5)} ${f(b * 0.2)} ${f(L * 0.94)} ${f(b * 0.9)}" fill="none" stroke="#140F24" stroke-width="0.7" opacity="0.75"/>`;
-  s += `<path d="${d}" fill="none" stroke="#140F24" stroke-width="${sw}" stroke-linejoin="round"/>`;
+  s += `<path d="M0 0 Q${f(L * 0.5)} ${f(b * 0.2)} ${f(L * 0.94)} ${f(b * 0.9)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.7" opacity="0.75"/>`;
+  s += `<path d="${d}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="${sw}" stroke-linejoin="round"/>`;
   return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})">${s}</g>`;
 }
 
@@ -68,7 +69,7 @@ function scallops(seg: [[number, number], [number, number]], n: number, size: nu
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1), x = a[0] + (b[0] - a[0]) * t, y = a[1] + (b[1] - a[1]) * t;
     s += `<g transform="translate(${f(x)} ${f(y)}) rotate(${ang - 90})">`
-      + `<path d="M${f(-size / 2)} 0 Q0 ${f(size * 1.1)} ${f(size / 2)} 0" fill="none" stroke="${pal.ink}" stroke-width="0.8" opacity="0.8"/>`
+      + `<path d="M${f(-size / 2)} 0 Q0 ${f(size * 1.1)} ${f(size / 2)} 0" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8" opacity="0.8"/>`
       + `<path d="M${f(-size / 3)} ${f(size * 0.2)} Q0 ${f(size * 0.8)} ${f(size / 3)} ${f(size * 0.2)}" fill="none" stroke="${pal.light}" stroke-width="0.6" opacity="0.6"/></g>`;
   }
   return s;
@@ -102,7 +103,7 @@ function head(c: DrawCtx, id: string, crest: number, young = 0, open = false): s
     s += ink(`M91 68 L${f(90 - 11 * bk)} 75 C${f(90 - 9 * bk)} 78 ${f(90 - 3 * bk)} 76 93 71 Z`, pal.light, 1);
     s += line(`M${f(90 - 4 * bk)} 69 q2 2 6 0`, 0.8, pal.accent);
   } else s += ink(`M${f(90 - 6 * bk)} 66 C${f(90 - 4 * bk)} 69 ${f(90 - 1 * bk)} 70 92 69 L91 66 Z`, pal.light, 1);
-  s += `<path d="M${f(90 - 2 * bk)} 58 C88 60 88 63 91 64" fill="none" stroke="#140F24" stroke-width="0.7"/>`;
+  s += `<path d="M${f(90 - 2 * bk)} 58 C88 60 88 63 91 64" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.7"/>`;
   s += `<circle cx="${f(88 - 3 * bk)}" cy="60" r="0.9" fill="#140F24"/>`;
   s += ink('M89 55 C92 54 95 55 96 58 C94 60 91 61 89 60 Z', pal.gold, 0.8);
   s += eyeA(102, 61, 4.4 + young, pal.eye, { angle: -6, slit: false, open: 0.5 + young * 0.1 });
@@ -165,7 +166,7 @@ function adult(c: DrawCtx, id: string): string {
   for (const k of [-1, 1]) {
     const q: Pt[] = [[111, 150], [111 + k * 10, 182], [111 + k * 34, 206], [111 + k * 62, 214], [111 + k * 78, 200], [111 + k * 70, 188]];
     s += line(cr(q), 2.6, pal.ink) + line(cr(q), 1.2, pal.light);
-    s += `<ellipse cx="${111 + k * 70}" cy="188" rx="7" ry="5.5" fill="${pal.deep}" stroke="#140F24" stroke-width="1"/>`
+    s += `<ellipse cx="${111 + k * 70}" cy="188" rx="7" ry="5.5" fill="${pal.deep}" stroke="#05030C" stroke-opacity="0.3" stroke-width="1"/>`
       + `<ellipse cx="${111 + k * 70}" cy="188" rx="4.2" ry="3.3" fill="${pal.glow}" opacity="0.5" filter="url(#glow)"/>`
       + sparkle(111 + k * 70, 188, 4, pal.gold, false) + gild(`M${111 + k * 70 - 8} 188 a8 6.5 0 1 0 16 0 a8 6.5 0 1 0 -16 0`, 0.8);
   }
@@ -196,7 +197,7 @@ function adult(c: DrawCtx, id: string): string {
   return s;
 }
 
-/** Jeune perché de profil, ailes repliées, sur une branche. */
+/** Jeune perché sur une branche, ailes levées, qui crie avant de prendre son envol. */
 function perched(c: DrawCtx, id: string): string {
   const { pal } = c;
   let s = '';
@@ -206,6 +207,8 @@ function perched(c: DrawCtx, id: string): string {
   const br = cr([[6, 188], [40, 180], [90, 178], [140, 182], [190, 176], [220, 170], [222, 182], [190, 188], [140, 194], [90, 190], [40, 192], [6, 200]], true);
   s += ink(br, pal.deep, 1.5) + clip(`${id}-br`, br, contour([[6, 194], [60, 186], [120, 188], [180, 184], [222, 178]], 0, 2.4, 5, 0.6, '#FFF6D8', 0.3) + line('M60 180 q10 6 24 2 M150 182 q12 4 24 -2', 0.7, pal.ink));
   s += ink(cr([[40, 184], [30, 168], [20, 160, 1], [36, 170], [48, 182]], true), pal.deep, 1.3);
+  // Aile lointaine levée, dans l'ombre.
+  s += `<g opacity="0.8" transform="translate(132 98) scale(0.62) rotate(14 112 104) translate(-112 -104)">${spreadWing(c, `${id}-wf`, [112, 104], [80, 64], [64, 46])}</g>`;
   // Corps.
   const body = cr([[96, 88], [86, 106], [88, 134], [104, 160], [128, 170], [150, 160], [154, 136], [140, 108], [118, 90]], true);
   s += ink(body, pal.body, 1.7);
@@ -219,12 +222,8 @@ function perched(c: DrawCtx, id: string): string {
     const th = cr([[x - 9, 148], [x + 7, 148], [x + 6, 162], [x + 2, 168, 1], [x, 163], [x - 3, 168, 1], [x - 8, 160]], true);
     s += ink(th, pal.body, 1.2) + clip(`${id}-th${x}`, th, shadow(`M${x} 146 h12 v26 h-12Z`, pal.shade, 0.7, 'fine') + fur(c, x, 156, 6, 90, 4, 6, pal.ink, 0.6));
   }
-  // Aile repliée : couvertures + rémiges qui descendent vers la queue.
-  for (let i = 0; i < 6; i++) s += feather(118 + i * 3, 116 + i * 5, 40 - i * 3, 70 - i * 6, 7, i % 2 ? pal.light : pal.body, { tip: pal.accent, bend: 0.02 });
-  const wing = cr([[108, 100], [130, 98], [150, 116], [158, 140], [150, 150], [130, 140], [114, 122]], true);
-  s += ink(wing, pal.shade, 1.5) + clip(`${id}-wg`, wing, scallops([[112, 108], [148, 138]], 9, 9, 50, pal) + scallops([[114, 102], [150, 124]], 9, 8, 40, pal) + scallops([[110, 118], [138, 150]], 7, 8, 58, pal)
-    + shadow(cr([[130, 130], [160, 140], [150, 156], [126, 146]], true), pal.deep, 0.5, 'fine'));
-  s += rim('M108 100 C122 96 140 104 150 116', pal.glow, 1.2);
+  // Aile proche levée (en miroir), comme pour prendre son envol en criant.
+  s += `<g transform="translate(130 104) scale(-0.74 0.74) translate(-112 -104)">${spreadWing(c, `${id}-wn`, [112, 104], [80, 64], [64, 46])}</g>`;
   s += ink(cr([[96, 92], [94, 76], [104, 64], [118, 66], [124, 84], [118, 96]], true), pal.body, 1.5);
   s += `<g transform="translate(2 14) rotate(-10 112 68)">${head(c, id, 0.55, 0, true)}</g>`;
   return s;
@@ -293,6 +292,7 @@ function chick(c: DrawCtx, id: string): string {
 
 export const phenova: Species = (c) => {
   const id = `phenova-${c.stage}`;
+  setKit(id, c.pal, (['#FFB070', '#FF9A55', '#FFE9A8'])[Math.min(2, c.stage)]);
   if (c.stage === 0) return `<g transform="translate(111 206) scale(1.1) translate(-112 -206)">${chick(c, id)}</g>`;
   if (c.stage === 1) return `<g transform="translate(111 186) scale(1.16) translate(-116 -186)">${perched(c, id)}</g>`;
   return `<g transform="translate(111 112) scale(0.97) translate(-111 -110)">${adult(c, id)}</g>`;
@@ -342,6 +342,7 @@ function smoke(x: number, y: number, h: number, col: string): string {
 phenova.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, pal } = c;
   const id = `phenova-${stage}-bg`;
+  setKit(id, c.pal, (['#FFB070', '#FF9A55', '#FFE9A8'])[Math.min(2, stage)]);
   const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
   const V = 270 + (c.hue - 20) * 0.1;
   let s = '';
@@ -350,14 +351,14 @@ phenova.scene = (c: DrawCtx, b: Bounds): string => {
     s += `<defs>${grad(`${id}-sky`, [[0, hsl(V, 45, 12)], [0.55, hsl(V + 40, 35, 30)], [0.85, hsl(20, 60, 50)], [1, hsl(35, 70, 62)]])}</defs>`;
     s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 40, 90, 0.7);
     s += smoke(150, 96, 90, hsl(V + 30, 15, 38));
-    s += `<path d="M96 160 L136 104 L146 98 L158 100 L168 106 L214 160Z" fill="${hsl(V + 20, 22, 30)}" stroke="#140F24" stroke-width="0.7"/>`;
+    s += `<path d="M96 160 L136 104 L146 98 L158 100 L168 106 L214 160Z" fill="${hsl(V + 20, 22, 30)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.7"/>`;
     s += `<path d="M146 100 C143 116 147 128 140 160 M158 102 C163 120 155 140 162 160" fill="none" stroke="#FFB070" stroke-width="2" opacity="0.9" filter="url(#glow)"/>`;
     s += `<ellipse cx="152" cy="100" rx="14" ry="5" fill="#FFC27A" opacity="0.8" filter="url(#glow)"/>`;
     s += ridge(c, b, 162, 14, 8, hsl(V + 20, 20, 24));
     s += embers(c, b, 30, '#FFC27A', 170);
     // Paroi rocheuse du nid (avant-plan).
     const cliff = cr([[b.x0 - 10, 176], [20, 172], [60, 180], [110, 190], [170, 182], [b.x1 + 10, 170]]) + ` L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
-    s += `<path d="${cliff}" fill="${hsl(V, 22, 18)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += `<path d="${cliff}" fill="${hsl(V, 22, 18)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.9"/>`;
     s += clip(`${id}-cl`, cliff, `<path d="${cliff}" fill="url(#xhatch)" opacity="0.5"/>` + line('M20 190 l14 20 l-4 20 M180 192 l-10 24 l8 16 M90 210 l18 14', 0.8, '#140F24'));
     s += rim(cr([[b.x0 - 10, 176], [20, 172], [60, 180], [110, 190], [170, 182], [b.x1 + 10, 170]]), '#FFB070', 1.1);
     return s;
@@ -366,13 +367,13 @@ phenova.scene = (c: DrawCtx, b: Bounds): string => {
     // Nuit au bord d'une caldeira : deux lunes, lueur de lave, colonnes de fumée.
     s += `<defs>${grad(`${id}-sky`, [[0, hsl(V - 20, 50, 7)], [0.7, hsl(V, 35, 18)], [1, hsl(15, 55, 34)]])}</defs>`;
     s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 60, 140);
-    s += `<circle cx="44" cy="44" r="13" fill="#E9DFC6" stroke="#140F24" stroke-width="0.7"/><circle cx="49" cy="40" r="13" fill="${hsl(V - 20, 45, 9)}"/>`;
+    s += `<circle cx="44" cy="44" r="13" fill="#E9DFC6" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.7"/><circle cx="49" cy="40" r="13" fill="${hsl(V - 20, 45, 9)}"/>`;
     s += `<circle cx="70" cy="30" r="5" fill="#E9DFC6" opacity="0.8"/>`;
     s += smoke(30, 170, 110, hsl(V, 15, 26)) + smoke(196, 176, 120, hsl(V, 15, 24));
     s += ridge(c, b, 168, 22, 7, hsl(V, 25, 16));
     s += `<ellipse cx="111" cy="${b.y1}" rx="${W * 0.7}" ry="46" fill="#FF8A3C" opacity="0.55" filter="url(#soft)"/>`;
     const fl = `M${b.x0 - 10} 206 C40 200 90 210 140 204 C180 200 210 206 ${b.x1 + 10} 202 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
-    s += `<path d="${fl}" fill="${hsl(V, 20, 12)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<path d="${fl}" fill="${hsl(V, 20, 12)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
     s += clip(`${id}-fl`, fl, `<path d="M10 216 L40 222 L70 214 L110 226 L150 216 L196 224" fill="none" stroke="#FFB070" stroke-width="1.6" filter="url(#glow)"/>`);
     s += embers(c, b, 40, '#FFC27A', 230);
     return s;
@@ -384,7 +385,7 @@ phenova.scene = (c: DrawCtx, b: Bounds): string => {
   s += stars(c, b, 90, b.y1 - 40);
   const R = 300, cx = 111, cy = 196 + R;
   s += `<circle cx="${cx}" cy="${cy}" r="${R + 6}" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
-  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${hsl(V + 160, 22, 22)}" stroke="#140F24" stroke-width="0.8"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${hsl(V + 160, 22, 22)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
   let bands = '';
   for (let i = 0; i < 7; i++) bands += `<ellipse cx="${cx + (c.r() - 0.5) * 40}" cy="${f(cy - R + 12 + i * 11)}" rx="${R}" ry="${f(4 + c.r() * 4)}" fill="${i % 2 ? hsl(V + 170, 22, 38) : hsl(V + 150, 22, 18)}" opacity="0.6"/>`;
   s += clip(`${id}-pl`, `M${cx - R} ${cy} a${R} ${R} 0 1 0 ${2 * R} 0 a${R} ${R} 0 1 0 ${-2 * R} 0`, bands + `<rect x="${b.x0}" y="${cy - R}" width="${W}" height="80" fill="url(#fine)" opacity="0.6"/>`);

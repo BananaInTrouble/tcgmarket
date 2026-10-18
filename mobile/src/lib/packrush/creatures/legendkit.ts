@@ -2,6 +2,8 @@
  * Outils géométriques des légendaires (style adulte) : courbes lissées par points de passage, corps « tubulaires »
  * d'épaisseur variable (bras, queues, poissons), plumes et rémiges. Tout reste en chaînes SVG, comme style.ts.
  */
+import { bloom as bloomFx, eyeGlow, strands, vol, type DrawCtx } from './style.ts';
+
 export type Pt = [number, number];
 
 export const f = (v: number) => +v.toFixed(1);
@@ -99,4 +101,81 @@ export function starfish(x: number, y: number, s: number, ang: number, body: str
     + `<path d="M-6 0 C-3 -3.4 3 -3.6 6 0 C3 3.2 -3 3.2 -6 0 Z M5 0 L10 -3.6 L9 0 L10 3.6 Z" fill="${body}" stroke="${ink}" stroke-width="${f(0.6 / s)}" stroke-linejoin="round"/>`
     + `<circle cx="-3.6" cy="-0.6" r="0.8" fill="${ink}"/><circle cx="9.6" cy="0" r="1.5" fill="${glow}"/>`
     + `</g>`;
+}
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Rendu V4 (« 3D » lumineux) : mêmes appels que le style encré (ink, line, shadow, rim, gild, fur, eyeA,
+ * constellation), mais traduits en volumes modelés, ombres douces, lumières de contour et marques incandescentes.
+ * Chaque espèce récupère ces fonctions via `lum(préfixe, c)` et garde ainsi son dessin anatomique.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+export interface Lum {
+  /** Volume modelé (le 3e argument, ancien trait, est ignoré). `extra` peut porter une opacité. */
+  ink: (d: string, fill: string, w?: number, extra?: string) => string;
+  /** Volume avec réglages explicites (lumière, contour, tons). */
+  body: (d: string, base: string, o?: { light?: [number, number]; rim?: string; hi?: string; lo?: string; ao?: number }) => string;
+  /** Détail fin : pli, nervure… en ton profond translucide (ou clair si une couleur claire est donnée). */
+  line: (d: string, w?: number, color?: string, extra?: string) => string;
+  /** Ombre douce (sans hachures). */
+  shadow: (d: string, color: string, op?: number, hatch?: string) => string;
+  /** Lumière de contour floutée. */
+  rim: (d: string, color: string, w?: number) => string;
+  /** Filet d'or incandescent. */
+  gild: (d: string, w?: number) => string;
+  /** Brins de lumière (pelage, plumes). */
+  fur: (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread?: number, color?: string, w?: number) => string;
+  /** Œil incandescent. */
+  eyeA: (x: number, y: number, w: number, iris: string, o?: { angle?: number; slit?: boolean; open?: number }) => string;
+  /** Constellation lumineuse. */
+  constellation: (pts: Pt[], color?: string) => string;
+}
+
+const INK = new Set(['#140F24', '#1A1230']);
+
+export function lum(prefix: string, c: DrawCtx, light: [number, number] = [0.3, 0.22], rimCol?: string): Lum {
+  const { pal } = c;
+  let k = 0;
+  const id = () => `${prefix}-v${k++}`;
+  const hiOf = (base: string) => (base === pal.deep || base === pal.shade ? pal.body : base === pal.body ? pal.light : '#FFF6D8');
+  const body: Lum['body'] = (d, base, o = {}) =>
+    vol(id(), d, base, { light: o.light ?? light, hi: o.hi ?? hiOf(base), lo: o.lo ?? pal.deep, rim: o.rim ?? rimCol ?? pal.accent2, ao: o.ao ?? 0.6 });
+  return {
+    body,
+    ink: (d, fill, _w, extra = '') => {
+      if (fill === 'none') return '';
+      const op = /opacity="([\d.]+)"/.exec(extra)?.[1];
+      const v = body(d, fill);
+      return op ? `<g opacity="${op}">${v}</g>` : v;
+    },
+    line: (d, w = 1, color = pal.ink, extra = '') => {
+      const dark = INK.has(color);
+      const op = +(/opacity="([\d.]+)"/.exec(extra)?.[1] ?? 1);
+      return `<path d="${d}" fill="none" stroke="${dark ? pal.deep : color}" stroke-width="${f(Math.max(0.4, w * 0.7))}" stroke-linecap="round" stroke-linejoin="round" opacity="${f(op * (dark ? 0.45 : 0.6))}"/>`;
+    },
+    shadow: (d, color, op = 0.8) => `<path d="${d}" fill="${color === '#000' ? '#05030C' : pal.deep}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`,
+    rim: (d, color, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.2)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/>`
+      + `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`,
+    gild: (d, w = 1.2) => `<path d="${d}" fill="none" stroke="${pal.gold}" stroke-width="${f(w * 3)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/>`
+      + `<path d="${d}" fill="none" stroke="#FFF1C2" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`,
+    fur: (cc, x, y, len, angle, count, spread = 6, color, w = 0.9) =>
+      strands(cc, x, y, len, angle, count, spread, color && !INK.has(color) ? color : pal.light, w * 0.8),
+    eyeA: (x, y, w, iris, o = {}) => eyeGlow(id(), x, y, w, iris, o),
+    constellation: (pts, color = '#FFF6D8') =>
+      `<polyline points="${pts.map(P).join(' ')}" fill="none" stroke="${color}" stroke-width="0.6" opacity="0.7"/>`
+      + pts.map(([x, y], i) => bloomFx(x, y, i % 2 ? 2.5 : 3.5, color, 0.6).replace('url(#b8)', 'url(#b2)') + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.4}" fill="#FFFFFF"/>`).join(''),
+  };
+}
+
+/**
+ * Adoucit un SVG du style encré pour le rendu V4 : supprime les cernes d'encre des formes pleines, transforme les
+ * traits d'encre de détail en traits profonds translucides et retire les trames hachurées.
+ */
+export function soften(svg: string, deep: string): string {
+  return svg
+    .replace(/<path d="[^"]*" fill="url\(#(?:fine|xhatch|hatch)\)"[^>]*\/>/g, '')
+    .replace(/<(path|circle|ellipse|rect|polyline)\b([^>]*?)\/>/g, (m, tag: string, attrs: string) => {
+      if (!/stroke="(#140F24|#1A1230)"/.test(attrs)) return m;
+      if (/fill="none"/.test(attrs)) return `<${tag}${attrs.replace(/stroke="(#140F24|#1A1230)"/, `stroke="${deep}" stroke-opacity="0.45"`)}/>`;
+      return `<${tag}${attrs.replace(/ stroke="(#140F24|#1A1230)"/, ' stroke="none"')}/>`;
+    });
 }

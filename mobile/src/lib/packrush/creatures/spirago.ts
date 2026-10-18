@@ -1,5 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, hsl, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { fern, fireflies, grass, part, skyGrad, spl, stars, tube } from './cervastre.ts';
+import { aura, hsl, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, constellation, eyeA, fern, fireflies, gild, gloss, grass, ground, line, noInk, part, rim, setLook, shadow, skyGrad, spl, stars, tube } from './cervastre.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -9,7 +9,7 @@ type Pt = [number, number];
  * Jeune à coquille translucide et peu de tours, puis coquille-galaxie aux stries d'or, enfin coquille-temple
  * (arcature dorée Art nouveau, anneau d'orbite, traîne de poussière d'étoiles).
  */
-export const spirago: Species = (c) => {
+function drawSpir(c: DrawCtx): string {
   const { pal, stage } = c;
   const st = Math.min(stage, 2);
   const id = `spirago-${st}`;
@@ -77,7 +77,7 @@ export const spirago: Species = (c) => {
   }
   bi += `<path d="M40 136 C48 128 60 130 68 140" fill="none" stroke="${pal.light}" stroke-width="3" opacity="0.5"/>`;
   // Tête : lèvre frontale, plis du cou, tubercules en relief, collerette du manteau.
-  bi += `<path d="M27 190 C25 178 30 168 40 168 C48 170 50 182 44 194 C38 198 30 198 27 190 Z" fill="${pal.belly}" opacity="0.55"/>`;
+  bi += `<path d="M27 190 C25 178 30 168 40 168 C48 170 50 182 44 194 C38 198 30 198 27 190 Z" fill="${pal.belly}" opacity="0.3"/>`;
   bi += line('M30 178 C34 174 40 174 44 178', 0.7, '#140F24', ' opacity="0.55"');
   for (const [x, y, l] of [[58, 138, 26], [66, 146, 26], [74, 154, 22], [48, 136, 18]] as const) bi += line(`M${x} ${y} c${f(-4)} ${f(l * 0.3)} ${f(-4)} ${f(l * 0.7)} 0 ${l}`, 0.7, '#140F24', ' opacity="0.5"');
   for (let i = 0; i < 60; i++) {
@@ -156,7 +156,8 @@ export const spirago: Species = (c) => {
   const lip0 = sp(0), lip1 = sp(TAU);
   const lipD = `M${f(lip0[0])} ${f(lip0[1])} Q${f(cx - 46)} ${f(cy + 64)} ${f(lip1[0])} ${f(lip1[1])}`;
   g += line(lipD, 1, pal.gold, ' opacity="0.8"');
-  g += sparkle(center[0], center[1], 4 + st * 1.5, '#FFF6D8', false);
+  g += bloom(center[0], center[1], 10 + st * 3, pal.glow, 0.55) + sparkle(center[0], center[1], 4 + st * 1.5, '#FFF6D8', false);
+  g += gloss(cx - 34, cy - 50, 16, 5, -38, 0.45) + gloss(cx - 52, cy - 22, 5, 2, -70, 0.35);
 
   // ---- Anneau d'orbite et constellations (stade adulte) ----
   if (st >= 2) {
@@ -181,6 +182,12 @@ export const spirago: Species = (c) => {
   // Stade 1 : il gravit la pente d'un rocher moussu (le décor suit la même pente).
   const rot = st === 1 ? ' rotate(10)' : '';
   return `<g transform="translate(116 205)${rot} scale(${S}) translate(-116 -205)">${g}</g>`;
+}
+
+export const spirago: Species = (c) => {
+  const st = Math.min(c.stage, 2);
+  setLook(`spirago-${st}`, c.pal, ['#9FF5D8', '#FF9AD8', '#FFC8E8'][st]);
+  return noInk(drawSpir(c));
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -203,7 +210,8 @@ function dragonfly(x: number, y: number, s: number, ang: number, col: string): s
     + `<path d="M0 -3 L0 22" stroke="#140F24" stroke-width="1.6" stroke-linecap="round"/><path d="M0 -3 L0 22" stroke="${col}" stroke-width="0.8"/><circle cx="0" cy="-4" r="1.8" fill="#140F24"/></g>`;
 }
 
-spirago.scene = (c: DrawCtx, b: Bounds) => {
+spirago.scene = (c: DrawCtx, b: Bounds) => noInk(spirScene(c, b), '#05030C');
+function spirScene(c: DrawCtx, b: Bounds): string {
   const st = Math.min(c.stage, 2);
   const id = `spirago-${st}-bg`;
   const h = c.hue;
@@ -295,4 +303,5 @@ spirago.scene = (c: DrawCtx, b: Bounds) => {
   }
   if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
   return o;
-};
+}
+

@@ -1,4 +1,5 @@
-import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, softShadow, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, setKit } from './v4kit.ts';
 
 /**
  * Lynxaure → Boréalynx → Aurorion : lynx à crinière d'aurore boréale. Planche de bestiaire céleste : lynx dessiné de
@@ -143,7 +144,7 @@ function head(c: DrawCtx, id: string, tuft: number, ruff: number, young = 0, asl
 }
 
 /** Lynx debout de profil (adulte / sub-adulte). Sol à y = 205. */
-function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ruff: number; gold: boolean; young: number }): string {
+function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ruff: number; gold: boolean; young: number; crouch?: boolean; mane?: boolean }): string {
   const { pal } = c;
   let s = '';
   // Pattes lointaines (en retrait, plus sombres).
@@ -186,8 +187,19 @@ function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ru
     s += constellation([[136, 122], [148, 116], [160, 126], [172, 118], [180, 128]], pal.gold);
     s += gild('M170 112 l3 -3 l3 3 l-3 3 Z', 0.9);
   }
+  // Sub-adulte : silhouette basse et allongée de traque (épaules rentrées, ventre près du sol).
+  if (o.crouch) s = `<g transform="translate(120 205) scale(1.08 0.8) translate(-120 -205)">${s}</g>`;
+  // Adulte : épaisse crinière de poitrail, frangée de lumière d'aurore.
+  if (o.mane) {
+    const mane = cr([[66, 84], [98, 82], [112, 100], [110, 128], [100, 150], [94, 168, 1], [86, 152], [78, 172, 1], [70, 152], [60, 164, 1], [58, 142], [52, 122], [56, 98]], true);
+    s += softShadow(mane, 0.5, 'b4');
+    s += ink(mane, pal.belly, 1.4, '', { light: [0.3, 0.2], rim: pal.accent });
+    s += fur(c, 82, 120, 22, 95, 12, 22, pal.light, 1) + fur(c, 70, 140, 16, 105, 6, 10, pal.glow, 0.8);
+    s += rim(cr([[100, 150], [94, 168], [86, 152], [78, 172], [70, 152], [60, 164]]), pal.accent, 1.1);
+  }
   // Tête (pivot à la nuque).
-  s += `<g transform="translate(-14 2) rotate(${o.headRot} 92 80)">${head(c, id, o.tuft, o.ruff, o.young)}</g>`;
+  const hy = o.crouch ? 25 : 2, hx = o.crouch ? -17 : -14;
+  s += `<g transform="translate(${hx} ${hy}) rotate(${o.headRot} 92 80)">${head(c, id, o.tuft, o.ruff, o.young)}</g>`;
   return s;
 }
 
@@ -221,15 +233,16 @@ function sleeper(c: DrawCtx, id: string): string {
 export const lynxaure: Species = (c) => {
   const { pal, stage } = c;
   const id = `lynxaure-${stage}`;
+  setKit(id, c.pal, (['#BFD8FF', '#7CF5E0', '#FFC98A'])[Math.min(2, stage)]);
   if (stage === 0) {
     return `<g transform="translate(114 200) scale(1.12) translate(-104 -196)">${sleeper(c, id)}</g>`;
   }
   if (stage === 1) {
     // Sub-adulte en maraude sur un lac gelé, tête basse, reflété dans la glace.
     let g = '';
-    g += curtain(c, `${id}-a1`, [[86, 100], [110, 90], [138, 88], [164, 78], [188, 62]], 46, [pal.accent, pal.accent2, pal.glow]);
-    g += curtain(c, `${id}-a2`, [[96, 108], [124, 102], [150, 100], [176, 92], [196, 80]], 30, [pal.glow, pal.accent, pal.accent2], 0.8);
-    g += standing(c, id, { headRot: -16, tuft: 10, ruff: 0.5, gold: false, young: 0.3 });
+    g += curtain(c, `${id}-a1`, [[86, 120], [110, 112], [138, 110], [164, 102], [188, 88]], 40, [pal.accent, pal.accent2, pal.glow]);
+    g += curtain(c, `${id}-a2`, [[96, 128], [124, 124], [150, 122], [176, 116], [196, 106]], 26, [pal.glow, pal.accent, pal.accent2], 0.8);
+    g += standing(c, id, { headRot: -6, tuft: 10, ruff: 0.4, gold: false, young: 0.35, crouch: true });
     const refl = `<g transform="translate(0 410) scale(1 -1)" opacity="0.2">${g}</g>`;
     return `<g transform="translate(111 192) scale(0.84) translate(-121 -206)">${refl}${ground(130, 206, 80)}${g}</g>`;
   }
@@ -245,7 +258,7 @@ export const lynxaure: Species = (c) => {
     + line('M58 196 L70 212 L66 236 M118 198 L126 214 L150 220 M176 206 L186 226', 0.9, pal.ink, ' opacity="0.85"')
     + rim('M34 204 C42 196 52 190 92 186 C110 188 120 192 128 196', '#FFD9A8', 1.3));
   g += `<ellipse cx="128" cy="200" rx="60" ry="6" fill="#000" opacity="0.3" transform="rotate(-7 176 205)"/>`;
-  g += `<g transform="rotate(-7 176 205)">${standing(c, id, { headRot: -12, tuft: 16, ruff: 1, gold: true, young: 0 })}</g>`;
+  g += `<g transform="rotate(-7 176 205)">${standing(c, id, { headRot: -12, tuft: 16, ruff: 1, gold: true, young: 0, mane: true })}</g>`;
   if (stage >= 3) g += constellation([[18, 30], [34, 18], [48, 30], [42, 46]], pal.gold);
   return `<g transform="translate(111 206) scale(0.94) translate(-112 -206)">${g}</g>`;
 };
@@ -291,13 +304,14 @@ function fir(x: number, y: number, h: number, fill: string, snow: string, w = 0.
     const ty = y - h + (h * 0.92 * k) / tiers, tw = h * w * (0.25 + 0.75 * (k / tiers));
     sn += `M${f(x - tw * 0.7)} ${f(ty - h * 0.02)} Q${f(x - tw * 0.3)} ${f(ty - h * 0.06)} ${f(x + tw * 0.1)} ${f(ty - h * 0.05)} `;
   }
-  return `<path d="${d}" fill="${fill}" stroke="#140F24" stroke-width="0.6" stroke-linejoin="round"/>`
+  return `<path d="${d}" fill="${fill}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" stroke-linejoin="round"/>`
     + `<path d="${sn}" fill="none" stroke="${snow}" stroke-width="${f(0.6 + h * 0.008)}" stroke-linecap="round" opacity="0.85"/>`;
 }
 
 lynxaure.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, pal } = c;
   const id = `lynxaure-${stage}-bg`;
+  setKit(id, c.pal, (['#BFD8FF', '#7CF5E0', '#FFC98A'])[Math.min(2, stage)]);
   const B = 222 + (c.hue - 200) * 0.12;
   const W = b.x1 - b.x0;
   let s = '';
@@ -307,15 +321,15 @@ lynxaure.scene = (c: DrawCtx, b: Bounds): string => {
     s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${b.y1 - b.y0}" fill="url(#${id}-sky)"/>`;
     s += stars(c, b, 60, 120);
     s += `<circle cx="58" cy="44" r="34" fill="#FFF6D8" opacity="0.18" filter="url(#soft)"/><circle cx="58" cy="44" r="14" fill="#F4EBD0"/>`
-      + `<path d="M52 36 a4 4 0 1 0 1 0 M62 50 a3 3 0 1 0 1 0" fill="${hsl(B, 15, 80)}"/>` + `<circle cx="58" cy="44" r="14" fill="none" stroke="#140F24" stroke-width="0.8"/>`;
+      + `<path d="M52 36 a4 4 0 1 0 1 0 M62 50 a3 3 0 1 0 1 0" fill="${hsl(B, 15, 80)}"/>` + `<circle cx="58" cy="44" r="14" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
     s += ridge(c, b, 132, 18, 8, hsl(B, 22, 34));
     for (let i = 0; i < 12; i++) s += fir(b.x0 + 8 + i * (W / 11) + c.r() * 8, 150 + c.r() * 6, 34 + c.r() * 22, hsl(B, 26, 24), hsl(B, 20, 62));
     s += ridge(c, b, 162, 8, 6, hsl(B, 18, 46));
     for (const [x, h] of [[24, 120], [176, 150], [212, 110]] as const) s += fir(x, 190, h, hsl(B, 34, 13), hsl(B, 25, 70), 0.34);
     const snow = cr([[b.x0 - 10, 186], [40, 178], [90, 182], [150, 176], [200, 184], [b.x1 + 10, 180]]) + ` L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
-    s += `<path d="${snow}" fill="${hsl(B, 22, 62)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<path d="${snow}" fill="${hsl(B, 22, 62)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
     s += clip(`${id}-sn`, snow, shadow('M-20 214 C60 200 160 204 250 214 L250 340 L-20 340Z', hsl(B, 30, 40), 0.6, 'fine')
-      + `<ellipse cx="108" cy="208" rx="86" ry="16" fill="${hsl(B, 30, 38)}" opacity="0.7"/><path d="M22 206 C60 196 160 196 196 206" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.5"/>`);
+      + `<ellipse cx="108" cy="208" rx="86" ry="16" fill="${hsl(B, 30, 38)}" opacity="0.7"/><path d="M22 206 C60 196 160 196 196 206" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.5"/>`);
     s += rim(cr([[b.x0 - 10, 186], [40, 178], [90, 182], [150, 176], [200, 184]]), '#FFF6D8', 1);
     for (let i = 0; i < 26; i++) s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(b.y0 + c.r() * (b.y1 - b.y0))}" r="${f(0.6 + c.r() * 1.1)}" fill="#FFFFFF" opacity="0.7"/>`;
     return s;
@@ -349,7 +363,7 @@ lynxaure.scene = (c: DrawCtx, b: Bounds): string => {
     let d = `M${b.x0 - 10} ${y + 30}`;
     for (let x = b.x0 - 10; x < b.x1 + 20; x += 18 + row * 6) d += ` q${f(9 + row * 3)} ${f(-14 - row * 3)} ${f(18 + row * 6)} 0`;
     d += ` L${b.x1 + 20} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
-    s += `<path d="${d}" fill="${hsl(B + 50 - row * 10, 22, 70 - row * 10)}" stroke="#140F24" stroke-width="0.6" opacity="${0.85 + row * 0.05}"/>`;
+    s += `<path d="${d}" fill="${hsl(B + 50 - row * 10, 22, 70 - row * 10)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="${0.85 + row * 0.05}"/>`;
     s += `<path d="${d}" fill="url(#fine)" opacity="${0.25 + row * 0.15}"/>`;
   }
   return s;

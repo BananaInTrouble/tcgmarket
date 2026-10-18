@@ -1,4 +1,5 @@
-import { aura, constellation, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { begin, unink, aura, constellation, gild, ground, ink, line, rim, shadow, sparkle } from './lumen.ts';
 
 /**
  * Noctimoth → Phalénuit → Séléniaile → Astrophalène : bombyx de nuit. Planche d'entomologie céleste : chenille à
@@ -80,7 +81,7 @@ function spread(c: DrawCtx): string {
     + `<ellipse cx="178" cy="150" rx="18" ry="22" fill="${pal.deep}" opacity="0.8" filter="url(#soft)"/>`
     + `<ellipse cx="166" cy="206" rx="10" ry="18" fill="${pal.accent}" opacity="0.8" filter="url(#soft)"/>`
     + shadow('M184 124 C194 138 186 154 172 160 C166 172 167 194 175 216 L160 216 C156 196 158 172 166 156 C176 150 182 138 180 124 Z', pal.shade, 0.75, 'fine')
-    + line('M118 112 C140 116 160 122 176 136 M118 120 C136 132 150 146 160 162 M118 128 C130 146 140 166 160 200', 0.6, '#140F24', ' opacity="0.5"')
+    + line('M118 112 C140 116 160 122 176 136 M118 120 C136 132 150 146 160 162 M118 128 C130 146 140 166 160 200', 0.6, pal.light, ' opacity="0.45"')
     + line('M180 128 C184 140 180 150 170 156 C164 168 164 190 170 210', 0.8, '#E9C25B', ' opacity="0.8"')
     + (woke ? speckles(c, 170, 150, 16, 50, 12) : '')
     + `</g>` + ink(HW, 'none', 1.5);
@@ -91,8 +92,8 @@ function spread(c: DrawCtx): string {
     + `<ellipse cx="196" cy="70" rx="16" ry="36" fill="${pal.deep}" opacity="0.7" filter="url(#soft)"/>`
     + `<path d="M112 78 C134 58 176 38 210 26 L211 37 C178 50 142 70 118 88 Z" fill="${pal.deep}"/>`
     + shadow('M210 39 C200 58 192 84 184 108 L174 108 C182 86 190 62 200 42 Z', pal.shade, 0.8, 'fine')
-    + line('M118 88 C150 72 180 56 206 40 M120 94 C150 88 178 76 200 62 M122 98 C150 100 172 96 192 88 M124 102 C150 108 168 108 186 104', 0.6, '#140F24', ' opacity="0.5"')
-    + line('M170 52 C162 70 160 88 166 110', 0.9, '#140F24', ' opacity="0.7"') + line('M146 64 C140 80 140 96 146 110', 0.7, pal.light, ' opacity="0.8"')
+    + line('M118 88 C150 72 180 56 206 40 M120 94 C150 88 178 76 200 62 M122 98 C150 100 172 96 192 88 M124 102 C150 108 168 108 186 104', 0.6, pal.light, ' opacity="0.45"')
+    + line('M170 52 C162 70 160 88 166 110', 0.9, pal.glow, ' opacity="0.6"') + line('M146 64 C140 80 140 96 146 110', 0.7, pal.light, ' opacity="0.8"')
     + gild('M200 46 C192 66 186 88 180 106', 0.9)
     + (woke ? `<ellipse cx="186" cy="66" rx="12" ry="22" fill="${pal.accent2}" opacity="0.55" filter="url(#soft)"/>` + speckles(c, 184, 70, 22, 30, 16) : '')
     + `</g>` + ink(FW, 'none', 1.6);
@@ -141,8 +142,8 @@ function resting(c: DrawCtx): string {
     + `<ellipse cx="130" cy="110" rx="18" ry="34" fill="${pal.light}" opacity="0.8" filter="url(#soft)"/>`
     + `<ellipse cx="176" cy="184" rx="26" ry="16" fill="${pal.deep}" opacity="0.75" filter="url(#soft)"/>`
     + `<path d="M114 62 C144 74 178 120 202 172 L194 176 C172 128 144 88 118 76 Z" fill="${pal.deep}"/>`
-    + line('M118 84 C140 110 160 150 176 182 M118 100 C134 130 146 166 154 192 M118 118 C126 146 132 176 136 198', 0.6, '#140F24', ' opacity="0.5"')
-    + line('M112 150 C130 146 150 150 168 160 C176 164 182 168 186 174', 1, '#140F24', ' opacity="0.65"')
+    + line('M118 84 C140 110 160 150 176 182 M118 100 C134 130 146 166 154 192 M118 118 C126 146 132 176 136 198', 0.6, pal.light, ' opacity="0.45"')
+    + line('M112 150 C130 146 150 150 168 160 C176 164 182 168 186 174', 1, pal.glow, ' opacity="0.6"')
     + line('M112 156 C130 152 148 156 164 166', 0.8, pal.light, ' opacity="0.8"')
     + shadow('M188 188 C164 192 136 200 113 210 L113 198 C138 188 164 180 192 178 Z', pal.shade, 0.8, 'fine')
     + gild('M120 196 C142 186 166 180 186 180', 0.8)
@@ -154,7 +155,7 @@ function resting(c: DrawCtx): string {
   let co = '';
   co += line('M190 140 L192 150', 0.8, pal.light);
   co += ink('M184 150 C194 144 204 150 204 166 C204 184 198 198 192 204 L188 196 L184 204 C178 194 176 176 178 164 C178 156 180 152 184 150 Z', hsl(c.hue + 30, 15, 72), 1.3);
-  co += line('M180 160 C188 158 196 160 202 164 M178 172 C188 170 196 172 203 176 M179 184 C186 182 194 184 200 188', 0.6, '#140F24', ' opacity="0.5"');
+  co += line('M180 160 C188 158 196 160 202 164 M178 172 C188 170 196 172 203 176 M179 184 C186 182 194 184 200 188', 0.6, pal.light, ' opacity="0.45"');
   co += shadow('M196 150 C204 156 204 172 202 182 C200 192 196 198 192 204 L190 190 C196 178 198 162 196 150 Z', hsl(c.hue + 30, 20, 40), 0.6, 'fine');
   co += ink('M184 204 L188 196 L192 204 C190 210 186 210 184 204 Z', '#140F24', 0);
   s += `<g transform="translate(14 -16)">${co}</g>`;
@@ -258,7 +259,7 @@ function larva(c: DrawCtx): string {
   return g;
 }
 
-export const noctimoth: Species = (c: DrawCtx) => {
+const draw = (c: DrawCtx): string => {
   return c.stage <= 0 ? larva(c) : c.stage === 1 ? resting(c) : spread(c);
 };
 
@@ -272,8 +273,8 @@ function moonflower(x: number, y: number, k: number, a: number, col: string): st
     + `<ellipse cx="0" cy="-37" rx="10" ry="3" fill="#FFF6D8" stroke="#140F24" stroke-width="0.8"/><path d="M0 -22 L0 -36 M-4 -26 L-7 -36 M4 -26 L7 -36" stroke="#140F24" stroke-width="0.4" opacity="0.5"/></g>`;
 }
 
-noctimoth.scene = (c: DrawCtx, b: Bounds): string => {
-  const { stage, hue } = c;
+const sceneRaw = (c: DrawCtx, b: Bounds): string => {
+  const { stage, hue, pal } = c;
   const id = `noctimoth-${stage}-bg`;
   const W = b.x1 - b.x0, H = b.y1 - b.y0, sh = 215 + ((((hue * 1.7) % 70) + 70) % 70);
   const top = [hsl(sh, 40, 10), hsl(sh, 25, 34), hsl(sh, 50, 12), hsl(sh + 30, 55, 9)][stage] ?? hsl(sh, 40, 12);
@@ -294,7 +295,7 @@ noctimoth.scene = (c: DrawCtx, b: Bounds): string => {
     for (const [x, w, l, op] of [[30, 10, 60, 0.35], [70, 14, 54, 0.4], [160, 12, 58, 0.35], [200, 18, 50, 0.45], [120, 8, 64, 0.25]] as const) {
       s += `<rect x="${x}" y="${b.y0}" width="${w}" height="${H}" fill="${hsl(sh + 20, 20, l)}" opacity="${op}"/>`;
     }
-    for (const [x, w] of [[4, 24], [178, 30]] as const) s += `<rect x="${x}" y="${b.y0}" width="${w}" height="${H}" fill="${hsl(hue + 20, 20, 26)}" stroke="#140F24" stroke-width="1" opacity="0.8"/>` + line(`M${x + 6} ${b.y0} V${b.y1} M${x + w - 8} ${b.y0} V${b.y1}`, 0.6, '#140F24', ' opacity="0.5"');
+    for (const [x, w] of [[4, 24], [178, 30]] as const) s += `<rect x="${x}" y="${b.y0}" width="${w}" height="${H}" fill="${hsl(hue + 20, 20, 26)}" stroke="#140F24" stroke-width="1" opacity="0.8"/>` + line(`M${x + 6} ${b.y0} V${b.y1} M${x + w - 8} ${b.y0} V${b.y1}`, 0.6, pal.light, ' opacity="0.45"');
     s += `<ellipse cx="111" cy="200" rx="160" ry="34" fill="#FFF6E8" opacity="0.25" filter="url(#soft)"/>`;
     for (let i = 0; i < 6; i++) s += line(`M${f(60 + i * 26)} ${b.y0} L${f(10 + i * 30)} ${b.y1}`, 6, '#FFF6D8', ' opacity="0.04"');
   } else if (stage === 2) {
@@ -321,4 +322,15 @@ noctimoth.scene = (c: DrawCtx, b: Bounds): string => {
     }
   }
   return s;
+};
+
+/** Lumière de contour de chaque stade, accordée à la source de lumière du décor. */
+const RIMS = ['#BFA8FF', '#FFD9A0', '#C8E4FF', '#9FFFE0'];
+export const noctimoth: Species = (c: DrawCtx) => {
+  begin(`noctimoth-${c.stage}`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(draw(c));
+};
+noctimoth.scene = (c: DrawCtx, b: Bounds) => {
+  begin(`noctimoth-${c.stage}-bg`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(sceneRaw(c, b));
 };

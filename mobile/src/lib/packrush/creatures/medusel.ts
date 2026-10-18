@@ -1,4 +1,5 @@
-import { aura, constellation, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { begin, unink, aura, constellation, gild, ink, line, rim, shadow, sparkle } from './lumen.ts';
 
 /**
  * Médusel → Filastra → Coronéa : méduse stellaire. Planche de zoologie marine céleste : éphyrule en étoile à huit
@@ -238,7 +239,7 @@ const oceanScene = (c: DrawCtx, b: Bounds): string => {
   return s;
 };
 
-export const medusel: Species = (c: DrawCtx) => {
+const draw = (c: DrawCtx): string => {
   const { pal, stage } = c;
   if (stage <= 0) return ephyra(c);
   if (stage === 1) return `<g transform="rotate(-16 111 120)">${medusa(c, { top: 22, rim: 100, w: 52, arms: 6, armLen: 104, tent: 10, tentLen: 110, lobes: 12 })}</g>`
@@ -252,4 +253,14 @@ export const medusel: Species = (c: DrawCtx) => {
   s += speckles(c, CX, 180, 100, 50, 10, pal.glow);
   return s;
 };
-medusel.scene = oceanScene;
+
+/** Lumière de contour de chaque stade, accordée à la source de lumière du décor. */
+const RIMS = ['#7FF0FF', '#8FFFE0', '#BFE8FF'];
+export const medusel: Species = (c: DrawCtx) => {
+  begin(`medusel-${c.stage}`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(draw(c));
+};
+medusel.scene = (c: DrawCtx, b: Bounds) => {
+  begin(`medusel-${c.stage}-bg`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(oceanScene(c, b));
+};

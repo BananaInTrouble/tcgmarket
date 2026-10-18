@@ -127,9 +127,8 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
     + `<ellipse cx="${W / 2}" cy="${oy + 100}" rx="95" ry="85" fill="url(#halo)"/>`
     + motes
     + (owned
-      ? `<g transform="${cg}"><use href="#cr" filter="url(#bloom)" style="mix-blend-mode:screen" opacity="0.85"/><use href="#cr" class="ink"/>`
-        + `<rect x="-60" y="-80" width="350" height="420" fill="url(#iri)" mask="url(#crm)" style="mix-blend-mode:overlay" opacity="0.5"/>`
-        + `<rect x="-60" y="-80" width="350" height="420" fill="url(#fili)" mask="url(#crm)" opacity="0.5"/></g>`
+      ? `<g transform="${cg}"><use href="#cr" filter="url(#bloom)" style="mix-blend-mode:screen" opacity="0.45"/><use href="#cr" class="ink"/>`
+        + `</g>`
       : `<g transform="${cg}"><use href="#cr" filter="url(#ghost)"/></g>`)
     + (owned && (card.rarity === 'SR' || full) ? `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.35"/>` : '')
     + `<rect x="${win.x}" y="${H - 116}" width="${win.w}" height="108" fill="url(#fade)"/>`

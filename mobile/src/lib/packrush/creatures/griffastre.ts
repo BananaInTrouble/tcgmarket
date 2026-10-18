@@ -1,5 +1,5 @@
-import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { band, f, feather, grad, P, smooth, spline, tube, type Pt } from './legendkit.ts';
+import { bloom, gloss, hsl, softShadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, feather, grad, lum, P, smooth, soften, spline, tube, type Pt } from './legendkit.ts';
 
 /**
  * Griffastre : griffon céleste de profil, avant d'aigle et arrière de lion, une serre levée, ailes dressées
@@ -7,6 +7,8 @@ import { band, f, feather, grad, P, smooth, spline, tube, type Pt } from './lege
  */
 export const griffastre: Species = (c) => {
   const { pal } = c;
+  const { ink, body: vbody, line, shadow, rim, gild, fur, eyeA, constellation } = lum(`griffastre-${c.stage}`, c, [0.25, 0.15], '#FFE2B0');
+  const ground = (x: number, y: number, rx: number) => softShadow(`M${x - rx} ${y} a${rx} ${rx * 0.14} 0 1 0 ${rx * 2} 0 a${rx} ${rx * 0.14} 0 1 0 ${-rx * 2} 0 Z`, 0.6, 'b4');
   const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
   // Aile : os (épaule, coude, poignet, main), rémiges primaires et secondaires, couvertures.
@@ -192,7 +194,7 @@ export const griffastre: Species = (c) => {
 
   // ——— Éclats ———
   for (const [x, y, z] of [[24, 30, 3.4], [16, 110, 2.4], [30, 196, 2.6], [212, 112, 2.4]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return `<g transform="translate(116 206) scale(1.02) translate(-116 -206)">${s}</g>`;
+  return soften(`<g transform="translate(116 206) scale(1.02) translate(-116 -206)">${s}</g>`, pal.deep);
 };
 
 /**
@@ -242,5 +244,5 @@ griffastre.scene = (c: DrawCtx, b: Bounds) => {
   s += `<path d="M62 205 C80 200 140 200 ${b.x1} 202" fill="none" stroke="#FFE7B8" stroke-width="1" opacity="0.8"/>`;
   s += `<path d="M90 212 L96 226 M128 210 L124 222 L130 236 M172 212 L178 230 M66 214 L70 230" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.7"/>`;
   s += `<path d="${smooth([[200, 203], [206, 196], [214, 198], [222, 203]])}" fill="${hsl(sh + 10, 18, 30)}" stroke="#140F24" stroke-width="0.6"/>`;
-  return s;
+  return soften(s, pal.deep);
 };
