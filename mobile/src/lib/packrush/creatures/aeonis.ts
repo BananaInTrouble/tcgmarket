@@ -33,10 +33,10 @@ function arm(cx: number, cy: number, r0: number, r1: number, t0: number, turns: 
  */
 export const aeonis: Species = (c: DrawCtx) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4';
-  const skin = pal.light, skinShade = pal.body, stone = hsl(c.hue + 190, 14, 60);
+  const skin = pal.light, skinShade = pal.body, stone = hsl(c.hue + 190, 16, 70);
   // Lumière principale : l'arbre-galaxie au-dessus (haut centre) ; contour sarcelle venu du vide.
   const TEAL = hsl(c.hue + 20, 70, 66);
   const LT = { light: [0.5, 0.02] as [number, number], hi: pal.glow, lo: pal.deep, rim: TEAL, ao: 0.55 };
@@ -184,7 +184,7 @@ export const aeonis: Species = (c: DrawCtx) => {
 /** Décor : océan d'étoiles profond, nébuleuses en voiles, galaxies lointaines et bébés tortues qui escortent le monde. */
 aeonis.scene = (c: DrawCtx, b: Bounds) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4-bg');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4-bg');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4-bg';
   const W = b.x1 - b.x0, H = b.y1 - b.y0;

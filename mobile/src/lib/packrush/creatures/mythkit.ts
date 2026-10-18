@@ -11,6 +11,9 @@ export function kit(c: DrawCtx, prefix: string) {
   const uid = () => `${prefix}-k${k++}`;
   const isDark = (col: string) => /^#(1A1230|140F24|0)/i.test(col);
   const n = (v: number) => +v.toFixed(1);
+  /** Halo : petit rayon → flou court (évite le découpage carré du flou large sur une petite forme). */
+  const glow = (x: number, y: number, r: number, color: string, op = 0.6) => r >= 14 ? bloom(x, y, r, color, op)
+    : `<circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="${color}" opacity="${op}" filter="url(#${r > 6 ? 'b4' : 'b2'})"/>`;
   const V = (d: string, base: string, o: VolOpts = {}) => vol(uid(), d, base, o);
   /** Surface sans contour (`none` = l'ancien cerne : rien). */
   const ink = (d: string, fill: string, _w = 0, extra = '') => (fill === 'none' ? '' : `<path d="${d}" fill="${fill}"${extra}/>`);
@@ -35,12 +38,12 @@ export function kit(c: DrawCtx, prefix: string) {
   /** Constellation lumineuse. */
   const constellation = (pts: [number, number][], color = '#FFF6D8') =>
     `<polyline points="${pts.map((p) => `${n(p[0])},${n(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.6"/>`
-    + pts.map(([x, y], i) => bloom(x, y, 4, color, 0.6) + `<circle cx="${n(x)}" cy="${n(y)}" r="${i % 2 ? 1 : 1.5}" fill="#FFFFFF"/>`).join('');
+    + pts.map(([x, y], i) => glow(x, y, 3, color, 0.7) + `<circle cx="${n(x)}" cy="${n(y)}" r="${i % 2 ? 1 : 1.5}" fill="#FFFFFF"/>`).join('');
   /** Étincelle sans cerne, avec halo. */
   const sparkle = (x: number, y: number, s: number, fill = '#FFF6D8', _st = false) => {
     const q = s * 0.2;
-    return bloom(x, y, s * 1.4, fill, 0.5)
+    return glow(x, y, s * 1.2, fill, 0.6)
       + `<path d="M${n(x)} ${n(y - s)} Q${n(x + q)} ${n(y - q)} ${n(x + s)} ${n(y)} Q${n(x + q)} ${n(y + q)} ${n(x)} ${n(y + s)} Q${n(x - q)} ${n(y + q)} ${n(x - s)} ${n(y)} Q${n(x - q)} ${n(y - q)} ${n(x)} ${n(y - s)}Z" fill="#FFFFFF"/>`;
   };
-  return { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle };
+  return { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle };
 }

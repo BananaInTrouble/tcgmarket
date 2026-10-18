@@ -70,7 +70,7 @@ const FIT = 'translate(111 -36) scale(0.9) translate(-111 36)';
  */
 export const lunaphage: Species = (c: DrawCtx) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'lunaphage-4');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'lunaphage-4');
   // Lumière principale : la lune (haut droite) ; contour coloré venu de la nébuleuse (bas gauche).
   const TEAL = hsl(c.hue - 50, 75, 66);
   const LT = { light: [0.72, 0.18] as [number, number], hi: pal.glow, lo: pal.deep, rim: TEAL, ao: 0.5 };
@@ -227,7 +227,7 @@ export const lunaphage: Species = (c: DrawCtx) => {
 /** Décor : haut plateau lunaire sous la pleine lune (crêtes lointaines, planète annelée, cratères, ombre portée). */
 lunaphage.scene = (c: DrawCtx, b: Bounds) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'lunaphage-4-bg');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'lunaphage-4-bg');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'lunaphage-4-bg';
   let s = '';

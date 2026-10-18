@@ -35,7 +35,7 @@ function tube(pts: Pt[], w: number[]): { d: string; L: Pt[]; R: Pt[] } {
  */
 export const ophalia: Species = (c: DrawCtx) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'ophalia-4';
   let s = '';
@@ -154,7 +154,7 @@ export const ophalia: Species = (c: DrawCtx) => {
 /** Décor : le cœur d'un système solaire gravé comme un astrolabe (orbites d'or, planètes, éruptions), oiseaux-soleil. */
 ophalia.scene = (c: DrawCtx, b: Bounds) => {
   const { pal } = c;
-  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4-bg');
+  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4-bg');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'ophalia-4-bg';
   const W = b.x1 - b.x0, H = b.y1 - b.y0;
