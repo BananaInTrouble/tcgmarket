@@ -78,6 +78,42 @@ export const lunaphage: Species = (c: DrawCtx) => {
   const id = 'lunaphage-4';
   let s = '';
 
+  // ---------- Lune mordue (source de lumière principale) ----------
+  const MX = 180, MY = -14, MR = 56;
+  const bt = hp(110, 26);
+  const BX = bt[0], BY = bt[1], BR = 24;
+  const dd = Math.hypot(BX - MX, BY - MY);
+  const a0 = (MR * MR - BR * BR + dd * dd) / (2 * dd), hh = Math.sqrt(Math.max(0, MR * MR - a0 * a0));
+  const ux = (BX - MX) / dd, uy = (BY - MY) / dd;
+  const p1: Pt = [MX + a0 * ux - hh * uy, MY + a0 * uy + hh * ux], p2: Pt = [MX + a0 * ux + hh * uy, MY + a0 * uy - hh * ux];
+  const t1 = Math.atan2(p1[1] - BY, p1[0] - BX), t2 = Math.atan2(p2[1] - BY, p2[0] - BX);
+  let span = t2 - t1; while (span > 0) span -= Math.PI * 2;
+  let scallop = '';
+  for (let i = 1; i <= 6; i++) {
+    const ta = t1 + (span * (i - 0.5)) / 6, tb = t1 + (span * i) / 6;
+    scallop += ` Q${P([BX + Math.cos(ta) * (BR - 4), BY + Math.sin(ta) * (BR - 4)])} ${P([BX + Math.cos(tb) * BR, BY + Math.sin(tb) * BR])}`;
+  }
+  const moon = `M${P(p1)}${scallop} A${MR} ${MR} 0 1 0 ${P(p1)} Z`;
+  s += bloom(MX, MY, MR + 30, pal.glow, 0.45);
+  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 8}" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.6"/>`;
+  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 12}" fill="none" stroke="${pal.gold}" stroke-width="0.5" stroke-dasharray="1 3" opacity="0.6"/>`;
+  s += `<defs><clipPath id="${id}-m"><path d="${moon}"/></clipPath><radialGradient id="${id}-mg" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="${CREAM}"/><stop offset="1" stop-color="${pal.light}"/></radialGradient></defs>`;
+  s += `<path d="${moon}" fill="url(#${id}-mg)"/>`;
+  s += `<g clip-path="url(#${id}-m)">`
+    + `<path d="M${MX - 34} ${MY - 4} C${MX - 24} ${MY - 22} ${MX - 2} ${MY - 22} ${MX + 6} ${MY - 8} C${MX + 12} ${MY + 6} ${MX - 6} ${MY + 14} ${MX - 20} ${MY + 10} C${MX - 30} ${MY + 8} ${MX - 40} ${MY + 6} ${MX - 34} ${MY - 4} Z" fill="${pal.light}" opacity="0.55" filter="url(#b4)"/>`
+    + `<path d="M${MX + 14} ${MY + 12} C${MX + 26} ${MY + 4} ${MX + 40} ${MY + 12} ${MX + 36} ${MY + 28} C${MX + 32} ${MY + 40} ${MX + 16} ${MY + 38} ${MX + 12} ${MY + 28} C${MX + 8} ${MY + 20} ${MX + 8} ${MY + 16} ${MX + 14} ${MY + 12} Z" fill="${pal.light}" opacity="0.5" filter="url(#b4)"/>`
+    + `<path d="M${MX - 16} ${MY + 30} c10 -6 22 0 20 10 c-2 8 -16 10 -22 4 c-4 -4 -2 -10 2 -14 Z" fill="${pal.light}" opacity="0.45" filter="url(#b2)"/>`
+    + `<circle cx="${MX + 30}" cy="${MY + 10}" r="${MR}" fill="${pal.shade}" opacity="0.35" filter="url(#b8)"/>`
+    + ([[MX - 10, MY - 30, 6], [MX + 28, MY - 16, 8], [MX - 38, MY + 22, 5], [MX + 2, MY + 20, 4], [MX + 42, MY + 4, 3.5], [MX - 20, MY + 42, 3], [MX + 22, MY + 46, 4], [MX - 30, MY - 10, 2.5]] as const)
+      .map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 0.82)}" fill="${pal.light}" opacity="0.6" filter="url(#b2)"/>`
+        + `<path d="M${f(x - r * 0.8)} ${f(y - r * 0.2)} A${r} ${f(r * 0.82)} 0 0 1 ${f(x + r * 0.8)} ${f(y - r * 0.1)}" fill="none" stroke="${pal.shade}" stroke-width="${f(r * 0.4)}" opacity="0.45" filter="url(#b2)"/>`
+        + `<path d="M${f(x - r * 0.7)} ${f(y + r * 0.4)} A${r} ${f(r * 0.82)} 0 0 0 ${f(x + r * 0.7)} ${f(y + r * 0.4)}" fill="none" stroke="#FFFFFF" stroke-width="${f(r * 0.25)}" opacity="0.7"/>`).join('')
+    + `</g>`;
+  s += rim(moon, CREAM, 1.2);
+  s += glow(BX, BY, BR, pal.glow, 0.5);
+  s += `<path d="M${P(p1)}${scallop}" fill="none" stroke="${pal.gold}" stroke-width="1.1" transform="translate(${f(-ux * 2)} ${f(-uy * 2)})" opacity="0.9"/>`;
+
+
   // Bordure de poils : mèches pointues le long d'un bord (sens du tracé : poils à gauche).
   const tufts = (base: Pt[], len: number, fill: string, w = 1.1) =>
     ink(`${locks(base, len, 0.35)} ${smooth(base.slice().reverse(), false)} Z`, fill, w);
@@ -260,40 +296,6 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
   s += `<path d="M${b.x0} 236 C20 228 40 232 62 226 C84 222 100 230 124 226 C150 222 170 230 196 224 C210 222 220 226 ${b.x1} 224 L${b.x1} 260 L${b.x0} 260 Z" fill="${hsl(c.hue - 5, 25, 22)}"/>`;
   s += `<path d="M${b.x0} 236 C20 228 40 232 62 226 C84 222 100 230 124 226 C150 222 170 230 196 224 C210 222 220 226 ${b.x1} 224 L${b.x1} 260 L${b.x0} 260 Z" fill="url(#fine)" opacity="0.6"/>`;
   s += rim(`M62 226 C84 222 100 230 124 226 C150 222 170 230 196 224`, pal.glow, 0.7);
-  // ---------- Lune mordue ----------
-  const MX = 180, MY = -14, MR = 56;
-  const bt = hp(110, 26);
-  const BX = bt[0], BY = bt[1], BR = 24;
-  const dd = Math.hypot(BX - MX, BY - MY);
-  const a0 = (MR * MR - BR * BR + dd * dd) / (2 * dd), hh = Math.sqrt(Math.max(0, MR * MR - a0 * a0));
-  const ux = (BX - MX) / dd, uy = (BY - MY) / dd;
-  const p1: Pt = [MX + a0 * ux - hh * uy, MY + a0 * uy + hh * ux], p2: Pt = [MX + a0 * ux + hh * uy, MY + a0 * uy - hh * ux];
-  const t1 = Math.atan2(p1[1] - BY, p1[0] - BX), t2 = Math.atan2(p2[1] - BY, p2[0] - BX);
-  let span = t2 - t1; while (span > 0) span -= Math.PI * 2;
-  let scallop = '';
-  for (let i = 1; i <= 6; i++) {
-    const ta = t1 + (span * (i - 0.5)) / 6, tb = t1 + (span * i) / 6;
-    scallop += ` Q${P([BX + Math.cos(ta) * (BR - 4), BY + Math.sin(ta) * (BR - 4)])} ${P([BX + Math.cos(tb) * BR, BY + Math.sin(tb) * BR])}`;
-  }
-  const moon = `M${P(p1)}${scallop} A${MR} ${MR} 0 1 0 ${P(p1)} Z`;
-  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 34}" fill="${pal.glow}" opacity="0.28" filter="url(#b8)"/>`;
-  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 8}" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.75"/>`;
-  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 12}" fill="none" stroke="${pal.gold}" stroke-width="0.5" stroke-dasharray="1 3" opacity="0.7"/>`;
-  s += `<defs><clipPath id="${id}-m"><path d="${moon}"/></clipPath></defs><defs><radialGradient id="${id}-mg" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="${CREAM}"/><stop offset="1" stop-color="${pal.light}"/></radialGradient></defs><path d="${moon}" fill="url(#${id}-mg)"/>`;
-  s += `<g clip-path="url(#${id}-m)">`
-    + shadow(`M${MX - 34} ${MY - 4} C${MX - 24} ${MY - 22} ${MX - 2} ${MY - 22} ${MX + 6} ${MY - 8} C${MX + 12} ${MY + 6} ${MX - 6} ${MY + 14} ${MX - 20} ${MY + 10} C${MX - 30} ${MY + 8} ${MX - 40} ${MY + 6} ${MX - 34} ${MY - 4} Z`, pal.light, 0.55, 'fine')
-    + shadow(`M${MX + 14} ${MY + 12} C${MX + 26} ${MY + 4} ${MX + 40} ${MY + 12} ${MX + 36} ${MY + 28} C${MX + 32} ${MY + 40} ${MX + 16} ${MY + 38} ${MX + 12} ${MY + 28} C${MX + 8} ${MY + 20} ${MX + 8} ${MY + 16} ${MX + 14} ${MY + 12} Z`, pal.light, 0.5, 'fine')
-    + shadow(`M${MX - 16} ${MY + 30} c10 -6 22 0 20 10 c-2 8 -16 10 -22 4 c-4 -4 -2 -10 2 -14 Z`, pal.light, 0.45, 'fine')
-    + shadow(`M${MX + 32} ${MY - MR} A${MR} ${MR} 0 0 1 ${MX + 32} ${MY + MR} C${MX + 58} ${MY + 24} ${MX + 58} ${MY - 24} ${MX + 32} ${MY - MR} Z`, pal.light, 0.35, 'xhatch')
-    + shadow(`M${MX - MR} ${MY} A${MR} ${MR} 0 0 0 ${MX + 10} ${MY + MR} C${MX - 30} ${MY + 50} ${MX - 50} ${MY + 30} ${MX - MR} ${MY} Z`, pal.light, 0.22, 'fine')
-    + ([[MX - 10, MY - 30, 6], [MX + 28, MY - 16, 8], [MX - 38, MY + 22, 5], [MX + 2, MY + 20, 4], [MX + 42, MY + 4, 3.5], [MX - 20, MY + 42, 3], [MX + 22, MY + 46, 4], [MX - 30, MY - 10, 2.5]] as const)
-      .map(([x, y, r]) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 0.82)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8" opacity="0.55"/>`
-        + `<path d="M${f(x - r * 0.8)} ${f(y + r * 0.1)} A${r} ${f(r * 0.82)} 0 0 0 ${f(x + r * 0.8)} ${f(y + r * 0.2)}" fill="none" stroke="${pal.shade}" stroke-width="${f(r * 0.35)}" opacity="0.4"/>`).join('')
-    + `</g>`;
-  s += rim(moon, CREAM, 1.4) + bloom(MX, MY, MR + 14, CREAM, 0.55);
-  s += `<circle cx="${f(BX)}" cy="${f(BY)}" r="${BR}" fill="${pal.glow}" opacity="0.4" filter="url(#b8)"/>`;
-  s += `<path d="M${P(p1)}${scallop}" fill="none" stroke="${pal.gold}" stroke-width="1.1" transform="translate(${f(-ux * 2)} ${f(-uy * 2)})" opacity="0.9"/>`;
-
   // ---------- Roche lunaire ----------
   const rock = 'M-10 250 C20 244 46 250 76 248 C106 246 124 250 146 246 C170 242 196 238 236 238 L236 300 L-10 300 Z';
   s += V(rock, hsl(c.hue - 5, 22, 20), { light: [0.85, 0.02], hi: pal.light, lo: '#05030C', ao: 0.4 });

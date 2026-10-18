@@ -36,7 +36,7 @@ export const aeonis: Species = (c: DrawCtx) => {
   const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4';
-  const skin = pal.light, skinShade = pal.body, stone = hsl(c.hue + 190, 16, 70);
+  const skin = pal.light, skinShade = pal.body, stone = hsl(215, 22, 74);
   // Lumière principale : l'arbre-galaxie au-dessus (haut centre) ; contour sarcelle venu du vide.
   const TEAL = hsl(c.hue + 20, 70, 66);
   const LT = { light: [0.5, 0.02] as [number, number], hi: pal.glow, lo: pal.deep, rim: TEAL, ao: 0.55 };
@@ -106,6 +106,7 @@ export const aeonis: Species = (c: DrawCtx) => {
       const cx = (x0 + x1) / 2, cy = 160 - (i === 2 ? 4 : 0);
       return ink(`M${x0} 176 C${x0 - 2} 160 ${x0 + 4} 146 ${x0 + 8} 140 L${x1 - 6} 138 C${x1} 146 ${x1 + 2} 160 ${x1} 176 Z`, i % 2 ? pal.shade : pal.body, 0.9)
         + `<ellipse cx="${cx}" cy="${cy}" rx="${(x1 - x0) / 2 - 6}" ry="11" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.5"/>`
+        + gloss(cx - 4, cy - 8, (x1 - x0) / 5, 2.2, -8, 0.45)
         + `<ellipse cx="${cx}" cy="${cy}" rx="${(x1 - x0) / 2 - 11}" ry="6" fill="none" stroke="${pal.gold}" stroke-width="0.7" opacity="0.8"/>`;
     }).join('')
     // Bord marginal.
@@ -120,7 +121,7 @@ export const aeonis: Species = (c: DrawCtx) => {
   s += V(land, hsl(c.hue + 80, 30, 30), { light: [0.5, 0.0], hi: pal.glow, lo: '#05030C' });
   // Montagnes (gauche, droite, puis massif central).
   const mountain = (d: string, shade: string, snow: string, light: string) =>
-    V(d, stone, { light: [0.45, 0.0], hi: CREAM, lo: hsl(c.hue + 220, 40, 14), rim: TEAL, ao: 0.6 }) + shadow(shade, hsl(c.hue + 220, 45, 16), 0.7) + V(snow, CREAM, { light: [0.3, 0.1], hi: '#FFFFFF', lo: pal.light, ao: 0.3 }) + rim(light, pal.glow, 0.9);
+    V(d, stone, { light: [0.45, 0.0], hi: CREAM, lo: hsl(228, 28, 42), rim: TEAL, ao: 0.2 }) + shadow(shade, hsl(232, 40, 30), 0.7) + V(snow, CREAM, { light: [0.3, 0.1], hi: '#FFFFFF', lo: pal.light, ao: 0.3 }) + rim(light, pal.glow, 0.9);
   s += `<path d="M44 132 L70 92 L80 100 L94 70 L104 84 L120 60 L134 82 L146 76 L170 120 Z" fill="${hsl(c.hue + 190, 18, 74)}" opacity="0.55"/>`;
   s += mountain('M34 146 L50 112 L58 118 L68 98 L80 120 L88 116 L100 138 Z', 'M68 98 L80 120 L88 116 L100 138 L70 142 C74 128 72 112 68 98 Z',
     'M60 108 L68 98 L74 110 L69 108 L65 113 Z', 'M34 146 L50 112 L58 118 L68 98');
@@ -216,8 +217,8 @@ aeonis.scene = (c: DrawCtx, b: Bounds) => {
     + `<ellipse cx="13" cy="0" rx="3.2" ry="2.4" fill="${pal.light}"/>`
     + `<ellipse cx="0" cy="0" rx="10" ry="6.5" fill="${pal.body}"/>`
     + `<path d="M-4 -6 L-4 6 M4 -6 L4 6 M-10 0 H10" opacity="0.6"/></g>`;
-  s += baby(46, 262, 0.9, -18) + baby(20, 236, 0.65, -10) + baby(168, 274, 0.7, -24);
-  s += line('M60 268 c10 2 18 0 24 -4 M180 278 c6 1 12 0 16 -3', 0.6, CREAM, ' opacity="0.4"');
+  s += baby(196, 44, 0.85, -14) + baby(14, 198, 0.7, -10) + baby(212, 70, 0.6, -20);
+  s += line('M178 50 c-8 2 -14 0 -20 -4 M2 204 c-4 1 -8 0 -10 -3', 0.5, CREAM, ' opacity="0.4"');
   // Lueur basse : le monde se reflète dans le vide.
   s += `<ellipse cx="110" cy="250" rx="100" ry="20" fill="${pal.glow}" opacity="0.1" filter="url(#b8)"/>`;
   return s;
