@@ -77,7 +77,7 @@ function drawSpir(c: DrawCtx): string {
   }
   bi += `<path d="M40 136 C48 128 60 130 68 140" fill="none" stroke="${pal.light}" stroke-width="3" opacity="0.5"/>`;
   // Tête : lèvre frontale, plis du cou, tubercules en relief, collerette du manteau.
-  bi += `<path d="M27 190 C25 178 30 168 40 168 C48 170 50 182 44 194 C38 198 30 198 27 190 Z" fill="${pal.belly}" opacity="0.55"/>`;
+  bi += `<path d="M27 190 C25 178 30 168 40 168 C48 170 50 182 44 194 C38 198 30 198 27 190 Z" fill="${pal.belly}" opacity="0.3"/>`;
   bi += line('M30 178 C34 174 40 174 44 178', 0.7, '#140F24', ' opacity="0.55"');
   for (const [x, y, l] of [[58, 138, 26], [66, 146, 26], [74, 154, 22], [48, 136, 18]] as const) bi += line(`M${x} ${y} c${f(-4)} ${f(l * 0.3)} ${f(-4)} ${f(l * 0.7)} 0 ${l}`, 0.7, '#140F24', ' opacity="0.5"');
   for (let i = 0; i < 60; i++) {
@@ -156,7 +156,8 @@ function drawSpir(c: DrawCtx): string {
   const lip0 = sp(0), lip1 = sp(TAU);
   const lipD = `M${f(lip0[0])} ${f(lip0[1])} Q${f(cx - 46)} ${f(cy + 64)} ${f(lip1[0])} ${f(lip1[1])}`;
   g += line(lipD, 1, pal.gold, ' opacity="0.8"');
-  g += sparkle(center[0], center[1], 4 + st * 1.5, '#FFF6D8', false);
+  g += bloom(center[0], center[1], 10 + st * 3, pal.glow, 0.55) + sparkle(center[0], center[1], 4 + st * 1.5, '#FFF6D8', false);
+  g += gloss(cx - 34, cy - 50, 16, 5, -38, 0.45) + gloss(cx - 52, cy - 22, 5, 2, -70, 0.35);
 
   // ---- Anneau d'orbite et constellations (stade adulte) ----
   if (st >= 2) {

@@ -41,8 +41,8 @@ export const aeonis: Species = (c: DrawCtx) => {
 
   // ---------- Couronne-galaxie de l'arbre (derrière tout) ----------
   const GX = 112, GY = -4;
-  s += `<ellipse cx="${GX}" cy="${GY}" rx="96" ry="40" fill="${pal.glow}" opacity="0.22" filter="url(#soft)"/>`;
-  s += `<ellipse cx="${GX}" cy="${GY}" rx="60" ry="22" fill="${pal.accent2}" opacity="0.28" filter="url(#soft)" transform="rotate(-8 ${GX} ${GY})"/>`;
+  s += `<ellipse cx="${GX}" cy="${GY}" rx="96" ry="40" fill="${pal.glow}" opacity="0.22" filter="url(#b8)"/>`;
+  s += `<ellipse cx="${GX}" cy="${GY}" rx="60" ry="22" fill="${pal.accent2}" opacity="0.28" filter="url(#b8)" transform="rotate(-8 ${GX} ${GY})"/>`;
   s += `<ellipse cx="${GX}" cy="${GY}" rx="88" ry="30" fill="none" stroke="${pal.gold}" stroke-width="0.6" stroke-dasharray="1 3" opacity="0.6" transform="rotate(-8 ${GX} ${GY})"/>`;
   for (let a = 0; a < 3; a++) {
     const pts = arm(GX, GY, 6, 84, (a * 2 * Math.PI) / 3, 0.85, 0.36, -8);
@@ -55,7 +55,7 @@ export const aeonis: Species = (c: DrawCtx) => {
       if (i % 4 === 0) s += sparkle(x, y, 2 + c.r() * 1.5, CREAM, false);
     }
   }
-  s += `<circle cx="${GX}" cy="${GY}" r="14" fill="${CREAM}" opacity="0.8" filter="url(#soft)"/>`;
+  s += `<circle cx="${GX}" cy="${GY}" r="14" fill="${CREAM}" opacity="0.8" filter="url(#b8)"/>`;
   s += `<ellipse cx="${GX}" cy="${GY}" rx="8" ry="4.5" fill="${CREAM}" transform="rotate(-8 ${GX} ${GY})"/>`;
 
   // ---------- Nageoire antérieure lointaine (relevée) ----------
@@ -123,7 +123,7 @@ export const aeonis: Species = (c: DrawCtx) => {
     'M60 108 L68 98 L74 110 L69 108 L65 113 Z', 'M34 146 L50 112 L58 118 L68 98');
   s += mountain('M124 136 L140 100 L148 108 L160 84 L174 116 L180 112 L190 146 Z', 'M160 84 L174 116 L180 112 L190 146 L162 142 C168 124 166 100 160 84 Z',
     'M152 98 L160 84 L167 99 L161 96 L157 102 Z', 'M124 136 L140 100 L148 108 L160 84');
-  s += `<ellipse cx="112" cy="60" rx="30" ry="40" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
+  s += `<ellipse cx="112" cy="60" rx="30" ry="40" fill="${pal.glow}" opacity="0.25" filter="url(#b8)"/>`;
   s += mountain('M64 132 L86 84 L96 92 L112 46 L126 78 L134 72 L160 134 Z', 'M112 46 L126 78 L134 72 L160 134 L118 136 C124 110 120 74 112 46 Z',
     'M100 74 L106 62 L112 46 L119 64 L114 61 L110 68 L106 64 Z', 'M64 132 L86 84 L96 92 L112 46');
   s += line('M90 104 l6 10 M80 118 l4 8 M140 112 l-4 10 M98 96 l8 4 M84 110 l10 4 M104 84 l6 2 M52 122 l8 3 M46 132 l10 3 M146 104 l8 3 M138 118 l10 3', 0.7, INK, ' opacity="0.55"');
@@ -144,14 +144,14 @@ export const aeonis: Species = (c: DrawCtx) => {
   }
 
   // ---------- Arbre de lumière (racines sur le sommet, ramure qui rejoint la galaxie) ----------
-  s += `<circle cx="112" cy="20" r="16" fill="${pal.glow}" opacity="0.45" filter="url(#soft)"/>`;
+  s += `<circle cx="112" cy="20" r="16" fill="${pal.glow}" opacity="0.45" filter="url(#b8)"/>`;
   s += ink('M108 50 C109 40 110 26 108 12 L111 4 L116 12 C114 26 115 40 117 50 C114 48 111 48 108 50 Z', CREAM, 1.2);
   s += line('M108 50 c-6 2 -10 6 -12 12 M117 50 c5 2 9 6 10 12 M112 49 c0 6 -1 10 -3 14', 1, CREAM);
   s += line('M110 14 C100 8 90 6 80 8 M113 10 C122 2 134 0 146 4 M111 6 C108 -4 100 -10 92 -12 M114 4 C120 -6 130 -10 140 -10', 1.6, CREAM);
   s += line('M80 8 C74 9 70 12 68 16 M146 4 C152 6 156 10 158 14 M92 -12 C86 -14 80 -12 76 -8', 1, CREAM, ' opacity="0.8"');
   s += gild('M110 40 C111 30 111 22 110 14 M114 40 C114 32 114 24 113 16', 0.6);
   for (const [x, y] of [[80, 8], [146, 4], [92, -12], [140, -10], [68, 16], [158, 14], [76, -8], [124, 0], [100, 2]] as const) {
-    s += `<circle cx="${x}" cy="${y}" r="3.4" fill="${pal.glow}" opacity="0.6" filter="url(#soft)"/>` + `<circle cx="${x}" cy="${y}" r="1.4" fill="${CREAM}"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="3.4" fill="${pal.glow}" opacity="0.6" filter="url(#b8)"/>` + `<circle cx="${x}" cy="${y}" r="1.4" fill="${CREAM}"/>`;
   }
 
   // ---------- Nageoire antérieure proche (en pleine brasse) ----------
@@ -188,8 +188,8 @@ aeonis.scene = (c: DrawCtx, b: Bounds) => {
   let s = `<defs><radialGradient id="${id}-g" cx="50%" cy="38%" r="75%"><stop offset="0" stop-color="${hsl(c.hue + 190, 40, 22)}"/><stop offset="0.6" stop-color="${hsl(c.hue + 210, 45, 11)}"/><stop offset="1" stop-color="${hsl(c.hue + 230, 50, 5)}"/></radialGradient></defs>`;
   s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-g)"/>`;
   // Voiles de nébuleuse (courants de l'océan d'étoiles).
-  s += `<ellipse cx="30" cy="230" rx="110" ry="40" fill="${hsl(c.hue + 160, 50, 45)}" opacity="0.22" filter="url(#soft)"/>`;
-  s += `<ellipse cx="200" cy="70" rx="80" ry="50" fill="${hsl(c.hue + 260, 50, 50)}" opacity="0.18" filter="url(#soft)"/>`;
+  s += `<ellipse cx="30" cy="230" rx="110" ry="40" fill="${hsl(c.hue + 160, 50, 45)}" opacity="0.22" filter="url(#b8)"/>`;
+  s += `<ellipse cx="200" cy="70" rx="80" ry="50" fill="${hsl(c.hue + 260, 50, 50)}" opacity="0.18" filter="url(#b8)"/>`;
   for (let i = 0; i < 4; i++) {
     const y = 40 + i * 62;
     s += `<path d="M${b.x0} ${y} C40 ${y - 18} 90 ${y + 20} 140 ${y} C180 ${y - 14} 210 ${y + 6} ${b.x1} ${y - 6}" fill="none" stroke="${pal.light}" stroke-width="${f(0.8 + i * 0.3)}" opacity="0.14"/>`;
@@ -200,7 +200,7 @@ aeonis.scene = (c: DrawCtx, b: Bounds) => {
   }
   // Galaxies lointaines.
   for (const [x, y, r, a] of [[24, 10, 12, 20], [206, 250, 9, -30]] as const) {
-    s += `<g transform="rotate(${a} ${x} ${y})" opacity="0.6"><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.35}" fill="${pal.light}" opacity="0.5" filter="url(#soft)"/>`
+    s += `<g transform="rotate(${a} ${x} ${y})" opacity="0.6"><ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.35}" fill="${pal.light}" opacity="0.5" filter="url(#b8)"/>`
       + `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.3}" fill="none" stroke="${CREAM}" stroke-width="0.5"/><circle cx="${x}" cy="${y}" r="1.5" fill="${CREAM}"/></g>`;
   }
   // Petite planète océane au loin.
@@ -216,6 +216,6 @@ aeonis.scene = (c: DrawCtx, b: Bounds) => {
   s += baby(46, 262, 0.9, -18) + baby(20, 236, 0.65, -10) + baby(168, 274, 0.7, -24);
   s += line('M60 268 c10 2 18 0 24 -4 M180 278 c6 1 12 0 16 -3', 0.6, CREAM, ' opacity="0.4"');
   // Lueur basse : le monde se reflète dans le vide.
-  s += `<ellipse cx="110" cy="250" rx="100" ry="20" fill="${pal.glow}" opacity="0.1" filter="url(#soft)"/>`;
+  s += `<ellipse cx="110" cy="250" rx="100" ry="20" fill="${pal.glow}" opacity="0.1" filter="url(#b8)"/>`;
   return s;
 };

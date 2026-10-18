@@ -85,16 +85,16 @@ export const lunaphage: Species = (c: DrawCtx) => {
   // ---------- Queue-nébuleuse (panache en S qui se dissout en étoiles) ----------
   const tailPts: Pt[] = [[48, 192], [26, 204], [6, 190], [-2, 162], [4, 132], [18, 108], [36, 92]];
   const tail = limb(tailPts, [12, 22, 30, 32, 28, 18, 6]);
-  s += `<ellipse cx="44" cy="74" rx="24" ry="18" fill="${pal.accent}" opacity="0.35" filter="url(#soft)"/>`;
+  s += `<ellipse cx="44" cy="74" rx="24" ry="18" fill="${pal.accent}" opacity="0.35" filter="url(#b8)"/>`;
   s += line('M36 92 C46 80 52 64 50 46 M26 100 C24 84 28 70 36 58 M40 98 C56 92 64 78 66 62', 0.9, pal.light, ' opacity="0.55"');
   s += speckles(c, 46, 66, 22, 24, 16);
   s += constellation([[50, 46], [60, 30], [54, 12], [70, 2]], pal.gold);
   s += tufts([[-2, 170], [-4, 150], [0, 130], [8, 114], [20, 100], [32, 92]], 9, pal.deep, 1);
   s += tufts([[40, 196], [26, 206], [12, 204], [2, 192], [-2, 176]], 7, pal.deep, 1);
   s += `<defs><clipPath id="${id}-t"><path d="${tail}"/></clipPath></defs>${V(tail, pal.deep, { light: [0.7, 0.2], hi: TEAL, lo: '#05030C', rim: TEAL })}<g clip-path="url(#${id}-t)">`
-    + `<ellipse cx="6" cy="160" rx="12" ry="34" fill="${pal.accent2}" opacity="0.45" filter="url(#soft)"/>`
-    + `<ellipse cx="22" cy="110" rx="12" ry="14" fill="${CREAM}" opacity="0.5" filter="url(#soft)"/>`
-    + `<ellipse cx="28" cy="198" rx="14" ry="10" fill="${pal.glow}" opacity="0.35" filter="url(#soft)"/>`
+    + `<ellipse cx="6" cy="160" rx="12" ry="34" fill="${pal.accent2}" opacity="0.45" filter="url(#b8)"/>`
+    + `<ellipse cx="22" cy="110" rx="12" ry="14" fill="${CREAM}" opacity="0.5" filter="url(#b8)"/>`
+    + `<ellipse cx="28" cy="198" rx="14" ry="10" fill="${pal.glow}" opacity="0.35" filter="url(#b8)"/>`
     + speckles(c, 10, 156, 16, 46, 26)
     + line('M14 116 C2 138 0 166 14 190 M24 112 C12 136 10 164 26 192 M6 128 C-4 150 -2 172 6 188', 0.7, CREAM, ' opacity="0.35"')
     + `</g>` + ink(tail, 'none', 1.3);
@@ -125,9 +125,9 @@ export const lunaphage: Species = (c: DrawCtx) => {
   s += tufts(densify([[160, 150], [146, 166], [128, 178], [108, 190], [86, 204], [66, 216]], 11), 4, pal.body, 1);
   s += `<defs><clipPath id="${id}-b"><path d="${body}"/></clipPath></defs>${V(body, pal.body, LT)}`;
   s += `<g clip-path="url(#${id}-b)">`
-    + `<path d="M${P(nb)} C108 90 100 100 100 112 C96 132 80 152 66 168 C56 180 46 186 40 198 L56 204 C74 184 94 164 112 150 C126 138 132 120 130 96 Z" fill="${pal.deep}" filter="url(#soft)"/>`
+    + `<path d="M${P(nb)} C108 90 100 100 100 112 C96 132 80 152 66 168 C56 180 46 186 40 198 L56 204 C74 184 94 164 112 150 C126 138 132 120 130 96 Z" fill="${pal.deep}" filter="url(#b8)"/>`
     + `<path d="M${P(nb)} C108 90 100 100 100 112 C96 132 80 152 66 168 C56 180 46 186 40 198 L50 200 C66 182 84 162 100 148 C114 136 120 118 120 94 Z" fill="${pal.deep}"/>`
-    + `<ellipse cx="86" cy="140" rx="7" ry="28" fill="${pal.accent}" opacity="0.45" filter="url(#soft)" transform="rotate(32 86 140)"/>`
+    + `<ellipse cx="86" cy="140" rx="7" ry="28" fill="${pal.accent}" opacity="0.45" filter="url(#b8)" transform="rotate(32 86 140)"/>`
     + speckles(c, 84, 146, 10, 40, 22)
     + constellation([[56, 186], [70, 168], [82, 150], [94, 132], [106, 112]], pal.gold)
     + shadow('M54 224 C80 208 100 190 118 178 C136 168 152 158 160 146 C150 168 130 180 112 192 C92 204 72 216 54 224 Z', pal.shade, 0.8, 'fine')
@@ -212,7 +212,7 @@ export const lunaphage: Species = (c: DrawCtx) => {
 
   // Éclat de lune entre les crocs, lumière qui coule.
   const fr = hp(76, 38);
-  s += `<circle cx="${f(fr[0])}" cy="${f(fr[1])}" r="12" fill="${pal.glow}" opacity="0.55" filter="url(#soft)"/>`;
+  s += `<circle cx="${f(fr[0])}" cy="${f(fr[1])}" r="12" fill="${pal.glow}" opacity="0.55" filter="url(#b8)"/>`;
   s += ink(`M${f(fr[0] - 6)} ${f(fr[1] + 2)} C${f(fr[0] - 4)} ${f(fr[1] - 6)} ${f(fr[0] + 4)} ${f(fr[1] - 8)} ${f(fr[0] + 8)} ${f(fr[1] - 4)} C${f(fr[0] + 4)} ${f(fr[1] - 3)} ${f(fr[0] + 2)} ${f(fr[1] + 2)} ${f(fr[0] + 4)} ${f(fr[1] + 6)} C${f(fr[0])} ${f(fr[1] + 6)} ${f(fr[0] - 4)} ${f(fr[1] + 5)} ${f(fr[0] - 6)} ${f(fr[1] + 2)} Z`, CREAM, 1);
   const dr = hp(70, 52);
   s += line(`M${P(dr)} c1 6 -1 12 1 18 M${f(dr[0] + 6)} ${f(dr[1] - 1)} c1 5 0 9 2 13`, 1.1, CREAM, ' opacity="0.85"');
@@ -235,8 +235,8 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
   s += `<defs><linearGradient id="${id}-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${hsl(c.hue + 10, 45, 7)}"/><stop offset="0.55" stop-color="${hsl(c.hue, 40, 16)}"/><stop offset="0.8" stop-color="${hsl(c.hue - 15, 35, 30)}"/></linearGradient></defs>`;
   s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
   // Voie lactée en écharpe et étoiles.
-  s += `<ellipse cx="80" cy="70" rx="150" ry="22" fill="${pal.light}" opacity="0.13" filter="url(#soft)" transform="rotate(-38 80 70)"/>`;
-  s += `<ellipse cx="60" cy="96" rx="90" ry="10" fill="${pal.accent2}" opacity="0.12" filter="url(#soft)" transform="rotate(-38 60 96)"/>`;
+  s += `<ellipse cx="80" cy="70" rx="150" ry="22" fill="${pal.light}" opacity="0.13" filter="url(#b8)" transform="rotate(-38 80 70)"/>`;
+  s += `<ellipse cx="60" cy="96" rx="90" ry="10" fill="${pal.accent2}" opacity="0.12" filter="url(#b8)" transform="rotate(-38 60 96)"/>`;
   for (let i = 0; i < 70; i++) {
     const x = b.x0 + c.r() * W, y = b.y0 + c.r() * 240, r = 0.3 + c.r() * c.r() * 1.4;
     s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${CREAM}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
@@ -244,7 +244,7 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
   for (const [x, y, k] of [[20, -10, 3], [96, -24, 2.4], [8, 120, 2.2], [214, 120, 2.6]] as const) s += sparkle(x, y, k, CREAM, false);
   s += `<g transform="${FIT}">`;
   // Lueur lunaire sur l'horizon.
-  s += `<ellipse cx="170" cy="210" rx="120" ry="30" fill="${pal.glow}" opacity="0.18" filter="url(#soft)"/>`;
+  s += `<ellipse cx="170" cy="210" rx="120" ry="30" fill="${pal.glow}" opacity="0.18" filter="url(#b8)"/>`;
   // Planète annelée qui se lève derrière les crêtes.
   s += `<g opacity="0.85"><circle cx="196" cy="206" r="15" fill="${hsl(c.hue + 160, 25, 55)}"/>`
     + shadow('M196 191 A15 15 0 0 1 196 221 C206 214 206 198 196 191 Z', hsl(c.hue + 160, 30, 30), 0.6, 'fine')
@@ -276,7 +276,7 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
     scallop += ` Q${P([BX + Math.cos(ta) * (BR - 4), BY + Math.sin(ta) * (BR - 4)])} ${P([BX + Math.cos(tb) * BR, BY + Math.sin(tb) * BR])}`;
   }
   const moon = `M${P(p1)}${scallop} A${MR} ${MR} 0 1 0 ${P(p1)} Z`;
-  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 34}" fill="${pal.glow}" opacity="0.28" filter="url(#soft)"/>`;
+  s += `<circle cx="${MX}" cy="${MY}" r="${MR + 34}" fill="${pal.glow}" opacity="0.28" filter="url(#b8)"/>`;
   s += `<circle cx="${MX}" cy="${MY}" r="${MR + 8}" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.75"/>`;
   s += `<circle cx="${MX}" cy="${MY}" r="${MR + 12}" fill="none" stroke="${pal.gold}" stroke-width="0.5" stroke-dasharray="1 3" opacity="0.7"/>`;
   s += `<defs><clipPath id="${id}-m"><path d="${moon}"/></clipPath></defs><defs><radialGradient id="${id}-mg" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="${CREAM}"/><stop offset="1" stop-color="${pal.light}"/></radialGradient></defs><path d="${moon}" fill="url(#${id}-mg)"/>`;
@@ -291,7 +291,7 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
         + `<path d="M${f(x - r * 0.8)} ${f(y + r * 0.1)} A${r} ${f(r * 0.82)} 0 0 0 ${f(x + r * 0.8)} ${f(y + r * 0.2)}" fill="none" stroke="${pal.shade}" stroke-width="${f(r * 0.35)}" opacity="0.4"/>`).join('')
     + `</g>`;
   s += rim(moon, CREAM, 1.4) + bloom(MX, MY, MR + 14, CREAM, 0.55);
-  s += `<circle cx="${f(BX)}" cy="${f(BY)}" r="${BR}" fill="${pal.glow}" opacity="0.4" filter="url(#soft)"/>`;
+  s += `<circle cx="${f(BX)}" cy="${f(BY)}" r="${BR}" fill="${pal.glow}" opacity="0.4" filter="url(#b8)"/>`;
   s += `<path d="M${P(p1)}${scallop}" fill="none" stroke="${pal.gold}" stroke-width="1.1" transform="translate(${f(-ux * 2)} ${f(-uy * 2)})" opacity="0.9"/>`;
 
   // ---------- Roche lunaire ----------

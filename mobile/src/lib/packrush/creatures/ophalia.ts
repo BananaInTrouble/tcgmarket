@@ -180,7 +180,7 @@ ophalia.scene = (c: DrawCtx, b: Bounds) => {
     + shadow(`M${x} ${y - r} A${r} ${r} 0 0 1 ${x} ${y + r} C${x + r * 0.7} ${y + r * 0.5} ${x + r * 0.7} ${y - r * 0.5} ${x} ${y - r} Z`, hsl(h, 30, 25), 0.6, 'fine');
   s += planet(24, 168, 6, c.hue + 180) + planet(214, 30, 8, c.hue + 120) + planet(36, 220, 4, c.hue + 60) + planet(196, 262, 5, c.hue + 220);
   // Le soleil : couronne, rayons gravés, granulation, protubérances.
-  s += `<circle cx="${SX}" cy="${SY}" r="${SR + 40}" fill="${pal.glow}" opacity="0.4" filter="url(#soft)"/>`;
+  s += `<circle cx="${SX}" cy="${SY}" r="${SR + 40}" fill="${pal.glow}" opacity="0.4" filter="url(#b8)"/>`;
   for (let i = 0; i < 32; i++) {
     const a = (i / 32) * Math.PI * 2, r2 = SR + (i % 2 ? 10 : 20) + c.r() * 6;
     s += `<path d="M${f(SX + Math.cos(a - 0.05) * SR)} ${f(SY + Math.sin(a - 0.05) * SR)} L${f(SX + Math.cos(a) * r2)} ${f(SY + Math.sin(a) * r2)} L${f(SX + Math.cos(a + 0.05) * SR)} ${f(SY + Math.sin(a + 0.05) * SR)} Z" fill="${hsl(42, 95, 70)}" opacity="0.75"/>`;
@@ -197,6 +197,6 @@ ophalia.scene = (c: DrawCtx, b: Bounds) => {
   // Oiseaux-soleil en vol sur les orbites (petites créatures secondaires).
   const bird = (x: number, y: number, k: number, r: number) => `<path transform="translate(${x} ${y}) rotate(${r}) scale(${k})" d="M0 0 C-4 -6 -10 -7 -14 -4 C-9 -4 -5 -2 -2 1 L-8 4 L0 3 C4 3 8 1 10 -1 L13 -1 L10 1 C6 4 2 5 0 5 C4 -2 10 -6 16 -6 C10 -3 6 -1 0 0 Z" fill="${hsl(c.hue + 30, 70, 70)}" opacity="0.85"/>`;
   s += bird(30, 10, 0.9, -8) + bird(200, 214, 0.8, 12) + bird(46, 194, 0.6, -20) + bird(186, 6, 0.65, 6);
-  s += `<ellipse cx="${SX}" cy="282" rx="130" ry="26" fill="${hsl(c.hue + 240, 50, 5)}" opacity="0.5" filter="url(#soft)"/>`;
+  s += `<ellipse cx="${SX}" cy="282" rx="130" ry="26" fill="${hsl(c.hue + 240, 50, 5)}" opacity="0.5" filter="url(#b8)"/>`;
   return s;
 };
