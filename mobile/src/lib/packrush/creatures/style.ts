@@ -166,9 +166,89 @@ export const aura = (x: number, y: number, rad: number, color: string) =>
 /** Définitions SVG partagées (à placer dans <defs>). */
 export const STYLE_DEFS = `
   <filter id="wobble" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="1.7"/></filter>
+  <filter id="b2" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter>
+  <filter id="b4" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5"/></filter>
+  <filter id="b8" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="8"/></filter>
   <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>
   <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="8"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
   <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#1A1230" stroke-width="1" opacity="0.13"/></pattern>
   <pattern id="fine" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><line x1="0" y1="0" x2="0" y2="3" stroke="#140F24" stroke-width="0.6" opacity="0.14"/></pattern>
   <pattern id="xhatch" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><path d="M0 0 V3.4 M0 0 H3.4" stroke="#140F24" stroke-width="0.55" opacity="0.16"/></pattern>`;
+
+/* ---------------------------------------------------------------------------------------------------------------
+ * Rendu « 3D » (V4) : volumes modelés par la lumière plutôt que traits d'encre. Lumière principale en haut à gauche
+ * par défaut, lumière de contour colorée venant de l'arrière, ombres douces, reflets brillants, yeux lumineux.
+ * ------------------------------------------------------------------------------------------------------------- */
+
+export interface VolOpts {
+  /** Position de la lumière dans la forme (fractions de sa boîte, 0..1). */
+  light?: [number, number];
+  /** Teinte éclairée et teinte d'ombre (par défaut : dérivées de `color` par l'appelant). */
+  hi?: string; lo?: string;
+  /** Lumière de contour (côté opposé à la lumière). */
+  rim?: string;
+  /** Force de l'ombre interne (occlusion des bords), 0..1. */
+  ao?: number;
+}
+
+/**
+ * Volume modelé : la forme `d` remplie d'un dégradé radial (clair → base → ombre) centré sur la lumière, assombrie
+ * sur ses bords (occlusion), avec une lumière de contour du côté opposé. `id` doit être unique dans la carte.
+ */
+export function vol(id: string, d: string, base: string, o: VolOpts = {}): string {
+  const [lx, ly] = o.light ?? [0.32, 0.25];
+  const hi = o.hi ?? '#FFFFFF', lo = o.lo ?? '#05030C', ao = o.ao ?? 0.55;
+  const rx = 1 - lx, ry = 1 - ly;
+  return `<defs><radialGradient id="${id}-g" cx="${lx}" cy="${ly}" r="0.95" fx="${lx}" fy="${ly}">`
+    + `<stop offset="0" stop-color="${hi}" stop-opacity="0.9"/><stop offset="0.06" stop-color="${hi}" stop-opacity="0.35"/>`
+    + `<stop offset="0.3" stop-color="${base}"/><stop offset="0.82" stop-color="${base}"/><stop offset="1" stop-color="${lo}"/></radialGradient>`
+    + `<radialGradient id="${id}-b" cx="${lx}" cy="${ly}" r="1"><stop offset="0" stop-color="${base}"/><stop offset="1" stop-color="${base}"/></radialGradient>`
+    + (o.rim ? `<linearGradient id="${id}-r" x1="${lx}" y1="${ly}" x2="${rx}" y2="${ry}"><stop offset="0.55" stop-color="${o.rim}" stop-opacity="0"/><stop offset="1" stop-color="${o.rim}" stop-opacity="1"/></linearGradient>` : '')
+    + `<clipPath id="${id}-c"><path d="${d}"/></clipPath></defs>`
+    + `<path d="${d}" fill="${base}"/><path d="${d}" fill="url(#${id}-g)"/>`
+    + `<g clip-path="url(#${id}-c)">`
+    + `<path d="${d}" fill="none" stroke="${lo}" stroke-width="9" opacity="${ao}" filter="url(#b4)"/>`
+    + (o.rim ? `<path d="${d}" fill="none" stroke="url(#${id}-r)" stroke-width="5" filter="url(#b2)"/>` : '')
+    + `</g>`;
+}
+
+/** Reflet brillant doux (spéculaire). */
+export const gloss = (x: number, y: number, rx: number, ry = rx * 0.6, rot = -30, op = 0.8) =>
+  `<ellipse cx="${n(x)}" cy="${n(y)}" rx="${n(rx)}" ry="${n(ry)}" fill="#FFFFFF" opacity="${op}" transform="rotate(${rot} ${n(x)} ${n(y)})" filter="url(#b2)"/>`;
+
+/** Ombre douce portée (au sol ou sur une autre partie). */
+export const softShadow = (d: string, op = 0.5, blur: 'b2' | 'b4' | 'b8' = 'b8') => `<path d="${d}" fill="#05030C" opacity="${op}" filter="url(#${blur})"/>`;
+
+/** Lueur (bloom) colorée : halo flou derrière une source de lumière. */
+export const bloom = (x: number, y: number, r: number, color: string, op = 0.7) =>
+  `<circle cx="${n(x)}" cy="${n(y)}" r="${n(r)}" fill="${color}" opacity="${op}" filter="url(#b8)"/>`;
+
+/** Œil lumineux en volume : sclère sombre, iris incandescent à dégradé, pupille, reflet net + lueur. */
+export function eyeGlow(id: string, x: number, y: number, w: number, iris: string, opts: { angle?: number; open?: number; slit?: boolean } = {}): string {
+  const { angle = 0, open = 0.5, slit = true } = opts;
+  const h = w * open;
+  const lid = `M${n(-w)} 0 Q${n(-w * 0.15)} ${n(-h * 1.6)} ${n(w)} ${n(-h * 0.15)} Q${n(w * 0.1)} ${n(h * 1.25)} ${n(-w)} 0 Z`;
+  return `<defs><radialGradient id="${id}-i" cx="0.5" cy="0.45" r="0.6"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.25" stop-color="${iris}"/><stop offset="1" stop-color="#1A0B10"/></radialGradient></defs>`
+    + `<g transform="translate(${n(x)} ${n(y)}) rotate(${angle})">`
+    + `<ellipse cx="0" cy="${n(-h * 0.15)}" rx="${n(w * 1.6)}" ry="${n(h * 1.8)}" fill="${iris}" opacity="0.45" filter="url(#b4)"/>`
+    + `<path d="${lid}" fill="url(#${id}-i)"/>`
+    + (slit ? `<ellipse cx="${n(w * 0.05)}" cy="${n(-h * 0.12)}" rx="${n(w * 0.11)}" ry="${n(h * 0.8)}" fill="#0A0508"/>` : `<circle cx="${n(w * 0.05)}" cy="${n(-h * 0.12)}" r="${n(h * 0.5)}" fill="#0A0508"/>`)
+    + `<circle cx="${n(-w * 0.3)}" cy="${n(-h * 0.5)}" r="${n(Math.max(0.9, h * 0.22))}" fill="#FFFFFF"/>`
+    + `<path d="M${n(-w * 1.05)} ${n(h * 0.05)} Q${n(-w * 0.15)} ${n(-h * 1.75)} ${n(w * 1.1)} ${n(-h * 0.3)}" fill="none" stroke="#0A0508" stroke-width="${n(Math.max(1, w * 0.18))}" stroke-linecap="round" opacity="0.85"/>`
+    + `</g>`;
+}
+
+/** Brins de pelage / plumes en lumière : traits fins dégradés (clair vers transparent), pour la texture. */
+export function strands(c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread: number, color: string, w = 1): string {
+  let s = '';
+  const a = (angle * Math.PI) / 180;
+  for (let i = 0; i < count; i++) {
+    const o = (i / Math.max(1, count - 1) - 0.5) * spread;
+    const x0 = x + Math.cos(a + Math.PI / 2) * o, y0 = y + Math.sin(a + Math.PI / 2) * o;
+    const l = len * (0.6 + c.r() * 0.6), b = (c.r() - 0.5) * l * 0.5;
+    const x1 = x0 + Math.cos(a) * l, y1 = y0 + Math.sin(a) * l;
+    s += `<path d="M${n(x0)} ${n(y0)} Q${n((x0 + x1) / 2 + Math.cos(a + Math.PI / 2) * b)} ${n((y0 + y1) / 2 + Math.sin(a + Math.PI / 2) * b)} ${n(x1)} ${n(y1)}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${(0.25 + c.r() * 0.45).toFixed(2)}"/>`;
+  }
+  return s;
+}
