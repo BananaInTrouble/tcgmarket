@@ -76,7 +76,27 @@ function ornaments(x: number, y: number, w: number, h: number, color: string): s
 }
 
 /** Illustration complète d'une carte (SVG). `owned` faux : silhouette sombre (carte manquante). */
-export function cardSvg(card: { name: string; number: number; rarity: PrRarity; art: PrArt }, total: number, owned = true): string {
+/** Textes posés sur la carte, dans la langue de l'appli : niveau d'évolution (« Niv. 2 ») et texte d'ambiance. */
+export interface CardText { level?: string; desc?: string }
+
+/** Découpe un texte en lignes (les caractères CJK/thaï comptent double et peuvent couper n'importe où). */
+function wrap(text: string, max: number, lines: number): string[] {
+  const wide = (ch: string) => /[\u0E00-\u0E7F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]/.test(ch);
+  const out: string[] = [];
+  let cur = '', w = 0;
+  const tokens = text.match(/[\u0E00-\u0E7F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]|[^\s\u0E00-\u0E7F\u3000-\u9FFF\uAC00-\uD7AF\uFF00-\uFFEF]+|\s+/g) ?? [];
+  for (const tk of tokens) {
+    const tw = [...tk].reduce((a, ch) => a + (wide(ch) ? 2 : 1), 0);
+    if (/^\s+$/.test(tk)) { if (cur) { cur += ' '; w += 1; } continue; }
+    if (w + tw > max && cur.trim()) { out.push(cur.trim()); cur = ''; w = 0; }
+    cur += tk; w += tw;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  if (out.length > lines) { out.length = lines; out[lines - 1] = out[lines - 1].replace(/.$/, '…'); }
+  return out;
+}
+
+export function cardSvg(card: { name: string; number: number; rarity: PrRarity; art: PrArt }, total: number, owned = true, text: CardText = {}): string {
   const { kind = 'lumikit', hue = 200, seed = 1, stage = 0 } = card.art ?? {};
   const r = rng(seed);
   const st = RARITY_STYLE[card.rarity] ?? RARITY_STYLE.C;
@@ -93,29 +113,42 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
     ? `<g transform="translate(14 ${14 + dy})">${draw.scene(ctx, bounds)}</g>`
     : `<g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`;
   const art = `<g clip-path="url(#win)">${backdrop}`
-    + `<g transform="translate(14 ${14 + dy})"><g filter="url(#wobble)"${owned ? '' : ' style="filter:url(#wobble) url(#ghost)"'}>${creature}</g></g>`
-    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" filter="url(#grain)"/>`
+    + `<g transform="translate(14 ${14 + dy})"><g class="ink"${owned ? '' : ' filter="url(#ghost)"'}>${creature}</g></g>`
+    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#light)" style="mix-blend-mode:soft-light"/>`
+    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#vignette)"/>`
     + (owned && (card.rarity === 'SR' || full) ? `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.4"/>` : '')
     + (owned ? '' : `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="#0E0A1C" opacity="0.45"/>`)
     + `</g>`;
   const nameSize = card.name.length > 11 ? 18 : 21;
   const label = owned ? esc(card.name) : '? ? ?';
-  const footer = `<text x="22" y="${H - 18}" font-family="${SERIF}" font-size="12" font-weight="700" fill="${gold}">${String(card.number).padStart(3, '0')}/${String(total).padStart(3, '0')}</text>`
-    + `<text x="${W - 22}" y="${H - 18}" text-anchor="end" font-family="${SERIF}" font-size="13" font-weight="700" fill="${st.glow}">${st.symbol}</text>`;
+  const footer = `<text x="22" y="${H - 14}" font-family="${SERIF}" font-size="11" font-weight="700" fill="${gold}">${String(card.number).padStart(3, '0')}/${String(total).padStart(3, '0')}</text>`
+    + `<text x="${W - 22}" y="${H - 14}" text-anchor="end" font-family="${SERIF}" font-size="12" font-weight="700" fill="${st.glow}">${st.symbol}</text>`;
+  // Niveau d'évolution, en haut à gauche de l'illustration.
+  const lv = text.level ? esc(text.level) : '';
+  const lvW = lv.length * 5.6 + 16;
+  const level = lv
+    ? `<rect x="${win.x + 6}" y="${win.y + 6}" width="${lvW.toFixed(1)}" height="17" rx="8.5" fill="#0E0A1C" fill-opacity="0.78" stroke="${gold}" stroke-width="0.9"/>`
+      + `<text x="${(win.x + 6 + lvW / 2).toFixed(1)}" y="${win.y + 18}" text-anchor="middle" font-family="${SERIF}" font-size="10" font-weight="700" fill="${gold}">${lv}</text>`
+    : '';
+  const lines = owned && text.desc ? wrap(text.desc, 46, 3) : [];
+  const desc = (y0: number) => lines.map((l, i) => `<text x="${W / 2}" y="${y0 + i * 10.5}" text-anchor="middle" font-family="${SERIF}" font-size="9.2" font-style="italic" fill="#FFF6D8" fill-opacity="0.8">${esc(l)}</text>`).join('');
   const body = full
-    ? `<rect x="10" y="${H - 96}" width="${W - 20}" height="86" fill="url(#fade)"/>`
-      + `<text x="${W / 2}" y="${H - 44}" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize + 2}" font-style="italic" font-weight="700" fill="#FFF6D8">${label}</text>`
-      + ornaments(10, 10, W - 20, H - 20, gold) + footer
-    : ornaments(14, 14, W - 28, 236, gold)
-      + `<path d="M40 ${282} h170" stroke="${gold}" stroke-width="0.8" opacity="0.6"/>`
-      + `<text x="${W / 2}" y="${276}" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize}" font-style="italic" font-weight="700" fill="${owned ? '#FFF6D8' : '#6E6890'}">${label}</text>`
-      + `<path d="M${W / 2 - 6} 290 l6 -4 l6 4 l-6 4 z" fill="${gold}"/>` + footer;
+    ? `<rect x="10" y="${H - 130}" width="${W - 20}" height="120" fill="url(#fade)"/>`
+      + `<text x="${W / 2}" y="${H - 66}" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize + 2}" font-style="italic" font-weight="700" fill="#FFF6D8">${label}</text>`
+      + desc(H - 51) + ornaments(10, 10, W - 20, H - 20, gold) + level + footer
+    : ornaments(14, 14, W - 28, 236, gold) + level
+      + `<text x="${W / 2}" y="270" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize}" font-style="italic" font-weight="700" fill="${owned ? '#FFF6D8' : '#6E6890'}">${label}</text>`
+      + `<path d="M40 277 h170" stroke="${gold}" stroke-width="0.8" opacity="0.6"/>`
+      + desc(292) + footer;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
   <defs>${STYLE_DEFS}
     <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">${stops}</linearGradient>
     <linearGradient id="holo" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF7EB6"/><stop offset="30%" stop-color="#FFE27A"/><stop offset="55%" stop-color="#7CF5D0"/><stop offset="80%" stop-color="#8FA8FF"/><stop offset="100%" stop-color="#E58CFF"/></linearGradient>
     <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0E0A1C" stop-opacity="0"/><stop offset="60%" stop-color="#0E0A1C" stop-opacity="0.85"/></linearGradient>
     <radialGradient id="sky" cx="45%" cy="40%" r="80%"><stop offset="0%" stop-color="${hsl(hue + 200, 45, 24)}"/><stop offset="100%" stop-color="${hsl(hue + 220, 55, 7)}"/></radialGradient>
+    <radialGradient id="light" cx="30%" cy="15%" r="90%"><stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="vignette" cx="50%" cy="45%" r="75%"><stop offset="65%" stop-color="#0E0A1C" stop-opacity="0"/><stop offset="100%" stop-color="#0E0A1C" stop-opacity="0.45"/></radialGradient>
+    <style>.ink [stroke="#140F24"], .ink [stroke="#1A1230"] { stroke-opacity: 0.4; } .ink [stroke="#FFFFFF"] { stroke-opacity: 0.5; }</style>
     <filter id="ghost"><feColorMatrix values="0 0 0 0 0.17  0 0 0 0 0.15  0 0 0 0 0.27  0 0 0 1 0"/></filter>
     <clipPath id="win"><rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" rx="8"/></clipPath>
   </defs>
@@ -125,5 +158,5 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
 </svg>`;
 }
 
-export const cardImage = (card: Parameters<typeof cardSvg>[0], total: number, owned = true) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(cardSvg(card, total, owned))}`;
+export const cardImage = (card: Parameters<typeof cardSvg>[0], total: number, owned = true, text: CardText = {}) =>
+  `data:image/svg+xml;utf8,${encodeURIComponent(cardSvg(card, total, owned, text))}`;
