@@ -1,117 +1,111 @@
-import { aura, eye, ink, line, shadow, shine, sparkle, speckles, type Species } from './style.ts';
+import { eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
+import { along, band, f, frames, spline, tube, type Pt } from './legendkit.ts';
 
-/** Abyssquid : calmar des abysses cosmiques enroulé autour d'un petit trou noir, tentacules spiralés lumineux (légendaire). */
+/**
+ * Abyssquid : calmar géant des abysses du ciel, manteau dressé en diagonale, qui enlace de ses bras un trou noir
+ * et son disque d'accrétion. Certains bras passent derrière l'horizon des événements, d'autres devant.
+ */
 export const abyssquid: Species = (c) => {
   const { pal } = c;
-  const f = (v: number) => v.toFixed(1);
-  const W = 222;
-  const L = (x: number, y: number) => `${f(x)} ${f(y)}`;
-  const R = (x: number, y: number) => `${f(W - x)} ${f(y)}`;
-  const hx = 111, hy = 170; // trou noir
-  let s = '';
-  s += aura(111, 120, 100, pal.glow);
-  s += aura(hx, hy, 46, pal.accent2);
+  const id = `abyssquid-${c.stage}`;
+  const BH: Pt = [114, 160];
 
-  // Disque d'accrétion (derrière les bras).
-  s += `<ellipse cx="${hx}" cy="${hy}" rx="40" ry="14" fill="none" stroke="${pal.glow}" stroke-width="9" opacity="0.45" filter="url(#soft)"/>`;
-  s += `<ellipse cx="${hx}" cy="${hy}" rx="36" ry="12" fill="none" stroke="#1A1230" stroke-width="7"/>`;
-  s += `<ellipse cx="${hx}" cy="${hy}" rx="36" ry="12" fill="none" stroke="${pal.accent}" stroke-width="4.5"/>`;
-  s += `<ellipse cx="${hx}" cy="${hy}" rx="36" ry="12" fill="none" stroke="${pal.glow}" stroke-width="1.6" stroke-dasharray="9 5"/>`;
-  // Trou noir + anneau de photons.
-  s += `<circle cx="${hx}" cy="${hy}" r="18" fill="${pal.glow}" opacity="0.9" filter="url(#glow)"/>`;
-  s += `<circle cx="${hx}" cy="${hy}" r="15" fill="#05030C" stroke="#1A1230" stroke-width="2"/>`;
-  s += `<path d="M${hx - 36} ${hy} A36 12 0 0 0 ${hx + 36} ${hy}" fill="none" stroke="${pal.accent}" stroke-width="4.5"/>`;
-  s += `<path d="M${hx - 36} ${hy} A36 12 0 0 0 ${hx + 36} ${hy}" fill="none" stroke="${pal.glow}" stroke-width="1.6" stroke-dasharray="9 5"/>`;
-  s += line(`M${hx - 36} ${hy + 0.5} A36 12 0 0 0 ${hx + 36} ${hy + 0.5}`, 1.2, '#1A1230', ' opacity="0.6"');
-
-  // Bras : ruban effilé le long d'une courbe lisse (Catmull-Rom) passant par des points de contrôle.
-  const arm = (pts: [number, number][], w0: number, mirror: boolean, tip = 4.5) => {
-    const q = pts.map(([x, y]) => [mirror ? W - x : x, y] as [number, number]);
-    const ctr: [number, number][] = [];
-    for (let i = 0; i < q.length - 1; i++) {
-      const p0 = q[Math.max(0, i - 1)], p1 = q[i], p2 = q[i + 1], p3 = q[Math.min(q.length - 1, i + 2)];
-      for (let k = 0; k < 8; k++) {
-        const t = k / 8, t2 = t * t, t3 = t2 * t;
-        const cr = (a: number, b: number, c2: number, d: number) => 0.5 * (2 * b + (-a + c2) * t + (2 * a - 5 * b + 4 * c2 - d) * t2 + (-a + 3 * b - 3 * c2 + d) * t3);
-        ctr.push([cr(p0[0], p1[0], p2[0], p3[0]), cr(p0[1], p1[1], p2[1], p3[1])]);
-      }
+  // Bras : ligne médiane, largeur à la base, devant/derrière le trou noir, massue (tentacule).
+  type Arm = { pts: Pt[]; w: number; front: boolean; club?: boolean };
+  const arms: Arm[] = [
+    { pts: [[94, 120], [66, 120], [40, 130], [22, 150], [22, 172], [34, 180], [44, 172]], w: 5.5, front: false },
+    { pts: [[106, 120], [136, 116], [166, 122], [188, 140], [196, 162], [188, 178], [176, 174]], w: 5.5, front: false },
+    { pts: [[104, 124], [120, 136], [134, 152], [140, 176], [134, 198], [140, 214], [154, 218]], w: 5, front: false },
+    { pts: [[106, 118], [146, 104], [182, 96], [204, 76], [204, 54], [194, 44]], w: 3, front: false, club: true },
+    { pts: [[95, 124], [76, 136], [62, 156], [60, 180], [72, 198], [90, 202], [98, 194]], w: 6, front: true },
+    { pts: [[99, 126], [92, 148], [88, 170], [92, 194], [86, 212], [70, 220]], w: 5.5, front: true },
+    { pts: [[103, 125], [126, 128], [152, 138], [168, 158], [166, 182], [150, 194], [140, 188]], w: 5.5, front: true },
+    { pts: [[96, 126], [62, 146], [36, 182], [46, 214], [90, 228], [140, 226], [172, 212], [190, 196]], w: 3, front: true, club: true },
+  ];
+  const drawArm = (a: Arm) => {
+    const path = spline(a.pts, 9);
+    const w = a.club
+      ? (u: number) => (u < 0.82 ? a.w - u * 1.2 : a.w - 1 + Math.sin(((u - 0.82) / 0.18) * Math.PI) * 3.4)
+      : (u: number) => a.w * Math.pow(1 - u, 0.8) + 0.5;
+    let o = ink(tube(path, w), a.front ? pal.body : pal.shade, a.front ? 1.3 : 1.1);
+    o += shadow(band(path, w, -1, -0.15), pal.deep, a.front ? 0.55 : 0.8, a.front ? 'fine' : 'xhatch');
+    if (a.front) o += rim(`M${frames(path).filter((_, i) => i % 2 === 0).map(({ p, n, u }) => `${f(p[0] + n[0] * w(u) * 0.7)} ${f(p[1] + n[1] * w(u) * 0.7)}`).join(' L')}`, pal.light, 0.7);
+    // Ventouses le long de la face inférieure.
+    const fr = frames(path);
+    const k0 = a.club ? Math.round(fr.length * 0.82) : 3;
+    for (let i = k0; i < fr.length - 3; i += a.club ? 2 : 4) {
+      const { p, n, u } = fr[i];
+      const r = Math.max(0.6, w(u) * 0.28);
+      o += `<circle cx="${f(p[0] - n[0] * w(u) * 0.55)}" cy="${f(p[1] - n[1] * w(u) * 0.55)}" r="${f(r)}" fill="${pal.belly}" stroke="${pal.ink}" stroke-width="0.5" opacity="${a.front ? 0.9 : 0.6}"/>`;
     }
-    ctr.push(q[q.length - 1]);
-    const N = ctr.length - 1;
-    const nrm = (i: number) => {
-      const [xa, ya] = ctr[Math.max(0, i - 1)], [xb, yb] = ctr[Math.min(N, i + 1)];
-      const nx = -(yb - ya), ny = xb - xa, l = Math.hypot(nx, ny) || 1;
-      return [nx / l, ny / l];
-    };
-    const wd = (i: number) => w0 * (1 - Math.pow(i / N, 1.2) * 0.85);
-    const left: string[] = [], right: string[] = [];
-    for (let i = 0; i <= N; i++) {
-      const [x, y] = ctr[i], [nx, ny] = nrm(i), w = wd(i);
-      left.push(`${f(x + nx * w)} ${f(y + ny * w)}`); right.push(`${f(x - nx * w)} ${f(y - ny * w)}`);
+    // Photophores (points de lumière).
+    for (let i = 6; i < fr.length - 4; i += 9) {
+      const { p, n, u } = fr[i];
+      o += `<circle cx="${f(p[0] + n[0] * w(u) * 0.2)}" cy="${f(p[1] + n[1] * w(u) * 0.2)}" r="0.9" fill="${pal.glow}"/>`;
     }
-    let o = ink(`M${left.join(' L')} L${right.reverse().join(' L')} Z`, pal.body, 2.2);
-    // Ombre hachurée sur un côté.
-    const sh: string[] = [], sh2: string[] = [];
-    const side = mirror ? 1 : -1;
-    for (let i = 0; i <= N; i++) {
-      const [x, y] = ctr[i], [nx, ny] = nrm(i), w = wd(i);
-      sh.push(`${f(x + side * nx * w)} ${f(y + side * ny * w)}`); sh2.push(`${f(x + side * nx * w * 0.2)} ${f(y + side * ny * w * 0.2)}`);
-    }
-    o += shadow(`M${sh.join(' L')} L${sh2.reverse().join(' L')} Z`, pal.shade, 0.55);
-    // Ventouses lumineuses.
-    for (let i = 4; i < N - 2; i += 4) {
-      const [x, y] = ctr[i], [nx, ny] = nrm(i), w = wd(i);
-      o += `<circle cx="${f(x - side * nx * w * 0.5)}" cy="${f(y - side * ny * w * 0.5)}" r="${f(Math.max(1, w * 0.34))}" fill="${pal.glow}" stroke="#1A1230" stroke-width="0.8"/>`;
-    }
-    const [tx, ty] = ctr[N];
-    o += `<circle cx="${f(tx)}" cy="${f(ty)}" r="${tip + 2}" fill="${pal.glow}" opacity="0.35"/>` + sparkle(tx, ty, tip, pal.glow);
     return o;
   };
-  for (const m of [false, true]) {
-    // Grands bras de chasse : déployés sur les côtés, enroulés en volute vers le haut.
-    s += arm([[90, 136], [62, 142], [34, 128], [20, 98], [26, 70], [44, 62], [54, 76], [44, 86], [36, 78]], 9, m, 6);
-    // Bras moyens : vers le bas, terminés en crosse.
-    s += arm([[94, 142], [70, 156], [46, 180], [40, 206], [56, 222], [74, 216], [72, 202], [62, 204]], 7.5, m, 4.5);
-  }
-  // Bras courts : enlacent le trou noir et se croisent dessous.
-  s += arm([[98, 144], [76, 152], [64, 172], [74, 194], [104, 204], [130, 198], [140, 188]], 6.5, false, 4);
-  s += arm([[98, 144], [76, 152], [66, 176], [82, 204], [112, 216], [136, 212]], 6, true, 4);
-  // Collerette de la tête (base des bras).
-  s += ink(`M${L(78, 124)} C${L(80, 140)} ${L(96, 148)} ${L(111, 148)} C${R(96, 148)} ${R(80, 140)} ${R(78, 124)} Z`, pal.shade, 2.2);
 
-  // Manteau en fuseau, pointe vers le haut, nageoires en losange.
-  for (const Q of [L, R]) {
-    s += ink(`M${Q(100, 14)} C${Q(84, 14)} ${Q(64, 26)} ${Q(58, 48)} C${Q(64, 50)} ${Q(66, 56)} ${Q(72, 58)} C${Q(78, 60)} ${Q(80, 66)} ${Q(88, 68)} C${Q(92, 70)} ${Q(94, 76)} ${Q(96, 80)} Z`, pal.light, 2.4);
-    s += `<path d="M${Q(96, 20)} C${Q(80, 22)} ${Q(68, 32)} ${Q(64, 44)} C${Q(74, 48)} ${Q(84, 56)} ${Q(94, 66)} Z" fill="${pal.accent}" opacity="0.6"/>`;
-    s += shadow(`M${Q(58, 48)} C${Q(64, 50)} ${Q(66, 56)} ${Q(72, 58)} C${Q(78, 60)} ${Q(80, 66)} ${Q(88, 68)} C${Q(92, 70)} ${Q(94, 76)} ${Q(96, 80)} L${Q(98, 62)} C${Q(84, 56)} ${Q(70, 50)} ${Q(58, 48)} Z`, pal.shade, 0.55);
-    s += line(`M${Q(98, 26)} Q${Q(82, 32)} ${Q(68, 44)} M${Q(98, 40)} Q${Q(88, 46)} ${Q(78, 54)} M${Q(98, 54)} Q${Q(92, 58)} ${Q(88, 62)}`, 1.1, pal.light);
-    s += `<circle cx="${Q(76, 38).split(' ')[0]}" cy="38" r="1.8" fill="#FFF6D8"/><circle cx="${Q(86, 50).split(' ')[0]}" cy="50" r="1.4" fill="#FFF6D8"/>`;
-  }
-  const mantle = `M${L(111, 8)} C${L(100, 8)} ${L(90, 24)} ${L(86, 52)} C${L(83, 72)} ${L(80, 90)} ${L(80, 100)} C${L(78, 112)} ${L(80, 124)} ${L(84, 130)} L${R(84, 130)} C${R(80, 124)} ${R(78, 112)} ${R(80, 100)} C${R(80, 90)} ${R(83, 72)} ${R(86, 52)} C${R(90, 24)} ${R(100, 8)} ${L(111, 8)} Z`;
-  s += ink(mantle, pal.body, 2.8);
-  s += shadow(`M${R(104, 10)} C${R(94, 20)} ${R(88, 50)} ${R(82, 96)} C${R(80, 112)} ${R(82, 124)} ${R(86, 130)} L${R(96, 130)} C${R(92, 110)} ${R(94, 60)} ${R(104, 10)} Z`, pal.shade, 0.7);
-  // Bandes nébuleuses + photophores.
-  // Chevrons de nébuleuse.
-  for (const [y, w] of [[34, 14], [58, 20], [82, 24]] as [number, number][]) {
-    s += ink(`M${f(111 - w)} ${y + 10} L111 ${y} L${f(111 + w)} ${y + 10} L${f(111 + w * 0.8)} ${y + 15} L111 ${y + 7} L${f(111 - w * 0.8)} ${y + 15} Z`, pal.accent2, 1.3);
-  }
-  for (const [x, y, r] of [[111, 22, 2.2], [102, 52, 1.8], [120, 52, 1.8], [96, 76, 2], [126, 76, 2], [111, 74, 1.6], [90, 100, 2.2], [132, 100, 2.2], [111, 104, 1.6]] as [number, number, number][]) {
-    s += `<circle cx="${x}" cy="${y}" r="${r + 1.6}" fill="${pal.glow}" opacity="0.4"/><circle cx="${x}" cy="${y}" r="${r}" fill="#FFF6D8" stroke="#1A1230" stroke-width="0.8"/>`;
-  }
-  s += speckles(c, 111, 70, 18, 46, 12);
-  s += shine(`M${L(104, 18)} C${L(96, 36)} ${L(90, 60)} ${L(88, 84)}`, 2.2);
+  // Disque d'accrétion : moitié arrière / avant via deux découpes.
+  const disk = (half: 'back' | 'front') => {
+    let o = `<g clip-path="url(#${id}-${half})"><g transform="rotate(-9 ${BH[0]} ${BH[1]})">`;
+    o += `<ellipse cx="${BH[0]}" cy="${BH[1]}" rx="80" ry="17" fill="none" stroke="${pal.accent2}" stroke-width="9" opacity="0.45" filter="url(#soft)"/>`;
+    o += `<ellipse cx="${BH[0]}" cy="${BH[1]}" rx="56" ry="12" fill="none" stroke="${pal.glow}" stroke-width="10" opacity="0.55" filter="url(#soft)"/>`;
+    for (const [rx, col, w, op] of [[82, pal.accent2, 0.6, 0.6], [74, pal.light, 0.8, 0.7], [64, pal.glow, 1.2, 0.85], [54, '#FFF6D8', 1.6, 0.9], [44, '#FFF6D8', 2.2, 1], [36, pal.gold, 1, 0.9]] as [number, string, number, number][]) {
+      o += `<ellipse cx="${BH[0]}" cy="${BH[1]}" rx="${rx}" ry="${f(rx * 0.21)}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}"/>`;
+    }
+    o += `</g></g>`;
+    return o;
+  };
 
-  // Tête : grands yeux lumineux, regard profond.
-  s += ink(`M${L(80, 108)} C${L(78, 124)} ${L(90, 136)} ${L(111, 136)} C${R(90, 136)} ${R(78, 124)} ${R(80, 108)} C${R(92, 104)} ${L(92, 104)} ${L(80, 108)} Z`, pal.light, 2.4);
-  s += shadow(`M${R(80, 108)} C${R(78, 124)} ${R(90, 136)} ${L(111, 136)} L${L(111, 130)} C${R(92, 130)} ${R(86, 120)} ${R(80, 108)} Z`, pal.body, 0.5);
-  s += `<circle cx="93" cy="119" r="13" fill="${pal.glow}" opacity="0.45"/><circle cx="129" cy="119" r="13" fill="${pal.glow}" opacity="0.45"/>`;
-  s += eye(94, 119, 9, pal.eye, 0.2) + eye(128, 119, 9, pal.eye, -0.2);
-  s += line(`M${L(84, 108)} q8 -5 16 -1 M${R(84, 108)} q-8 -5 -16 -1`, 1.6);
-  s += line(`M${L(106, 129)} q5 4 10 0`, 1.6);
-  s += sparkle(111, 108, 4.5, pal.glow);
+  // Calmar : manteau + tête dans un repère local (origine à la jonction manteau/tête), incliné.
+  let sq = '';
+  const mantle = 'M-15 2 C-19 -24 -16 -52 -10 -72 C-7 -82 -3 -90 0 -98 C3 -90 7 -82 10 -72 C16 -52 19 -24 15 2 C6 5 -6 5 -15 2 Z';
+  for (const sg of [-1, 1]) {
+    const fin = `M${sg * 8} -56 C${sg * 22} -60 ${sg * 34} -70 ${sg * 38} -82 C${sg * 26} -86 ${sg * 12} -92 ${sg * 2} -97 Z`;
+    sq += ink(fin, sg < 0 ? pal.body : pal.shade, 1.3);
+    for (let k = 1; k < 6; k++) sq += line(`M${sg * (4 + k)} ${-60 - k * 6.5} L${sg * (12 + k * 5)} ${-62 - k * 4}`, 0.5, pal.ink, ' opacity="0.45"');
+  }
+  sq += ink(mantle, pal.body, 1.7);
+  sq += shadow('M15 2 C19 -24 16 -52 10 -72 C7 -82 3 -90 0 -98 C6 -80 9 -50 6 -20 C5 -8 3 0 2 4 C8 4 12 3 15 2 Z', pal.shade, 0.9, 'fine');
+  sq += shadow('M15 2 C18 -14 18 -30 16 -44 C14 -30 12 -14 8 3 Z', pal.deep, 0.6, 'xhatch');
+  // Chromatophores et filigrane doré (gravure Art nouveau).
+  for (const [x, y, r] of [[-8, -20, 1.6], [-4, -34, 1.2], [-10, -44, 1], [-2, -58, 1.3], [-6, -66, 0.9], [-12, -8, 1.1], [3, -12, 1], [-1, -46, 0.8]] as const) {
+    sq += `<circle cx="${x}" cy="${y}" r="${r}" fill="${pal.deep}" opacity="0.8"/>`;
+  }
+  sq += gild('M0 -94 C-3 -70 -4 -40 -2 -6', 0.9);
+  sq += gild('M-2 -30 c-6 -4 -9 -12 -5 -16 c3 -3 7 0 5 3 M-2 -52 c5 -4 7 -10 3 -13 c-3 -2 -6 1 -4 3', 0.8);
+  sq += rim('M-15 2 C-19 -24 -16 -52 -10 -72 C-7 -82 -3 -90 0 -98', pal.glow, 1.2);
+  // Tête et yeux globuleux.
+  const head = 'M-14 2 C-19 10 -18 22 -12 28 L12 28 C18 22 19 10 14 2 Z';
+  sq += ink(head, pal.body, 1.6);
+  sq += shadow('M14 2 C19 10 18 22 12 28 L4 28 C10 20 10 10 8 3 Z', pal.shade, 0.85, 'fine');
+  for (const sg of [-1, 1]) {
+    sq += `<circle cx="${sg * 11}" cy="14" r="7.2" fill="${pal.deep}" stroke="${pal.ink}" stroke-width="1.2"/>`;
+    sq += `<circle cx="${sg * 11}" cy="14" r="9" fill="${pal.eye}" opacity="0.25" filter="url(#soft)"/>`;
+    sq += eyeA(sg * 11, 14, 6, pal.eye, { angle: sg * -8, slit: false, open: 0.62 });
+  }
+  sq += line('M-6 6 C-2 9 2 9 6 6', 0.7, pal.ink, ' opacity="0.6"');
+  const squid = `<g transform="translate(106 96) rotate(22)">${sq}</g>`;
 
-  // Couronne d'étoiles au sommet du manteau.
-  s += sparkle(111, 6, 7.5, pal.glow);
-  s += sparkle(26, 60, 5, pal.glow) + sparkle(196, 44, 4.2, '#FFF6D8') + sparkle(30, 214, 3.6, pal.accent2) + sparkle(192, 218, 3.8, '#FFF6D8');
+  let s = `<defs><clipPath id="${id}-back"><rect x="0" y="0" width="222" height="${BH[1]}"/></clipPath>`
+    + `<clipPath id="${id}-front"><rect x="0" y="${BH[1]}" width="222" height="100"/></clipPath></defs>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="46" fill="${pal.accent2}" opacity="0.25" filter="url(#soft)"/>`;
+  s += disk('back');
+  for (const a of arms.filter((a) => !a.front)) s += drawArm(a);
+  // Trou noir : horizon, anneau de photons, arc lentillé au-dessus.
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="21" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
+  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="27" ry="24" fill="none" stroke="#FFF6D8" stroke-width="3" opacity="0.5" filter="url(#glow)"/>`;
+  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="27" ry="24" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="18" fill="#05030A" stroke="#FFF6D8" stroke-width="1.6"/>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="18" fill="none" stroke="${pal.ink}" stroke-width="0.6"/>`;
+  s += disk('front');
+  for (const a of arms.filter((a) => a.front)) s += drawArm(a);
+  s += squid;
+  // Poussière d'étoiles aspirée et éclats.
+  s += speckles(c, BH[0], BH[1], 70, 22, 14, '#FFF6D8');
+  const tip = along(spline(arms[3].pts, 9), 1).p;
+  s += sparkle(tip[0], tip[1], 3, pal.gold, false);
+  for (const [x, y, z] of [[30, 40, 3.4], [48, 92, 2.4], [190, 228, 2.6], [16, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
   return s;
 };

@@ -220,11 +220,14 @@ create table if not exists public.pr_openings (
   created_at timestamptz not null default now()
 );
 create index if not exists pr_openings_user on public.pr_openings (user_id, created_at);
--- Packs gratuits : moment où chaque emplacement (2 au plus) est de nouveau disponible.
+-- Pack gratuit : moment où il est de nouveau disponible (1 pack, rechargé 12 h après son ouverture).
 create table if not exists public.pr_state (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  free_at timestamptz[] not null default array['-infinity'::timestamptz, '-infinity'::timestamptz]
+  free_at timestamptz[] not null default array['-infinity'::timestamptz]
 );
+alter table public.pr_state alter column free_at set default array['-infinity'::timestamptz];
+-- Ancienne règle (2 packs) : on ne garde que l'emplacement le plus tardif.
+update public.pr_state set free_at = array[(select max(t) from unnest(free_at) t)] where cardinality(free_at) > 1;
 -- Récompenses uniques déjà versées (rareté complétée, paliers de quêtes) et connexions du jour.
 create table if not exists public.pr_claims (
   user_id uuid not null references auth.users (id) on delete cascade,

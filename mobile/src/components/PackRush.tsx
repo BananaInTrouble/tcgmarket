@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from './ui';
 import { PR_RARITIES, RARITY_STYLE, cardImage, type PrRarity } from '../lib/packrush/art';
-import { PACK_H, PACK_TEAR_Y, PACK_W, cardBack, fragmentIcon, packFoil, packRushMark } from '../lib/packrush/brand';
+import { FX, PACK_H, PACK_TEAR_Y, PACK_W, cardBack, fragmentIcon, packFoil, packRushMark } from '../lib/packrush/brand';
 import type { PrCard, PrOpening } from '../lib/packrush/api';
 import { useStore } from '../lib/store';
 import type { TKey } from '../lib/i18n';
@@ -134,19 +134,37 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
   const enter = () => Animated.spring(stackIn, { toValue: 1, friction: 7, useNativeDriver: false }).start();
   const cur = pulls[idx];
   const hidden = !!cur && rank(cur.rarity) >= rank('R') && !flipped;
+  // Cartes SSR : mise en scène propre à chaque mythique, avant (burst) et après (after) le retournement.
+  const burst = useRef(new Animated.Value(0)).current;
+  const after = useRef(new Animated.Value(0)).current;
+  const fxBusy = useRef(false);
+  const ssr = cur?.rarity === 'SSR';
+  const kind = cur ? byId.get(cur.id)?.art?.kind : undefined;
+  const theme: FxTheme = kind === 'lunaphage' || kind === 'aeonis' ? kind : 'ophalia';
 
   const next = (dir: number) => {
     Animated.timing(swipe, { toValue: { x: dir * width, y: -40 }, duration: 260, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
       swipe.setValue({ x: 0, y: 0 });
+      burst.setValue(0); after.setValue(0);
       setFlipped(false);
       if (idx + 1 >= pulls.length) setPhase('summary');
       else setIdx(idx + 1);
     });
   };
-  const turn = () => {
+  const flipCard = (then?: () => void) => {
     Animated.timing(flip, { toValue: 0, duration: 170, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
       setFlipped(true);
-      Animated.timing(flip, { toValue: 1, duration: 230, easing: Easing.out(Easing.back(2)), useNativeDriver: false }).start();
+      Animated.timing(flip, { toValue: 1, duration: 230, easing: Easing.out(Easing.back(2)), useNativeDriver: false }).start(then);
+    });
+  };
+  const turn = () => {
+    if (fxBusy.current) return;
+    if (!ssr) { flipCard(); return; }
+    fxBusy.current = true;
+    Animated.timing(burst, { toValue: 1, duration: 1700, easing: Easing.inOut(Easing.cubic), useNativeDriver: false }).start(() => {
+      flipCard(() => {
+        Animated.timing(after, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: false }).start(() => { fxBusy.current = false; });
+      });
     });
   };
   const cardPan = useMemo(() => PanResponder.create({
@@ -156,11 +174,12 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
     onPanResponderRelease: (_, g) => {
       const tap = Math.abs(g.dx) < 6 && Math.abs(g.dy) < 6;
       if (hidden) { if (tap || Math.abs(g.dx) > 40) turn(); return; }
+      if (fxBusy.current) { Animated.spring(swipe, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start(); return; }
       if (tap) next(1);
       else if (Math.abs(g.dx) > 70) next(Math.sign(g.dx));
       else Animated.spring(swipe, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
     },
-  }), [hidden, idx, width]);
+  }), [hidden, idx, width, ssr]);
 
   const glow = cur ? RARITY_STYLE[cur.rarity].glow : '#fff';
   const curCard = cur && byId.get(cur.id);
@@ -201,6 +220,7 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
           <>
             <Text style={[s.muted, { fontFamily: fonts.bold }]}>{t('pr.cardOf', { i: idx + 1, n: pulls.length })}</Text>
             <Animated.View style={{ width: cardW, height: cardW * 1.4, opacity: stackIn, transform: [{ scale: stackIn.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }, { translateY: stackIn.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) }] }}>
+              {ssr && <SsrFx theme={theme} burst={burst} after={after} size={cardW * 2.1} cardW={cardW} />}
               {/* Cartes suivantes, dos visible, légèrement décalées. */}
               {pulls.slice(idx + 1).map((_, j) => j).reverse().map((j) => (
                 <Image key={j} source={BACK} style={{ position: 'absolute', width: cardW, height: cardW * 1.4, borderRadius: 12, transform: [{ translateY: (j + 1) * 6 }, { scale: 1 - (j + 1) * 0.03 }] }} />
@@ -212,11 +232,17 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
                   { translateX: swipe.x }, { translateY: swipe.y },
                   { rotate: swipe.x.interpolate({ inputRange: [-300, 0, 300], outputRange: ['-14deg', '0deg', '14deg'] }) },
                   { scaleX: flip },
+                  ...(ssr ? [{ rotate: burst.interpolate({ inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 1], outputRange: ['0deg', '-3deg', '3deg', '-3deg', '3deg', '0deg', '0deg'] }) }, { scale: burst.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1.06, 1] }) }] : []),
                 ],
               }}>
                 <Image source={hidden || !curCard ? BACK : cardImage(curCard, total)} style={{ width: cardW, height: cardW * 1.4, borderRadius: 12 }} contentFit="contain" />
               </Animated.View>
             </Animated.View>
+            {ssr && (
+              <Animated.Text style={{ position: 'absolute', top: '12%', color: FX_COLOR[theme], fontFamily: fonts.display, fontSize: 22, letterSpacing: 3, opacity: after.interpolate({ inputRange: [0, 0.25], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ scale: after.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.6, 1.1, 1] }) }] }}>
+                ✦ {t('pr.mythic')} ✦
+              </Animated.Text>
+            )}
             <View style={{ minHeight: 22 }}>{hidden ? <Text style={{ color: glow, fontFamily: fonts.heavy, fontSize: 15 }}>{RARITY_STYLE[cur.rarity].symbol} {t('pr.tapToFlip')}</Text> : <PullTag pull={cur} />}</View>
             <Text style={[s.muted, { fontSize: 12 }]}>{t('pr.tapNext')}</Text>
           </>
@@ -260,6 +286,103 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
         </View>
       </View>
     </Modal>
+  );
+}
+
+type FxTheme = 'lunaphage' | 'aeonis' | 'ophalia';
+const FX_COLOR: Record<FxTheme, string> = { lunaphage: '#E6E9FF', aeonis: '#7CF5D0', ophalia: '#FFD36B' };
+
+/** Particules : positions aléatoires figées pour toute la durée de l'animation. */
+function useParticles(n: number) {
+  return useMemo(() => Array.from({ length: n }, (_, i) => ({ a: (i / n) * Math.PI * 2 + Math.random() * 0.4, r: 0.5 + Math.random() * 0.5, d: Math.random(), s: 4 + Math.random() * 6 })), [n]);
+}
+
+/**
+ * Mise en scène des cartes SSR, derrière la carte : Lunaphage = éclipse de lune puis pluie d'éclats d'argent ;
+ * Aeonis = galaxie qui s'ouvre en tourbillonnant et aspire la poussière d'étoiles ; Ophalia = soleil qui s'embrase,
+ * six ailes de lumière qui se déploient, puis braises qui montent.
+ */
+function SsrFx({ theme, burst, after, size, cardW }: { theme: FxTheme; burst: Animated.Value; after: Animated.Value; size: number; cardW: number }) {
+  const parts = useParticles(18);
+  const box = { position: 'absolute' as const, left: (cardW - size) / 2, top: (cardW * 1.4 - size) / 2, width: size, height: size, alignItems: 'center' as const, justifyContent: 'center' as const };
+  const layer = (src: string, z: number, style: object) => (
+    <Animated.View style={[{ position: 'absolute', width: size * z, height: size * z }, style]}><Image source={src} style={{ width: '100%', height: '100%' }} /></Animated.View>
+  );
+  const veil = <Animated.View pointerEvents="none" style={{ position: 'absolute', left: -2000, right: -2000, top: -2000, bottom: -2000, backgroundColor: '#000', opacity: burst.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.55, 0.35] }) }} />;
+  const flash = (color: string) => <Animated.View pointerEvents="none" style={{ position: 'absolute', left: -2000, right: -2000, top: -2000, bottom: -2000, backgroundColor: color, opacity: burst.interpolate({ inputRange: [0, 0.88, 0.95, 1], outputRange: [0, 0, 0.85, 0] }) }} />;
+
+  if (theme === 'lunaphage') {
+    return (
+      <View pointerEvents="none" style={box}>
+        {veil}
+        {layer(FX.moon, 0.62, { opacity: burst.interpolate({ inputRange: [0, 0.3], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ translateY: burst.interpolate({ inputRange: [0, 0.4], outputRange: [size * 0.35, -size * 0.05], extrapolate: 'clamp' }) }, { scale: burst.interpolate({ inputRange: [0, 0.4], outputRange: [0.5, 1], extrapolate: 'clamp' }) }] })}
+        {layer(FX.eclipse, 0.62, { opacity: burst.interpolate({ inputRange: [0.35, 0.4], outputRange: [0, 1], extrapolate: 'clamp' }), transform: [{ translateY: -size * 0.05 }, { translateX: burst.interpolate({ inputRange: [0.35, 0.8], outputRange: [size * 0.62, 0], extrapolate: 'clamp' }) }] })}
+        {layer(FX.corona, 0.7, { opacity: Animated.add(burst.interpolate({ inputRange: [0.75, 0.85], outputRange: [0, 1], extrapolate: 'clamp' }), after.interpolate({ inputRange: [0, 1], outputRange: [0, -0.4] })), transform: [{ translateY: -size * 0.05 }, { scale: burst.interpolate({ inputRange: [0.75, 1], outputRange: [0.9, 1.3], extrapolate: 'clamp' }) }, { rotate: after.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '40deg'] }) }] })}
+        {flash('#F4F6FF')}
+        {parts.map((p, i) => (
+          <Animated.View key={i} style={{ position: 'absolute', width: p.s, height: p.s * 1.6, backgroundColor: i % 3 ? '#E6E9FF' : '#FFFFFF', borderRadius: 1,
+            opacity: after.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 1, 0.8, 0] }),
+            transform: [
+              { translateX: (p.d - 0.5) * size * 0.9 },
+              { translateY: after.interpolate({ inputRange: [0, 1], outputRange: [-size * 0.45 * p.r, size * 0.55] }) },
+              { rotate: after.interpolate({ inputRange: [0, 1], outputRange: ['0deg', `${(p.d - 0.5) * 720}deg`] }) },
+            ] }} />
+        ))}
+      </View>
+    );
+  }
+  if (theme === 'aeonis') {
+    const steps = [0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1];
+    return (
+      <View pointerEvents="none" style={box}>
+        {veil}
+        {layer(FX.galaxy, 1, {
+          opacity: Animated.add(burst.interpolate({ inputRange: [0, 0.25], outputRange: [0, 1], extrapolate: 'clamp' }), after.interpolate({ inputRange: [0, 1], outputRange: [0, -0.45] })),
+          transform: [
+            { rotate: Animated.add(burst, after).interpolate({ inputRange: [0, 2], outputRange: ['0deg', '900deg'] }) },
+            { scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.1, 1.25] }) },
+          ],
+        })}
+        {flash('#DFFFF3')}
+        {parts.map((p, i) => (
+          <Animated.View key={i} style={{ position: 'absolute', width: p.s * 0.7, height: p.s * 0.7, borderRadius: p.s, backgroundColor: i % 2 ? '#7CF5D0' : '#FFF6D8',
+            opacity: burst.interpolate({ inputRange: [0, 0.1, 0.85, 0.9], outputRange: [0, 1, 1, 0], extrapolate: 'clamp' }),
+            transform: [
+              { translateX: burst.interpolate({ inputRange: steps, outputRange: steps.map((t) => Math.cos(p.a + t * 3 * Math.PI) * size * 0.55 * p.r * (1 - t)) }) },
+              { translateY: burst.interpolate({ inputRange: steps, outputRange: steps.map((t) => Math.sin(p.a + t * 3 * Math.PI) * size * 0.55 * p.r * (1 - t)) }) },
+            ] }} />
+        ))}
+        {parts.slice(0, 10).map((p, i) => (
+          <Animated.View key={`u${i}`} style={{ position: 'absolute', width: 5, height: 5, borderRadius: 3, backgroundColor: '#E9C25B',
+            opacity: after.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 0] }),
+            transform: [{ translateX: Math.cos(p.a) * size * 0.3 }, { translateY: after.interpolate({ inputRange: [0, 1], outputRange: [size * 0.2, -size * 0.5 * p.r] }) }] }} />
+        ))}
+      </View>
+    );
+  }
+  const wings = [-80, -52, -24, 24, 52, 80];
+  return (
+    <View pointerEvents="none" style={box}>
+      {veil}
+      {layer(FX.rays, 1.25, {
+        opacity: Animated.add(burst.interpolate({ inputRange: [0.1, 0.5], outputRange: [0, 1], extrapolate: 'clamp' }), after.interpolate({ inputRange: [0, 1], outputRange: [0, -0.5] })),
+        transform: [{ rotate: Animated.add(burst, after).interpolate({ inputRange: [0, 2], outputRange: ['0deg', '160deg'] }) }, { scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.1] }) }],
+      })}
+      {wings.map((a, i) => (
+        <Animated.View key={i} style={{ position: 'absolute', width: size * 0.16, height: size * 1.1, alignItems: 'center',
+          opacity: Animated.add(burst.interpolate({ inputRange: [0.35, 0.6], outputRange: [0, 0.95], extrapolate: 'clamp' }), after.interpolate({ inputRange: [0, 1], outputRange: [0, -0.6] })),
+          transform: [{ rotate: burst.interpolate({ inputRange: [0.35, 0.9], outputRange: ['0deg', `${a}deg`], extrapolate: 'clamp' }) }] }}>
+          <Image source={FX.beam} style={{ width: size * 0.16, height: size * 0.55 }} />
+        </Animated.View>
+      ))}
+      {layer(FX.sun, 0.6, { opacity: after.interpolate({ inputRange: [0, 1], outputRange: [1, 0.6] }), transform: [{ scale: burst.interpolate({ inputRange: [0, 0.6, 1], outputRange: [0, 1.15, 0.95] }) }] })}
+      {flash('#FFF3C4')}
+      {parts.map((p, i) => (
+        <Animated.View key={i} style={{ position: 'absolute', width: p.s * 0.6, height: p.s * 0.6, borderRadius: p.s, backgroundColor: i % 2 ? '#F5A623' : '#FFE8A3',
+          opacity: after.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] }),
+          transform: [{ translateX: after.interpolate({ inputRange: [0, 1], outputRange: [(p.d - 0.5) * size * 0.6, (p.d - 0.5) * size * 0.9] }) }, { translateY: after.interpolate({ inputRange: [0, 1], outputRange: [size * 0.3, -size * 0.55 * p.r] }) }] }} />
+      ))}
+    </View>
   );
 }
 

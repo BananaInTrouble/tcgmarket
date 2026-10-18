@@ -1,111 +1,112 @@
-import { aura, eye, ink, line, shadow, shine, sparkle, speckles, type Species } from './style.ts';
+import { constellation, eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
+import { band, f, spline, tube, type Pt } from './legendkit.ts';
 
-/** Nébularaie : raie manta géante faite de nébuleuse, planant, constellations sur le dos (légendaire). */
+/**
+ * Nébularaie : raie manta géante vue de dessus, en virage lent. Ses nageoires pectorales sont des fenêtres sur une
+ * nébuleuse ; un filigrane d'or Art nouveau court le long du bord d'attaque. Planche « bestiaire céleste ».
+ */
 export const nebularaie: Species = (c) => {
   const { pal } = c;
-  const W = 222;
-  const f = (v: number) => v.toFixed(1);
-  // Point gauche (x,y) et son miroir droit.
-  const L = (x: number, y: number) => `${f(x)} ${f(y)}`;
-  const R = (x: number, y: number) => `${f(W - x)} ${f(y)}`;
-  let s = '<g transform="rotate(-5 111 120) translate(111 118) scale(0.97 1.1) translate(-111 -118)">';
-  s += aura(111, 112, 98, pal.glow);
-  s += aura(60, 120, 40, pal.accent2);
-  s += aura(162, 120, 40, pal.accent);
+  const id = `nebularaie-${c.stage}`;
+  // Moitié gauche, miroir pour la droite (x → 222 - x).
+  const Lp = (x: number, y: number) => `${f(x)} ${f(y)}`;
+  const Rp = (x: number, y: number) => `${f(222 - x)} ${f(y)}`;
+  type M = (x: number, y: number) => string;
+  const half = (Q: M) =>
+    `C${Q(100, 64)} ${Q(94, 63)} ${Q(88, 61)}`
+    + ` C${Q(64, 54)} ${Q(38, 62)} ${Q(20, 82)} C${Q(12, 92)} ${Q(6, 104)} ${Q(2, 118)}`
+    + ` C${Q(22, 122)} ${Q(44, 132)} ${Q(62, 144)} C${Q(78, 154)} ${Q(92, 164)} ${Q(102, 168)} C${Q(105, 170)} ${Q(108, 171)} ${Q(111, 171)}`;
+  const rev = (Q: M) =>
+    `C${Q(108, 171)} ${Q(105, 170)} ${Q(102, 168)} C${Q(92, 164)} ${Q(78, 154)} ${Q(62, 144)} C${Q(44, 132)} ${Q(22, 122)} ${Q(2, 118)}`
+    + ` C${Q(6, 104)} ${Q(12, 92)} ${Q(20, 82)} C${Q(38, 62)} ${Q(64, 54)} ${Q(88, 61)} C${Q(94, 63)} ${Q(100, 64)} ${Q(111, 65)}`;
+  const outline = `M${Lp(111, 65)} ${half(Lp)} ${rev(Rp)} Z`;
 
-  // Queue fouet, derrière : longue courbe en S terminée par une comète.
-  const tail = `M${L(104, 160)} C${L(100, 190)} ${L(134, 196)} ${L(146, 212)} C${L(152, 222)} ${L(146, 230)} ${L(138, 232)} C${L(146, 226)} ${L(146, 218)} ${L(140, 214)} C${L(126, 200)} ${L(108, 196)} ${L(118, 160)} Z`;
-  s += ink(tail, pal.shade, 2.2);
-  s += shine(`M${L(108, 176)} C${L(112, 188)} ${L(128, 196)} ${L(138, 206)}`, 1.4);
-  s += sparkle(139, 232, 7, pal.glow);
+  // Torse central (relief) : de la tête à la base de la queue.
+  const torso = `M111 64 C100 64 92 70 91 84 C90 104 96 130 102 150 C105 160 108 166 111 169 C114 166 117 160 120 150 C126 130 132 104 131 84 C130 70 122 64 111 64 Z`;
 
-  // Grand corps-ailes : bord d'attaque arqué, pointes relevées, bord de fuite ondulé.
-  const wing = (P: (x: number, y: number) => string) =>
-    `C${P(70, 60)} ${P(36, 66)} ${P(14, 92)} C${P(4, 104)} ${P(2, 82)} ${P(10, 66)} C${P(6, 96)} ${P(10, 118)} ${P(26, 130)} C${P(44, 142)} ${P(58, 134)} ${P(70, 146)} C${P(80, 156)} ${P(92, 164)} ${P(111, 166)}`;
-  const body = `M${L(111, 70)} C${L(100, 66)} ${L(92, 62)} ${L(84, 60)} ${wing(L).replace(/^C/, 'C')}`
-    + ` C${R(92, 164)} ${R(80, 156)} ${R(70, 146)} C${R(58, 134)} ${R(44, 142)} ${R(26, 130)} C${R(10, 118)} ${R(6, 96)} ${R(3, 70)} C${R(2, 82)} ${R(4, 104)} ${R(14, 92)} C${R(36, 66)} ${R(70, 60)} ${R(84, 60)} C${R(92, 62)} ${R(100, 66)} ${R(111, 70)} Z`;
-  s += ink(body, pal.body, 2.8);
+  // Queue-fouet : longue, fine, ondulée, terminée en étoile filante.
+  const tailPath = spline([[111, 166], [113, 186], [122, 204], [140, 216], [160, 222], [178, 230]], 8);
+  const tail = tube(tailPath, (u) => 2.6 * (1 - u) + 0.3);
 
-  // Dessous des pointes d'ailes, retournées (couleur ventre).
-  for (const P of [L, R]) {
-    s += ink(`M${P(14, 92)} C${P(4, 104)} ${P(2, 82)} ${P(10, 66)} C${P(8, 78)} ${P(14, 84)} ${P(14, 92)} Z`, pal.belly, 1.8);
+  let s = '';
+  s += `<defs><clipPath id="${id}-w"><path d="${outline}"/></clipPath></defs>`;
+  s += `<ellipse cx="111" cy="112" rx="100" ry="46" fill="${pal.glow}" opacity="0.18" filter="url(#soft)"/>`;
+
+  // Queue derrière le corps.
+  s += ink(tail, pal.shade, 1.1);
+  s += `<circle cx="179" cy="230" r="7" fill="${pal.glow}" opacity="0.6" filter="url(#soft)"/>` + sparkle(179, 230, 4, '#FFF6D8', false);
+
+  // Ailes : nébuleuse intérieure (clip).
+  let neb = `<path d="${outline}" fill="${pal.deep}"/>`;
+  for (const [x, y, rx, ry, col, op] of [
+    [44, 104, 34, 14, pal.accent, 0.75], [178, 104, 34, 14, pal.accent2, 0.7],
+    [70, 124, 26, 12, pal.accent2, 0.6], [152, 124, 26, 12, pal.accent, 0.6],
+    [30, 104, 16, 8, '#FFF6D8', 0.8], [192, 104, 16, 8, '#FFF6D8', 0.7], [58, 116, 10, 5, '#FFF6D8', 0.6], [164, 116, 10, 5, '#FFF6D8', 0.55],
+    [60, 92, 20, 8, pal.glow, 0.55], [162, 92, 20, 8, pal.glow, 0.55],
+    [111, 150, 30, 12, pal.body, 0.5],
+  ] as [number, number, number, number, string, number][]) {
+    neb += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${col}" opacity="${op}" filter="url(#soft)"/>`;
   }
-
-  // Nébuleuse : nuages bosselés translucides qui s'étirent du dos vers les pointes.
-  const cloud = (cx: number, cy: number, rx: number, ry: number, rot: number, bumps: number) => {
-    let d = '';
-    const pt = (a: number, k: number) => {
-      const x = Math.cos(a) * rx * k, y = Math.sin(a) * ry * k;
-      const cr = Math.cos(rot), sr = Math.sin(rot);
-      return `${f(cx + x * cr - y * sr)} ${f(cy + x * sr + y * cr)}`;
-    };
-    for (let i = 0; i < bumps; i++) {
-      const a0 = (i / bumps) * Math.PI * 2, a1 = ((i + 1) / bumps) * Math.PI * 2, am = (a0 + a1) / 2;
-      d += (i === 0 ? `M${pt(a0, 1)}` : '') + ` Q${pt(am, 1.32)} ${pt(a1, 1)}`;
-    }
-    return d + 'Z';
-  };
-  const neb = (sx: number, col1: string, col2: string) => {
-    const X = (x: number) => (sx > 0 ? x : W - x);
-    const r = sx > 0 ? 1 : -1;
-    return `<path d="${cloud(X(64), 108, 34, 15, r * 0.32, 7)}" fill="${col1}" opacity="0.7"/>`
-      + `<path d="${cloud(X(36), 104, 20, 9, r * 0.55, 6)}" fill="${col2}" opacity="0.65"/>`
-      + `<path d="${cloud(X(78), 126, 18, 9, r * 0.1, 6)}" fill="${col2}" opacity="0.55"/>`
-      + `<path d="${cloud(X(58), 106, 14, 6, r * 0.32, 5)}" fill="${pal.glow}" opacity="0.75"/>`;
-  };
-  s += neb(1, pal.accent2, pal.accent) + neb(-1, pal.accent, pal.accent2);
-  // Volutes de nébuleuse (traits).
-  s += line(`M${L(26, 104)} C${L(40, 96)} ${L(52, 92)} ${L(66, 94)}`, 1.4, pal.light);
-  s += line(`M${R(26, 104)} C${R(40, 96)} ${R(52, 92)} ${R(66, 94)}`, 1.4, pal.light);
-
-  // Ombres hachurées : bord de fuite et flancs.
-  for (const P of [L, R]) {
-    s += shadow(`M${P(26, 130)} C${P(44, 142)} ${P(58, 134)} ${P(70, 146)} C${P(80, 156)} ${P(92, 164)} ${P(111, 166)} L${P(111, 154)} C${P(92, 152)} ${P(80, 142)} ${P(68, 134)} C${P(54, 126)} ${P(40, 132)} ${P(26, 130)} Z`, pal.shade, 0.75);
+  // Rayons de nageoire : lignes fines rayonnant depuis le torse.
+  for (let i = 0; i < 9; i++) {
+    const t = i / 8;
+    const [ox, oy]: Pt = [92 + t * 6, 78 + t * 70];
+    const ex = 6 + t * 90, ey = 100 + t * 60;
+    neb += `<path d="M${f(ox)} ${f(oy)} Q${f((ox + ex) / 2)} ${f((oy + ey) / 2 - 10)} ${f(ex)} ${f(ey)}" fill="none" stroke="${pal.light}" stroke-width="0.5" opacity="0.35"/>`;
+    neb += `<path d="M${f(222 - ox)} ${f(oy)} Q${f(222 - (ox + ex) / 2)} ${f((oy + ey) / 2 - 10)} ${f(222 - ex)} ${f(ey)}" fill="none" stroke="${pal.light}" stroke-width="0.5" opacity="0.35"/>`;
   }
+  neb += speckles(c, 52, 108, 44, 18, 22) + speckles(c, 170, 108, 44, 18, 22);
+  // Ombre du bord de fuite (hachures fines).
+  neb += shadow(`M3 116 C20 112 38 114 52 122 C70 132 84 146 96 160 L111 170 L111 176 L0 176 Z`, pal.deep, 0.55, 'fine');
+  neb += shadow(`M219 116 C202 112 184 114 170 122 C152 132 138 146 126 160 L111 170 L111 176 L222 176 Z`, pal.deep, 0.75, 'xhatch');
+  s += `<g clip-path="url(#${id}-w)">${neb}</g>`;
+  // Pointe gauche relevée par le virage : on aperçoit le ventre pâle.
+  s += ink(`M2 118 C6 108 10 98 18 88 C16 100 12 110 2 118 Z`, pal.belly, 1, ' opacity="0.9"');
+  s += shadow(`M2 118 C8 112 12 104 15 96 C14 104 10 112 2 118 Z`, pal.light, 0.6, 'fine');
+  s += constellation([[30, 106], [48, 100], [64, 108], [74, 122], [62, 130]], pal.gold);
+  s += constellation([[192, 106], [176, 98], [160, 104], [150, 118]], '#FFF6D8');
 
-  // Dos central : arête plus claire.
-  s += `<path d="M${L(111, 76)} C${L(98, 84)} ${L(96, 112)} ${L(102, 140)} C${L(106, 150)} ${R(106, 150)} ${R(102, 140)} C${R(96, 112)} ${R(98, 84)} ${R(111, 76)} Z" fill="${pal.light}" opacity="0.55"/>`;
-  s += line(`M${L(111, 84)} L${L(111, 146)}`, 1.2, pal.shade, ' opacity="0.6"');
-  // Constellations sur le dos : étoiles reliées.
-  const constel = (pts: [number, number][], col: string) => {
-    let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
-    for (const [x, y] of pts.slice(1)) d += ` L${f(x)} ${f(y)}`;
-    let o = line(d, 1.1, col, ' opacity="0.9" stroke-dasharray="2.5 2"');
-    pts.forEach(([x, y], i) => { o += i % 2 === 0 ? sparkle(x, y, 3.6, '#FFF6D8', false) : `<circle cx="${f(x)}" cy="${f(y)}" r="1.9" fill="#FFF6D8"/>`; });
-    return o;
-  };
-  s += constel([[40, 116], [58, 108], [76, 116], [84, 132], [70, 138]], '#FFF6D8');
-  s += constel([[182, 116], [164, 108], [146, 116], [138, 132], [152, 138]], '#FFF6D8');
-  s += constel([[111, 92], [104, 108], [111, 124], [118, 108], [111, 92]], pal.glow);
-  s += sparkle(111, 108, 4.4, pal.glow);
-  s += speckles(c, 60, 96, 30, 14, 10);
-  s += speckles(c, 162, 96, 30, 14, 10);
+  // Filigrane d'or le long du bord d'attaque (double filet + volutes).
+  s += gild(`M86 66 C66 68 44 78 28 92 C20 99 14 106 10 112`, 1.1);
+  s += gild(`M136 66 C156 68 178 78 194 92 C202 99 208 106 212 112`, 1.1);
+  s += gild(`M80 72 C64 76 50 84 40 92 c-6 5 -4 12 2 10 c4 -2 2 -6 -1 -5`, 0.8);
+  s += gild(`M142 72 C158 76 172 84 182 92 c6 5 4 12 -2 10 c-4 -2 -2 -6 1 -5`, 0.8);
 
-  // Perles d'étoiles le long du bord de fuite.
-  for (const P of [L, R]) {
-    for (const [x, y] of [[30, 128], [46, 136], [62, 138], [80, 152], [96, 160]] as [number, number][]) {
-      s += `<circle cx="${P(x, y).split(' ')[0]}" cy="${y - 4}" r="1.6" fill="${pal.glow}"/>`;
-    }
+  // Torse en relief.
+  s += `<path d="${torso}" fill="${pal.body}"/>`;
+  s += shadow(`M120 150 C126 130 132 104 131 84 C130 70 122 64 116 64 C124 74 126 96 122 118 C119 134 115 152 111 169 C114 166 117 160 120 150 Z`, pal.shade, 0.85, 'fine');
+  s += `<path d="M96 74 C94 90 96 112 102 134" fill="none" stroke="${pal.light}" stroke-width="5" opacity="0.35" stroke-linecap="round"/>`;
+  s += line(`M91 84 C90 104 96 130 102 150 C105 160 108 166 111 169`, 0.8, pal.ink, ' opacity="0.55"');
+  s += line(`M131 84 C132 104 126 130 120 150 C117 160 114 166 111 169`, 1.1, pal.ink, ' opacity="0.8"');
+  // Branchies dorsales suggérées : fines lignes de muscles.
+  for (const k of [0, 1, 2]) s += line(`M${96 + k * 2} ${96 + k * 12} q15 ${4} 30 0`, 0.5, pal.ink, ' opacity="0.3"');
+  // Arête dorsale et petites dorsale près de la queue.
+  s += line(`M111 84 C110 110 110 140 111 160`, 0.9, pal.ink, ' opacity="0.5"');
+  s += ink(`M106 158 C108 150 112 146 116 148 C114 154 113 160 112 166 Z`, pal.shade, 1);
+  // Marques d'or le long de l'arête.
+  s += gild(`M111 98 l-4 8 l4 8 l4 -8 Z`, 0.9) + gild(`M111 118 v24`, 0.8);
+  s += `<circle cx="111" cy="106" r="1.6" fill="${pal.gold}"/>`;
+  s += rim(`M84 82 C82 100 88 126 98 146`, pal.glow, 1);
+
+  // Lobes céphaliques déroulés vers l'avant.
+  for (const sg of [1, -1]) {
+    const X = (x: number) => f(sg > 0 ? x : 222 - x);
+    const lobe = `M${X(86)} 67 C${X(81)} 57 ${X(80)} 44 ${X(84)} 35 C${X(86)} 30 ${X(93)} 29 ${X(96)} 33 C${X(98)} 37 ${X(95)} 40 ${X(93)} 43 C${X(92)} 52 ${X(95)} 60 ${X(100)} 67 Z`;
+    s += ink(lobe, pal.body, 1.3);
+    s += shadow(`M${X(93)} 43 C${X(92)} 52 ${X(95)} 60 ${X(100)} 67 L${X(94)} 67 C${X(89)} 60 ${X(87)} 50 ${X(89)} 41 Z`, pal.shade, sg > 0 ? 0.55 : 0.9, 'fine');
+    s += line(`M${X(85)} 60 C${X(83)} 52 ${X(83)} 44 ${X(86)} 37`, 0.6, pal.ink, ' opacity="0.5"');
+    s += rim(`M${X(84)} 62 C${X(81)} 54 ${X(81)} 44 ${X(84)} 36`, pal.glow, sg > 0 ? 0.9 : 0.4);
   }
-  // Reflets sur le bord d'attaque.
-  s += shine(`M${L(80, 66)} C${L(60, 66)} ${L(40, 74)} ${L(24, 88)}`, 2);
-  s += shine(`M${R(80, 66)} C${R(66, 66)} ${R(54, 70)} ${R(44, 76)}`, 1.6);
-
-  // Nageoires céphaliques enroulées (cornes de la raie).
-  for (const P of [L, R]) {
-    s += ink(`M${P(82, 64)} C${P(74, 52)} ${P(78, 40)} ${P(90, 40)} C${P(100, 40)} ${P(102, 50)} ${P(96, 54)} C${P(92, 56)} ${P(88, 52)} ${P(91, 49)} C${P(96, 54)} ${P(100, 60)} ${P(100, 68)} Z`, pal.body, 2.2);
-    s += line(`M${P(84, 60)} C${P(80, 52)} ${P(82, 45)} ${P(90, 44)}`, 1.3, pal.light);
-  }
-  // Tête : front large et plat, bouche en sourire, yeux sur les côtés.
-  s += shadow(`M${L(84, 66)} C${L(92, 76)} ${R(92, 76)} ${R(84, 66)} C${R(90, 80)} ${L(90, 80)} ${L(84, 66)} Z`, pal.shade, 0.6);
-  s += line(`M${L(98, 76)} C${L(104, 82)} ${R(104, 82)} ${R(98, 76)}`, 2);
-  s += `<ellipse cx="82" cy="80" rx="4.5" ry="2.6" fill="#FF8FB1" opacity="0.55"/><ellipse cx="140" cy="80" rx="4.5" ry="2.6" fill="#FF8FB1" opacity="0.55"/>`;
-  s += eye(88, 71, 6.4, pal.eye, -0.3) + eye(134, 71, 6.4, pal.eye, 0.3);
-  // Diadème d'étoile au front.
-  s += sparkle(111, 54, 7.5, pal.glow) + line(`M${L(104, 62)} q7 4 14 0`, 1.4, pal.glow);
-
-  // Étoiles filantes / étincelles autour.
-  s += sparkle(24, 50, 5, pal.glow) + sparkle(200, 152, 4.5, '#FFF6D8') + sparkle(36, 160, 3.6, pal.accent2) + sparkle(190, 40, 3.8, '#FFF6D8');
-  s += line(`M${f(170)} ${f(186)} l22 -8`, 1.4, pal.glow, ' opacity="0.7"') + sparkle(168, 187, 3.4, pal.glow);
-  return s + '</g>';
+  // Bouche (bord frontal), yeux sur les côtés de la tête.
+  s += line(`M94 66 C104 70 118 70 128 66`, 1.1);
+  s += eyeA(87, 72, 4, pal.eye, { angle: 60, open: 0.55, slit: false }) + eyeA(135, 72, 4, pal.eye, { angle: 120, open: 0.55, slit: false });
+  // Diadème : petite étoile au front.
+  s += sparkle(111, 74, 3.2, pal.gold, false);
+  // Contour final (plus épais à l'extérieur) + lumière de bord.
+  s += `<path d="${outline}" fill="none" stroke="${pal.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  s += rim(`M84 62 C64 64 40 74 24 88 C16 95 9 104 4 114`, pal.glow, 1.2);
+  s += rim(`M138 62 C152 64 168 70 180 76`, pal.glow, 0.9);
+  // Étoiles détachées dans le sillage.
+  for (const [x, y, z] of [[30, 150, 3], [196, 150, 2.6], [150, 196, 2.2], [52, 46, 2.6]] as const) s += sparkle(x, y, z, pal.glow, false);
+  return `<g transform="translate(111 116) rotate(-6) scale(1 1.04) translate(-111 -116)">${s}</g>`;
 };

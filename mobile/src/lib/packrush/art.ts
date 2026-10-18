@@ -5,7 +5,7 @@
  * le cadre suit la rareté (plein cadre pour les SSR).
  */
 import { SPECIES } from './creatures/index.ts';
-import { STYLE_DEFS, palette, sparkle } from './creatures/style.ts';
+import { STYLE_DEFS, paletteAdult, sparkle } from './creatures/style.ts';
 
 export type PrRarity = 'C' | 'U' | 'R' | 'SR' | 'SSR';
 export const PR_RARITIES: PrRarity[] = ['C', 'U', 'R', 'SR', 'SSR'];
@@ -53,6 +53,14 @@ function sky(hue: number, r: () => number, w: number, h: number): string {
     s += `<circle cx="${(r() * w).toFixed(1)}" cy="${(r() * h).toFixed(1)}" r="${(0.4 + r() * 1.2).toFixed(2)}" fill="#FFF6D8" opacity="${(0.35 + r() * 0.65).toFixed(2)}"/>`;
   }
   for (let i = 0; i < 4; i++) s += sparkle(r() * w, r() * h * 0.7, 2.5 + r() * 3, '#FFF6D8', false);
+  // Halo céleste gravé (façon arcane) derrière la créature.
+  const hx = w / 2, hy = h * 0.46, hr = Math.min(w, h) * 0.36;
+  s += `<circle cx="${hx}" cy="${hy}" r="${hr}" fill="none" stroke="#E9C25B" stroke-width="0.9" opacity="0.32"/>`
+    + `<circle cx="${hx}" cy="${hy}" r="${hr * 0.93}" fill="none" stroke="#E9C25B" stroke-width="0.5" stroke-dasharray="1.5 3" opacity="0.4"/>`
+    + Array.from({ length: 24 }, (_, i) => {
+      const a = (i / 24) * Math.PI * 2, r1 = hr * 1.03, r2 = hr * (i % 2 ? 1.08 : 1.14);
+      return `<line x1="${(hx + Math.cos(a) * r1).toFixed(1)}" y1="${(hy + Math.sin(a) * r1).toFixed(1)}" x2="${(hx + Math.cos(a) * r2).toFixed(1)}" y2="${(hy + Math.sin(a) * r2).toFixed(1)}" stroke="#E9C25B" stroke-width="0.7" opacity="0.3"/>`;
+    }).join('');
   return s;
 }
 
@@ -76,7 +84,7 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
   const gold = card.rarity === 'C' || card.rarity === 'U' ? '#C9D6DE' : '#E9C25B';
   const stops = st.frame.map((c, i) => `<stop offset="${(i / Math.max(1, st.frame.length - 1)) * 100}%" stop-color="${c}"/>`).join('');
   const draw = SPECIES[kind] ?? SPECIES.lumikit;
-  const creature = draw({ r: rng(seed * 7 + 1), hue, pal: palette(hue), stage });
+  const creature = draw({ r: rng(seed * 7 + 1), hue, pal: paletteAdult(hue), stage });
   const win = full ? { x: 10, y: 10, w: W - 20, h: H - 20 } : { x: 14, y: 14, w: W - 28, h: 236 };
   const dy = full ? 30 : 0;
   const art = `<g clip-path="url(#win)"><g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`
