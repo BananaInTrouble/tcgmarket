@@ -256,7 +256,7 @@ lumikit.scene = (c: DrawCtx, b: Bounds): string => {
     const earth = hsl(hue + 25, 25, 14), earth2 = hsl(hue + 25, 22, 20);
     s += `<path d="M${b.x0} ${b.y0} L${b.x1} ${b.y0} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z M24 236 C10 160 30 70 111 60 C192 70 214 160 200 236 Z" fill="${earth}" fill-rule="evenodd" stroke="#140F24" stroke-width="1.4"/>`;
     s += `<path d="M24 236 C14 170 32 84 111 72 C190 84 210 170 200 236" fill="none" stroke="${earth2}" stroke-width="8" opacity="0.8"/>`;
-    for (const d of ['M30 70 C50 90 46 120 60 140', 'M80 40 C90 70 70 90 76 110', 'M170 50 C160 80 180 100 170 130', 'M200 90 C186 110 196 130 186 150']) s += line(d, 4, '#140F24', ' opacity="0.9"') + line(d, 2.4, hsl(hue + 25, 25, 30));
+    for (const d of ['M22 150 C26 110 50 80 90 70 C100 68 108 72 112 80', 'M200 160 C198 120 180 90 140 74 C128 70 120 74 116 84', 'M60 90 C66 100 64 112 70 122', 'M164 92 C158 104 162 114 156 124', 'M100 70 C98 80 102 88 98 96']) s += line(d, 4.4, '#140F24', ' opacity="0.9"') + line(d, 2.6, hsl(hue + 25, 25, 32));
     s += `<path d="M${b.x0} ${b.y1} L${b.x0} 204 C50 196 170 196 ${b.x1} 204 L${b.x1} ${b.y1} Z" fill="${hsl(hue + 110, 30, 22)}" stroke="#140F24" stroke-width="1"/>`;
     for (let i = 0; i < 30; i++) s += `<circle cx="${f1(b.x0 + c.r() * W)}" cy="${f1(204 + c.r() * 30)}" r="${f1(1 + c.r() * 2)}" fill="${hsl(hue + 110, 35, 34)}" opacity="0.8"/>`;
     for (const [x, y, k] of [[22, 206, 1], [32, 210, 0.7], [200, 204, 0.9]] as const) {
