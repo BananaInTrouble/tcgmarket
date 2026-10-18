@@ -86,13 +86,28 @@ export const ophalia: Species = (c: DrawCtx) => {
     }
     return o;
   };
+  // Motif dorsal : losanges sombres cernés d'or, entre la colonne et le flanc ombré.
+  const diamonds = (t: { L: Pt[]; R: Pt[] }, seg: Pt[]) => {
+    let o = '';
+    for (let i = 1; i < seg.length - 1; i++) {
+      for (let k = 0; k < 2; k++) {
+        const u = k / 2 + 0.25, a = seg[i], b2 = seg[i + 1];
+        const m: Pt = [a[0] + (b2[0] - a[0]) * u, a[1] + (b2[1] - a[1]) * u];
+        const l: Pt = [t.L[i][0] + (t.L[i + 1][0] - t.L[i][0]) * u, t.L[i][1] + (t.L[i + 1][1] - t.L[i][1]) * u];
+        const c0: Pt = [(m[0] * 0.6 + l[0] * 0.4), (m[1] * 0.6 + l[1] * 0.4)];
+        const tx = (b2[0] - a[0]) * 0.16, ty = (b2[1] - a[1]) * 0.16, nx = (l[0] - m[0]) * 0.25, ny = (l[1] - m[1]) * 0.25;
+        o += `<path d="M${P([c0[0] - tx, c0[1] - ty])} L${P([c0[0] + nx, c0[1] + ny])} L${P([c0[0] + tx, c0[1] + ty])} L${P([c0[0] - nx, c0[1] - ny])} Z" fill="${pal.deep}" stroke="${pal.gold}" stroke-width="0.6" opacity="0.85"/>`;
+      }
+    }
+    return o;
+  };
   const paint = (t: { d: string; L: Pt[]; R: Pt[] }, seg: Pt[], cid: string) =>
     `<defs><clipPath id="${id}-${cid}"><path d="${t.d}"/></clipPath></defs><path d="${t.d}" fill="${pal.body}"/>`
     + `<g clip-path="url(#${id}-${cid})">`
     + `<path d="${smooth(t.R)}" fill="none" stroke="${pal.belly}" stroke-width="12" opacity="0.9"/>`
     + `<path d="${smooth(t.L)}" fill="none" stroke="${pal.shade}" stroke-width="12"/>`
     + `<path d="${smooth(t.L)}" fill="none" stroke="url(#fine)" stroke-width="12"/>`
-    + `<path d="${smooth(seg)}" fill="none" stroke="${pal.gold}" stroke-width="1.6" stroke-dasharray="2 5" opacity="0.85"/>`
+    + diamonds(t, seg)
     + scales(t, seg) + `</g>` + ink(t.d, 'none', 1.5) + rim(smooth(t.R), pal.glow, 1.1);
   // Boucle arrière : masquée par le disque solaire.
   s += `<defs><clipPath id="${id}-sun"><path clip-rule="evenodd" d="M-40 -60 H260 V320 H-40 Z M66 112 A46 46 0 1 0 158 112 A46 46 0 1 0 66 112 Z"/></clipPath></defs>`;
@@ -106,6 +121,7 @@ export const ophalia: Species = (c: DrawCtx) => {
   for (let i = 0; i < 5; i++) s += feather(0, 224, 196 + i * 12, 26 - i * 2, 6, i % 2 ? pal.light : pal.body, pal.gold);
   s += constellation([[40, 252], [64, 256], [92, 254], [120, 250]], pal.gold);
 
+  for (let i = 0; i < 9; i++) s += feather(140 + (i % 3) * 6, 46 + Math.floor(i / 3) * 7, 100 + i * 14, 16, 6, i % 2 ? pal.light : pal.belly, i % 3 ? null : pal.gold);
   // ---------- Tête (profil, regard vers la gauche) ----------
   let hd = '';
   for (let i = 0; i < 5; i++) hd += feather(4, -4 + i * 1.5, 192 - i * 9, 34 - i * 3, 6, i % 2 ? pal.light : pal.body, pal.gold);
