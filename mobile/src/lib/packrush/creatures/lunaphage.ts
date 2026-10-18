@@ -114,7 +114,7 @@ export const lunaphage: Species = (c: DrawCtx) => {
   const nb = hp(0, 4), nt = hp(22, 50);
   const body = `M${P(nb)} C100 100 96 108 96 118 C92 136 78 154 66 168 C56 180 46 186 40 198 C34 210 40 222 54 224 `
     + `C80 210 102 194 120 184 C140 174 158 164 166 148 C174 130 170 108 160 98 C154 92 148 90 ${P(nt)} Z`;
-  s += tufts(densify([[160, 150], [146, 166], [128, 178], [108, 190], [86, 204], [66, 216]], 8), 6, pal.body, 1.1);
+  s += tufts(densify([[160, 150], [146, 166], [128, 178], [108, 190], [86, 204], [66, 216]], 11), 4, pal.body, 1);
   s += `<defs><clipPath id="${id}-b"><path d="${body}"/></clipPath></defs><path d="${body}" fill="${pal.body}"/>`;
   s += `<g clip-path="url(#${id}-b)">`
     + `<path d="M${P(nb)} C108 90 100 100 100 112 C96 132 80 152 66 168 C56 180 46 186 40 198 L56 204 C74 184 94 164 112 150 C126 138 132 120 130 96 Z" fill="${pal.deep}" filter="url(#soft)"/>`

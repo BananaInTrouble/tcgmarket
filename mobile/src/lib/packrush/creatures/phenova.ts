@@ -1,4 +1,4 @@
-import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, fur, gild, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
  * Phenova → Pyrastrel → Supernovis : oiseau de supernova. Planche d'ornithologie céleste : rapace à crête de

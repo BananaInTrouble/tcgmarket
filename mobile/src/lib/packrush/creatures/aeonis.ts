@@ -135,7 +135,7 @@ export const aeonis: Species = (c: DrawCtx) => {
     }
   }
   // Cascades qui tombent du bord de la carapace et se dissolvent en étoiles.
-  for (const [x, y, l] of [[30, 152, 60], [184, 150, 44], [62, 148, 36]] as const) {
+  for (const [x, y, l] of [[30, 152, 60], [62, 148, 36], [46, 150, 48]] as const) {
     s += line(`M${x} ${y} C${x - 4} ${y + 6} ${x - 6} ${y + 14} ${x - 6} ${y + 24}`, 2.6, CREAM, ' opacity="0.85"');
     s += line(`M${x - 6} ${y + 24} L${x - 7} ${y + l}`, 1.6, pal.glow, ' opacity="0.45"');
     for (let i = 0; i < 6; i++) s += `<circle cx="${f(x - 6 + (c.r() - 0.5) * 8)}" cy="${f(y + 26 + c.r() * l)}" r="${f(0.6 + c.r())}" fill="${CREAM}" opacity="0.8"/>`;
