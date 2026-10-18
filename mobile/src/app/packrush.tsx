@@ -140,7 +140,7 @@ export default function PackRush() {
           <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 16 }}>
             {status.free > 0 ? t('pr.freeLeft', { n: status.free }) : t('pr.noFree')}
           </Text>
-          {status.free < 2 && nextFree && <Text style={s.muted}>{t('pr.nextFree', { d: nextFree })}</Text>}
+          {status.free < 1 && nextFree && <Text style={s.muted}>{t('pr.nextFree', { d: nextFree })}</Text>}
           <View style={{ gap: 8, alignSelf: 'stretch' }}>
             <Pressable disabled={busy || status.free < 1} onPress={() => doOpen(true)} style={[s.button, { opacity: status.free < 1 ? 0.45 : 1 }]}>
               <Text style={[s.buttonText, { textAlign: 'center' }]}>🎁 {t('pr.openFree')}</Text>

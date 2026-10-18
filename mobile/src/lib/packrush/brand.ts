@@ -114,3 +114,20 @@ export function packFoil(setId: string): string {
     <rect x="0" y="0" width="${PACK_W}" height="${PACK_H}" fill="url(#sheen)"/>
   </svg>`);
 }
+
+/** Décors des animations de sortie des cartes SSR (un thème par mythique). */
+export const FX = {
+  moon: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><radialGradient id="m" cx="40%" cy="38%" r="65%"><stop offset="0%" stop-color="#FFFDF2"/><stop offset="70%" stop-color="#D9DCEB"/><stop offset="100%" stop-color="#9AA0BC"/></radialGradient><filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter></defs>
+    <circle cx="100" cy="100" r="78" fill="#E6E9FF" opacity="0.5" filter="url(#b)"/><circle cx="100" cy="100" r="70" fill="url(#m)"/>
+    <circle cx="74" cy="80" r="12" fill="#B7BCD6" opacity="0.6"/><circle cx="122" cy="118" r="17" fill="#B7BCD6" opacity="0.5"/><circle cx="118" cy="70" r="7" fill="#B7BCD6" opacity="0.6"/><circle cx="84" cy="128" r="6" fill="#B7BCD6" opacity="0.6"/></svg>`),
+  eclipse: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="71" fill="#06040E"/></svg>`),
+  corona: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter></defs>
+    <circle cx="100" cy="100" r="74" fill="none" stroke="#F4F6FF" stroke-width="10" filter="url(#b)"/><circle cx="100" cy="100" r="72" fill="none" stroke="#FFFFFF" stroke-width="2.5"/>
+    ${Array.from({ length: 36 }, (_, i) => { const a = (i / 36) * Math.PI * 2, r2 = i % 3 ? 86 : 98; return `<line x1="${(100 + Math.cos(a) * 76).toFixed(1)}" y1="${(100 + Math.sin(a) * 76).toFixed(1)}" x2="${(100 + Math.cos(a) * r2).toFixed(1)}" y2="${(100 + Math.sin(a) * r2).toFixed(1)}" stroke="#E6E9FF" stroke-width="1.4" opacity="0.8"/>`; }).join('')}</svg>`),
+  galaxy: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="4"/></filter></defs>
+    ${[0, 1, 2].map((k) => { const d = Array.from({ length: 50 }, (_, i) => { const t = i / 49, a = t * 3.4 * Math.PI + (k * 2 * Math.PI) / 3, r = 4 + t * 92; return `${i ? 'L' : 'M'}${(100 + Math.cos(a) * r).toFixed(1)} ${(100 + Math.sin(a) * r).toFixed(1)}`; }).join(' '); return `<path d="${d}" fill="none" stroke="${['#7CF5D0', '#E9C25B', '#9FB4FF'][k]}" stroke-width="10" stroke-linecap="round" opacity="0.55" filter="url(#b)"/><path d="${d}" fill="none" stroke="#FFF6D8" stroke-width="1.6" stroke-linecap="round" opacity="0.9"/>`; }).join('')}
+    <circle cx="100" cy="100" r="14" fill="#FFF6D8" filter="url(#b)"/><circle cx="100" cy="100" r="7" fill="#FFFFFF"/></svg>`),
+  sun: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><radialGradient id="s" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#FFFFFF"/><stop offset="45%" stop-color="#FFE8A3"/><stop offset="80%" stop-color="#F5A623"/><stop offset="100%" stop-color="#F5A623" stop-opacity="0"/></radialGradient></defs><circle cx="100" cy="100" r="96" fill="url(#s)"/></svg>`),
+  rays: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">${Array.from({ length: 16 }, (_, i) => { const a = (i / 16) * 360; return `<path d="M100 100 L${i % 2 ? 96 : 94} 0 L${i % 2 ? 104 : 106} 0 Z" fill="${i % 2 ? '#FFE8A3' : '#F5C542'}" opacity="${i % 2 ? 0.55 : 0.8}" transform="rotate(${a} 100 100)"/>`; }).join('')}</svg>`),
+  beam: uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 200"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#FFF3C4"/><stop offset="100%" stop-color="#F5A623" stop-opacity="0"/></linearGradient></defs><path d="M20 200 C6 140 2 60 20 0 C38 60 34 140 20 200 Z" fill="url(#g)"/></svg>`),
+};
