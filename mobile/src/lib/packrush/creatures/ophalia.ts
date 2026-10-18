@@ -65,11 +65,11 @@ export const ophalia: Species = (c: DrawCtx) => {
     return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${k} ${left ? -k : k})">${w}</g>`;
   };
   // Ailes de l'arrière-plan (côté lointain, plus sombres), puis côté proche.
-  s += wing(164, 50, -168, 0.92, true, 1) + wing(166, 46, -132, 0.9, true, 1) + wing(170, 56, 34, 0.7, false, 1);
-  s += wing(172, 46, -96, 0.86, false, 0) + wing(174, 50, -52, 0.86, false, 0) + wing(176, 58, -10, 0.84, false, 0);
+  s += wing(144, 50, -172, 0.9, true, 1) + wing(144, 44, -128, 0.86, true, 1) + wing(150, 58, 18, 0.72, false, 1);
+  s += wing(152, 44, -60, 0.86, false, 0) + wing(154, 50, -24, 0.84, false, 0) + wing(140, 60, 168, 0.72, true, 0);
 
   // ---------- Corps (colonne qui s'enroule autour du soleil, centre 112,112 r 46) ----------
-  const spine: Pt[] = [[2, 268], [36, 258], [76, 248], [118, 240], [160, 228], [192, 204], [206, 170], [200, 140], [180, 126], [150, 132], [118, 146], [86, 152], [58, 146], [38, 126], [30, 100], [42, 82], [74, 76], [110, 74], [142, 78], [162, 68], [172, 48], [170, 30]];
+  const spine: Pt[] = [[-2, 222], [28, 238], [68, 246], [116, 240], [160, 228], [192, 204], [206, 170], [200, 140], [180, 126], [150, 132], [118, 146], [86, 152], [58, 146], [38, 126], [30, 100], [42, 82], [74, 76], [110, 74], [138, 74], [150, 60], [150, 42], [144, 26]];
   const width = [2, 5, 8, 11, 14, 17, 19, 21, 22, 22, 22, 22, 22, 22, 21, 21, 20, 20, 19, 18, 17, 15];
   const back = tube(spine.slice(13), width.slice(13));
   const front = tube(spine.slice(0, 16), width.slice(0, 16));
@@ -81,7 +81,7 @@ export const ophalia: Species = (c: DrawCtx) => {
         const l: Pt = [t.L[i][0] + (t.L[i + 1][0] - t.L[i][0]) * u, t.L[i][1] + (t.L[i + 1][1] - t.L[i][1]) * u];
         const r: Pt = [t.R[i][0] + (t.R[i + 1][0] - t.R[i][0]) * u, t.R[i][1] + (t.R[i + 1][1] - t.R[i][1]) * u];
         const m: Pt = [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2];
-        o += `<path d="M${P(l)} Q${P([m[0] + (seg[i + 1][0] - seg[i][0]) * 0.12, m[1] + (seg[i + 1][1] - seg[i][1]) * 0.12])} ${P(r)}" fill="none" stroke="${INK}" stroke-width="0.5" opacity="0.55"/>`;
+        o += `<path d="M${P(l)} Q${P([m[0] + (seg[i + 1][0] - seg[i][0]) * 0.12, m[1] + (seg[i + 1][1] - seg[i][1]) * 0.12])} ${P(r)}" fill="none" stroke="${INK}" stroke-width="0.5" opacity="0.35"/>`;
       }
     }
     return o;
@@ -103,8 +103,8 @@ export const ophalia: Species = (c: DrawCtx) => {
     const p = spine[16 + Math.min(5, i)], q = spine[Math.min(21, 17 + i)];
     s += feather(p[0] + (q[0] - p[0]) * 0.5, p[1] + (q[1] - p[1]) * 0.5 - 6, -150 + i * 12, 14 - i, 5, pal.light, pal.gold);
   }
-  for (let i = 0; i < 5; i++) s += feather(6, 266, 160 + i * 9, 26 - i * 2, 6, i % 2 ? pal.light : pal.body, pal.gold);
-  s += constellation([[60, 250], [82, 244], [104, 241], [128, 236]], pal.gold);
+  for (let i = 0; i < 5; i++) s += feather(0, 224, 196 + i * 12, 26 - i * 2, 6, i % 2 ? pal.light : pal.body, pal.gold);
+  s += constellation([[40, 252], [64, 256], [92, 254], [120, 250]], pal.gold);
 
   // ---------- Tête (profil, regard vers la gauche) ----------
   let hd = '';
@@ -127,7 +127,7 @@ export const ophalia: Species = (c: DrawCtx) => {
   hd += `<ellipse cx="48" cy="-3" rx="1.4" ry="0.7" fill="${INK}" transform="rotate(20 48 -3)"/>`;
   hd += gild('M20 12 C18 20 22 28 16 36 M12 12 C8 20 12 26 6 32', 0.9);
   hd += rim('M0 -9 C8 -15 20 -16 30 -13 C38 -11 46 -7 52 -3', pal.glow, 1);
-  s += `<g transform="translate(170 32) rotate(204) scale(1.4 -1.4)">${hd}</g>`;
+  s += `<g transform="translate(144 30) rotate(200) scale(1.45 -1.3)">${hd}</g>`;
 
   s += sparkle(20, 40, 3.5, CREAM, false) + sparkle(214, 120, 3, pal.glow, false) + sparkle(200, 250, 2.6, CREAM, false);
   return s;

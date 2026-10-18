@@ -314,7 +314,7 @@ const lapinovaScene = (c: DrawCtx, b: Bounds): string => {
     // Pleine lune gravée (mers, cratères, terminateur hachuré), voilée de nuages.
     const mx = 128, my = 100, mr = 72;
     s += glowAt(mx, my, mr + 20, mr + 20, '#FFF6D8', 0.25);
-    s += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${hsl(hue + 40, 12, 80)}"/>`;
+    s += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${hsl(45, 16, 82)}"/>`;
     s += `<defs><clipPath id="${id}-m"><circle cx="${mx}" cy="${my}" r="${mr}"/></clipPath></defs><g clip-path="url(#${id}-m)">`;
     for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${pal.shade}" opacity="0.35"/>`;
     for (const [x, y, r] of [[176, 92, 5], [86, 104, 4], [138, 44, 3.5], [184, 132, 3]] as const) s += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.deep}" stroke-width="0.6" opacity="0.6"/>`;

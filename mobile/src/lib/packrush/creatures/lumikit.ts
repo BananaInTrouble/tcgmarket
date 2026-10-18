@@ -247,7 +247,7 @@ function cometSky(c: DrawCtx, b: Bounds, id: string, top: string, bot: string, s
 lumikit.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, hue } = c;
   const id = `lumikit-${stage}-bg`;
-  const W = b.x1 - b.x0, sh = hue + 200;
+  const W = b.x1 - b.x0, sh = 215 + ((((hue * 1.7) % 70) + 70) % 70);
   let s = '';
   if (stage <= 0) {
     // Terrier sous les racines : voûte de terre, ouverture sur la nuit et une étoile filante, mousse, champignons.

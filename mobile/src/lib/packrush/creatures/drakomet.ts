@@ -1,5 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
-import { part, spl, tube, turn, type Pw } from './cervastre.ts';
+import { aura, constellation, eyeA, gild, ground, hsl, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { part, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -203,7 +203,7 @@ export const drakomet: Species = (c) => {
   let s = '';
   if (st === 2) {
     s += aura(120, 80, 70, pal.glow);
-    s += ground(116, 205, 80);
+    s += ground(118, 206, 70);
     const P: Pose = {
       body: [[96, 112, 17], [108, 130, 20], [122, 146, 18], [136, 156, 13]],
       neck: [[96, 112, 14], [84, 96, 10.5], [74, 78, 8.5], [72, 62, 7.5], [78, 50, 7]],
@@ -217,12 +217,17 @@ export const drakomet: Species = (c) => {
       farWing: { dx: -8, dy: -4, s: 0.82, mirror: true },
       horn: 1.2, spines: 6,
     };
-    s += dragon(c, P, 2, comet(c, 56, 178, 150, 46).replace(/^/, ''));
+    s += dragon(c, P, 2, comet(c, 56, 178, 150, 46));
+    // Souffle de poussière d'étoiles : il rugit vers le ciel.
+    for (const [da, l, w, col] of [[0, 34, 5, pal.glow], [0.14, 28, 3.4, pal.accent2], [-0.12, 26, 3, '#FFF6D8']] as const) {
+      const a = (200 * Math.PI) / 180 + da, x0 = 32, y0 = 46;
+      s += `<path d="${tube([[x0, y0, 0.6], [x0 + Math.cos(a) * l * 0.5, y0 + Math.sin(a) * l * 0.5, w * 0.7], [x0 + Math.cos(a) * l, y0 + Math.sin(a) * l, w]])}" fill="${col}" opacity="0.4"/>`;
+    }
+    for (let i = 0; i < 8; i++) s += sparkle(4 + c.r() * 26, 30 + c.r() * 22, 1 + c.r() * 2, '#FFF6D8', false);
     s += constellation([[16, 30], [28, 18], [44, 22], [52, 8]], pal.gold) + sparkle(200, 150, 3, pal.glow, false) + speckles(c, 110, 40, 90, 30, 6, pal.glow);
     return s;
   }
   if (st === 1) {
-    s += ground(112, 205, 70);
     // Astéroïde-perchoir.
     const rock = 'M60 204 C56 192 64 180 78 176 C96 170 124 172 142 176 C158 180 168 190 166 204 Z';
     let ri = shadow('M60 190 C90 200 140 200 170 186 L170 210 L60 210 Z', pal.deep, 0.8, 'xhatch');
@@ -236,7 +241,7 @@ export const drakomet: Species = (c) => {
       head: { x: 93, y: 68, s: 0.92, r: -4 },
       hind: [[122, 156, 11], [108, 170, 6.5], [118, 180, 4.5], [110, 176, 3.4]],
       hindFar: [[132, 160, 8], [142, 172, 5], [140, 180, 3.8], [134, 178, 3]],
-      wing: { sh: [116, 120], el: [142, 98], wr: [136, 58], tips: [[110, 38], [162, 30], [188, 58], [188, 92], [170, 118]], root: [136, 150], w: 2.1 },
+      wing: { sh: [120, 122], el: [152, 104], wr: [142, 62], tips: [[116, 40], [168, 30], [194, 58], [196, 92], [178, 120]], root: [140, 150], w: 1.8 },
       farWing: { dx: -6, dy: -2, s: 0.7, mirror: true },
       horn: 0.5, spines: 4.5,
     };
@@ -275,4 +280,91 @@ export const drakomet: Species = (c) => {
   s += limb(c, 'drakomet-0-lp', [[88, 142, 4], [78, 136, 3.2], [72, 134, 2.8]], pal.body, false);
   s += sparkle(40, 80, 3, pal.glow, false) + sparkle(182, 70, 2.4, '#FFF6D8', false) + speckles(c, 112, 112, 60, 20, 5, pal.glow);
   return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${s}</g>`;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Décor : cratère d'impact fumant (éclosion), champ d'astéroïdes au-dessus d'une planète (perchoir), pic rocheux
+// au-dessus d'une mer de nuages traversée de comètes (rugissement).
+
+/** Astéroïde irrégulier, ombré à droite, cratères au trait. */
+function asteroid(c: DrawCtx, x: number, y: number, r: number, fill: string, det: number): string {
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, rr = r * (0.78 + c.r() * 0.3); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.86]); }
+  const d = spl([...pts, pts[0], pts[1]]) + ' Z';
+  let o = `<path d="${d}" fill="${fill}" stroke="#140F24" stroke-width="${f(0.4 + det * 0.8)}" opacity="${f(0.55 + det * 0.45)}"/>`;
+  if (det > 0) {
+    o += `<path d="M${f(x - r * 0.1)} ${f(y - r)} A${f(r)} ${f(r * 0.9)} 0 0 1 ${f(x - r * 0.1)} ${f(y + r * 0.9)} A${f(r * 0.7)} ${f(r * 0.86)} 0 0 0 ${f(x - r * 0.1)} ${f(y - r)} Z" fill="#000" opacity="0.3"/>`;
+    for (let i = 0; i < 3; i++) { const cx = x + (c.r() - 0.6) * r, cy = y + (c.r() - 0.5) * r * 0.8, cr = r * (0.1 + c.r() * 0.14); o += `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(cr)}" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.6"/>`; }
+  }
+  return o;
+}
+
+drakomet.scene = (c: DrawCtx, b: Bounds) => {
+  const st = Math.min(c.stage, 2);
+  const id = `drakomet-${st}-bg`;
+  const h = c.hue;
+  const W = b.x1 - b.x0;
+  let o = '';
+  if (st === 0) {
+    // Cratère d'impact encore fumant, la nuit ; braises et éclats de l'œuf-météorite.
+    o += skyGrad(`${id}-s`, b, [[0, '#0E0C22'], [0.5, '#2A1A2E'], [0.7, '#4A2A2A']]);
+    o += stars(c, b, 40, 110);
+    o += `<path d="M150 10 L210 -10" stroke="#FFE6B0" stroke-width="1.2" opacity="0.8"/><path d="M120 22 L150 10" stroke="#FFE6B0" stroke-width="0.5" opacity="0.4"/>`;
+    // Fumée qui monte du cratère.
+    for (let i = 0; i < 6; i++) o += `<ellipse cx="${f(80 + c.r() * 70)}" cy="${f(40 + i * 14)}" rx="${f(26 + c.r() * 20)}" ry="${f(10 + c.r() * 6)}" fill="#6A5470" opacity="${f(0.12 + i * 0.03)}" filter="url(#soft)"/>`;
+    // Collines lointaines, puis lèvre du cratère.
+    o += `<path d="M${b.x0} 136 C40 124 70 132 100 126 C140 118 180 130 ${b.x1} 122 L${b.x1} 160 L${b.x0} 160 Z" fill="#3A2A3C"/>`;
+    o += `<path d="M${b.x0} 150 C30 136 70 140 111 142 C150 144 190 136 ${b.x1} 146 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#4A3436" stroke="#140F24" stroke-width="0.8"/>`;
+    o += `<path d="M${b.x0} 150 C30 136 70 140 111 142 C150 144 190 136 ${b.x1} 146 L${b.x1} 160 L${b.x0} 162 Z" fill="${hsl(20, 80, 60)}" opacity="0.3"/>`;
+    // Cuvette du cratère (plus sombre au fond), lueur chaude sous l'œuf.
+    o += `<ellipse cx="111" cy="196" rx="112" ry="34" fill="#2A1E26" stroke="#140F24" stroke-width="0.8"/><ellipse cx="111" cy="196" rx="112" ry="34" fill="url(#xhatch)" opacity="0.35"/>`;
+    o += `<ellipse cx="111" cy="198" rx="70" ry="16" fill="${hsl(25, 90, 60)}" opacity="0.4" filter="url(#soft)"/>`;
+    // Fissures incandescentes et braises.
+    o += `<path d="M20 206 l18 -4 l10 6 l14 -2 M170 214 l14 -6 l12 4 l10 -6 M60 226 l12 -4 l10 2" fill="none" stroke="${hsl(30, 95, 65)}" stroke-width="1.2" opacity="0.85"/>`;
+    for (let i = 0; i < 14; i++) o += `<circle cx="${f(20 + c.r() * 180)}" cy="${f(60 + c.r() * 130)}" r="${f(0.6 + c.r() * 0.9)}" fill="${hsl(30, 95, 70)}" opacity="${f(0.5 + c.r() * 0.5)}"/>`;
+    o += asteroid(c, 22, 222, 9, '#4A3A40', 1) + asteroid(c, 196, 228, 12, '#4A3A40', 1) + asteroid(c, 186, 150, 4, '#4A3A40', 0.6);
+  } else if (st === 1) {
+    // Champ d'astéroïdes au-dessus d'une planète : la jeune wyverne guette sur son rocher.
+    o += skyGrad(`${id}-s`, b, [[0, '#08081C'], [1, '#141634']]);
+    o += `<ellipse cx="160" cy="60" rx="90" ry="40" fill="${hsl(h + 200, 60, 50)}" opacity="0.3" filter="url(#soft)"/><ellipse cx="60" cy="40" rx="60" ry="24" fill="${hsl(h + 140, 60, 56)}" opacity="0.2" filter="url(#soft)"/>`;
+    o += stars(c, b, 80, b.y1);
+    // Planète en bas à gauche, limbe éclairé.
+    o += `<circle cx="-20" cy="290" r="130" fill="${hsl(h + 180, 50, 60)}" opacity="0.25" filter="url(#soft)"/>`;
+    o += `<circle cx="-20" cy="290" r="118" fill="${hsl(h + 180, 34, 34)}"/><circle cx="-20" cy="290" r="118" fill="url(#fine)" opacity="0.4"/>`;
+    for (const k of [0, 14, 30]) o += `<path d="M${-138 + k} ${290 - k * 0.2} A118 118 0 0 1 ${98 - k * 0.2} ${290 - k * 0.2}" fill="none" stroke="${hsl(h + 170, 40, 60)}" stroke-width="3" opacity="0.25" transform="translate(0 ${k * 1.6})"/>`;
+    o += `<path d="M-138 290 A118 118 0 0 1 98 290" fill="none" stroke="${hsl(h + 170, 80, 80)}" stroke-width="2" opacity="0.8"/>`;
+    // Astéroïdes à plusieurs distances.
+    for (let i = 0; i < 9; i++) o += asteroid(c, b.x0 + c.r() * W, 10 + c.r() * 150, 2 + c.r() * 4, '#5A5A7A', 0);
+    o += asteroid(c, 30, 70, 12, '#4A4A66', 0.6) + asteroid(c, 196, 190, 16, '#3E3E58', 1) + asteroid(c, 186, 26, 8, '#4A4A66', 0.6);
+  } else {
+    // Pic rocheux au-dessus d'une mer de nuages, à la lisière de l'aube ; des comètes traversent le ciel.
+    o += skyGrad(`${id}-s`, b, [[0, '#0E0E2C'], [0.45, hsl(h + 220, 40, 30)], [0.75, hsl(h + 330, 50, 56)], [0.85, '#F2C79A']]);
+    o += stars(c, b, 50, 120);
+    for (const [x, y, l] of [[190, 20, 60], [60, 60, 40], [150, 90, 30]] as const) {
+      o += `<path d="${tube([[x, y, 1.6], [x + l * 0.5, y - l * 0.3, 1], [x + l, y - l * 0.6, 0.1]])}" fill="#FFF6D8" opacity="0.7"/><circle cx="${x}" cy="${y}" r="2" fill="#FFF6D8"/><circle cx="${x}" cy="${y}" r="5" fill="${hsl(h + 180, 80, 80)}" opacity="0.4" filter="url(#glow)"/>`;
+    }
+    // Pics lointains et mer de nuages.
+    o += `<path d="M${b.x0} 170 L20 140 L36 158 L58 120 L80 160 L${b.x1 - 50} 164 L${b.x1 - 30} 130 L${b.x1} 150 L${b.x1} 180 L${b.x0} 180 Z" fill="${hsl(h + 260, 25, 40)}" opacity="0.8"/>`;
+    const cloud = (y: number, col: string, op: number) => {
+      let d = `M${b.x0 - 10} ${b.y1} L${b.x0 - 10} ${y}`;
+      let x = b.x0 - 10, yy = y;
+      while (x < b.x1 + 20) {
+        const r = 7 + c.r() * 12, ny = y + (c.r() - 0.5) * 8;
+        d += ` A${f(r)} ${f(r * 0.75)} 0 0 1 ${f(x + r * 2)} ${f(ny)}`;
+        x += r * 2; yy = ny;
+      }
+      void yy;
+      return `<path d="${d} L${b.x1 + 20} ${b.y1} Z" fill="${col}" opacity="${op}" stroke="#140F24" stroke-width="0.5"/>`;
+    };
+    o += cloud(172, '#C8A0B8', 0.7) + cloud(186, '#A07AA0', 0.9);
+    o += `<rect x="${b.x0}" y="160" width="${W}" height="20" fill="#F2C79A" opacity="0.3" filter="url(#soft)"/>`;
+    // Le pic sous le dragon.
+    const peak = `M${b.x0 - 6} ${b.y1} L18 222 L40 206 L70 202 L120 200 L170 203 L196 210 L214 224 L${b.x1 + 6} ${b.y1} Z`;
+    o += `<path d="${peak}" fill="#2C2638" stroke="#140F24" stroke-width="1.1"/><path d="${peak}" fill="url(#xhatch)" opacity="0.4"/>`;
+    o += `<path d="M40 206 L70 202 L120 200 L170 203 L196 210" fill="none" stroke="${hsl(h + 330, 70, 75)}" stroke-width="1.6" opacity="0.85"/>`;
+    o += `<path d="M60 214 l10 10 M120 206 l-6 14 M160 210 l8 12" stroke="#140F24" stroke-width="0.7" opacity="0.6"/>`;
+    o += `<ellipse cx="30" cy="232" rx="60" ry="10" fill="#C8A0B8" opacity="0.45" filter="url(#soft)"/><ellipse cx="200" cy="234" rx="50" ry="9" fill="#C8A0B8" opacity="0.45" filter="url(#soft)"/>`;
+  }
+  if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
+  return o;
 };

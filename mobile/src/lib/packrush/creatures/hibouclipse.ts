@@ -205,7 +205,7 @@ hibouclipse.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, hue } = c;
   const id = `hibouclipse-${stage}-bg`;
   const W = b.x1 - b.x0, H = b.y1 - b.y0;
-  const sh = hue + 200;
+  const sh = 215 + ((((hue * 1.7) % 70) + 70) % 70);
   const skyTop = [hsl(sh, 40, 10), hsl(sh - 30, 45, 30), hsl(sh, 45, 12), hsl(sh + 20, 50, 8)][stage] ?? hsl(sh, 45, 12);
   const skyBot = [hsl(sh + 20, 40, 6), hsl(sh + 40, 55, 46), hsl(sh + 10, 40, 24), hsl(sh - 20, 50, 20)][stage] ?? hsl(sh, 40, 20);
   let s = `<defs><linearGradient id="${id}-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${skyTop}"/><stop offset="1" stop-color="${skyBot}"/></linearGradient></defs>`;
