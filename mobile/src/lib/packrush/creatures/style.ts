@@ -169,6 +169,6 @@ export const STYLE_DEFS = `
   <filter id="soft" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>
   <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="8"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
-  <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#1A1230" stroke-width="1" opacity="0.45"/></pattern>
-  <pattern id="fine" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><line x1="0" y1="0" x2="0" y2="3" stroke="#140F24" stroke-width="0.6" opacity="0.55"/></pattern>
-  <pattern id="xhatch" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><path d="M0 0 V3.4 M0 0 H3.4" stroke="#140F24" stroke-width="0.55" opacity="0.6"/></pattern>`;
+  <pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="5" stroke="#1A1230" stroke-width="1" opacity="0.13"/></pattern>
+  <pattern id="fine" width="3" height="3" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><line x1="0" y1="0" x2="0" y2="3" stroke="#140F24" stroke-width="0.6" opacity="0.14"/></pattern>
+  <pattern id="xhatch" width="3.4" height="3.4" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><path d="M0 0 V3.4 M0 0 H3.4" stroke="#140F24" stroke-width="0.55" opacity="0.16"/></pattern>`;

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from './ui';
 import { PR_RARITIES, RARITY_STYLE, cardImage, type PrRarity } from '../lib/packrush/art';
+import { PR_DESCRIPTIONS } from '../lib/packrush/descriptions';
 import { FX, PACK_H, PACK_TEAR_Y, PACK_W, cardBack, fragmentIcon, packFoil, packRushMark } from '../lib/packrush/brand';
 import type { PrCard, PrOpening } from '../lib/packrush/api';
 import { useStore } from '../lib/store';
@@ -11,6 +12,22 @@ import type { TKey } from '../lib/i18n';
 const FRAGMENT = fragmentIcon();
 const MARK = packRushMark();
 const BACK = cardBack();
+
+/** Texte d'ambiance d'une carte dans la langue de l'appli (sinon anglais). */
+export function cardDescription(id: string, lang: string): string | undefined {
+  const d = PR_DESCRIPTIONS[id];
+  return d?.[lang] ?? d?.en;
+}
+
+/** Image d'une carte avec son niveau d'évolution (« Niv. 2 », Légende, Mythe) et son texte, dans la langue de l'appli. */
+export function useCardArt() {
+  const { t, appLang } = useStore();
+  return (card: PrCard, total: number, owned = true) => {
+    const stage = card.art?.stage ?? 0;
+    const level = stage >= 4 ? t(card.rarity === 'SSR' ? 'pr.myth' : 'pr.legend') : t('pr.level', { n: stage + 1 });
+    return cardImage(card, total, owned, { level, desc: cardDescription(card.id, appLang) });
+  };
+}
 
 /** Icône de Fragment (étoile de cristal). */
 export function FragmentIcon({ size = 16 }: { size?: number }) {
@@ -63,6 +80,7 @@ const NO_TOUCH_SCROLL = { touchAction: 'none' } as object;
  */
 export function Opening({ result, byId, total, setId, title, onClose }: { result: PrOpening; byId: Map<string, PrCard>; total: number; setId: string; title: string; onClose(): void }) {
   const { t } = useStore();
+  const art = useCardArt();
   const { width, height } = useWindowDimensions();
   const packW = Math.min(width * 0.62, 250, (height - 220) * PACK_W / PACK_H);
   const k = packW / PACK_W;
@@ -235,7 +253,7 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
                   ...(ssr ? [{ rotate: burst.interpolate({ inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 1], outputRange: ['0deg', '-3deg', '3deg', '-3deg', '3deg', '0deg', '0deg'] }) }, { scale: burst.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1.06, 1] }) }] : []),
                 ],
               }}>
-                <Image source={hidden || !curCard ? BACK : cardImage(curCard, total)} style={{ width: cardW, height: cardW * 1.4, borderRadius: 12 }} contentFit="contain" />
+                <Image source={hidden || !curCard ? BACK : art(curCard, total)} style={{ width: cardW, height: cardW * 1.4, borderRadius: 12 }} contentFit="contain" />
               </Animated.View>
             </Animated.View>
             {ssr && (
@@ -255,7 +273,7 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
                 const c = byId.get(p.id);
                 return c ? (
                   <View key={p.i} style={{ alignItems: 'center', gap: 4 }}>
-                    <Image source={cardImage(c, total)} style={{ width: 96, height: 134 }} contentFit="contain" />
+                    <Image source={art(c, total)} style={{ width: 96, height: 134 }} contentFit="contain" />
                     <PullTag pull={p} small />
                   </View>
                 ) : null;
