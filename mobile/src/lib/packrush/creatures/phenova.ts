@@ -1,4 +1,4 @@
-import { constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
  * Phenova → Pyrastrel → Supernovis : oiseau de supernova. Planche d'ornithologie céleste : rapace à crête de
@@ -75,7 +75,7 @@ function scallops(seg: [[number, number], [number, number]], n: number, size: nu
 }
 
 /** Tête de rapace de profil (bec à gauche). Repère : bec ≈ (76, 68), nuque ≈ (118, 66). */
-function head(c: DrawCtx, id: string, crest: number, young = 0): string {
+function head(c: DrawCtx, id: string, crest: number, young = 0, open = false): string {
   const { pal } = c;
   let s = '';
   // Crête : plumes fines terminées par une petite étoile.
@@ -97,7 +97,11 @@ function head(c: DrawCtx, id: string, crest: number, young = 0): string {
   // Bec crochu : cire puis mandibule supérieure en crochet.
   const bk = young ? 0.7 : 1;
   s += ink(`M90 ${f(57)} C${f(90 - 8 * bk)} ${f(56)} ${f(90 - 14 * bk)} ${f(60)} ${f(90 - 15 * bk)} ${f(68)} C${f(90 - 13 * bk)} ${f(66)} ${f(90 - 10 * bk)} 65 ${f(90 - 6 * bk)} 66 L91 66 Z`, pal.gold, 1.3);
-  s += ink(`M${f(90 - 6 * bk)} 66 C${f(90 - 4 * bk)} 69 ${f(90 - 1 * bk)} 70 92 69 L91 66 Z`, pal.light, 1);
+  if (open) {
+    s += `<path d="M91 65 L${f(90 - 12 * bk)} 67 L${f(90 - 11 * bk)} 76 L92 70Z" fill="${pal.deep}"/>`;
+    s += ink(`M91 68 L${f(90 - 11 * bk)} 75 C${f(90 - 9 * bk)} 78 ${f(90 - 3 * bk)} 76 93 71 Z`, pal.light, 1);
+    s += line(`M${f(90 - 4 * bk)} 69 q2 2 6 0`, 0.8, pal.accent);
+  } else s += ink(`M${f(90 - 6 * bk)} 66 C${f(90 - 4 * bk)} 69 ${f(90 - 1 * bk)} 70 92 69 L91 66 Z`, pal.light, 1);
   s += `<path d="M${f(90 - 2 * bk)} 58 C88 60 88 63 91 64" fill="none" stroke="#140F24" stroke-width="0.7"/>`;
   s += `<circle cx="${f(88 - 3 * bk)}" cy="60" r="0.9" fill="#140F24"/>`;
   s += ink('M89 55 C92 54 95 55 96 58 C94 60 91 61 89 60 Z', pal.gold, 0.8);
@@ -222,7 +226,7 @@ function perched(c: DrawCtx, id: string): string {
     + shadow(cr([[130, 130], [160, 140], [150, 156], [126, 146]], true), pal.deep, 0.5, 'fine'));
   s += rim('M108 100 C122 96 140 104 150 116', pal.glow, 1.2);
   s += ink(cr([[96, 92], [94, 76], [104, 64], [118, 66], [124, 84], [118, 96]], true), pal.body, 1.5);
-  s += `<g transform="translate(2 14)">${head(c, id, 0.55)}</g>`;
+  s += `<g transform="translate(2 14) rotate(-10 112 68)">${head(c, id, 0.55, 0, true)}</g>`;
   return s;
 }
 
@@ -260,6 +264,16 @@ function chick(c: DrawCtx, id: string): string {
     hp.push([109 + Math.cos(a) * 17 * r, 65 + Math.sin(a) * 16.5 * r]);
   }
   s += `<g transform="${T}">${ink(cr(hp, true), pal.light, 1.3)}${head(c, id, 0.15, 1)}</g>`;
+  // Coquille brisée : coupe d'où sort le poussin, et calotte tombée dans le nid.
+  const egg = '#EFE4CC';
+  const cup = cr([[74, 160, 1], [82, 152, 1], [88, 162, 1], [98, 154, 1], [106, 164, 1], [116, 156, 1], [126, 165, 1], [136, 155, 1], [144, 163, 1], [152, 156, 1], [154, 176], [142, 196], [112, 204], [84, 198], [72, 180]], true);
+  s += ink(cup, egg, 1.5) + clip(`${id}-eg`, cup, shadow(cr([[120, 150], [160, 160], [156, 206], [110, 206], [140, 180]], true), pal.shade, 0.55, 'fine')
+    + `<ellipse cx="96" cy="176" rx="10" ry="14" fill="#FFFFFF" opacity="0.35"/>`
+    + Array.from({ length: 14 }, () => `<circle cx="${f(76 + c.r() * 76)}" cy="${f(162 + c.r() * 38)}" r="${f(0.6 + c.r() * 1.1)}" fill="${pal.deep}" opacity="0.6"/>`).join('')
+    + gild('M104 164 L110 176 L106 186 L114 198', 0.9) + gild('M138 160 L134 172 L140 182', 0.8));
+  s += `<path d="M74 160 L82 152 L88 162 L98 154 L106 164 L116 156 L126 165 L136 155 L144 163 L152 156" fill="none" stroke="${pal.glow}" stroke-width="1.2" opacity="0.8" filter="url(#glow)"/>`;
+  const capD = cr([[156, 178, 1], [160, 166], [172, 160], [184, 166], [188, 178, 1], [182, 174, 1], [176, 180, 1], [170, 174, 1], [164, 181, 1]], true);
+  s += ink(capD, egg, 1.3) + clip(`${id}-cap`, capD, shadow('M150 172 L192 172 L192 186 L150 186Z', pal.shade, 0.5, 'fine'));
   // Nid : bord avant (brindilles gravées, braises).
   const front = cr([[36, 178], [74, 186], [112, 188], [150, 186], [190, 176], [182, 196], [150, 210], [112, 214], [72, 210], [44, 196]], true);
   let tw = '';
@@ -282,4 +296,98 @@ export const phenova: Species = (c) => {
   if (c.stage === 0) return `<g transform="translate(111 206) scale(1.1) translate(-112 -206)">${chick(c, id)}</g>`;
   if (c.stage === 1) return `<g transform="translate(111 186) scale(1.16) translate(-116 -186)">${perched(c, id)}</g>`;
   return `<g transform="translate(111 112) scale(0.97) translate(-111 -110)">${adult(c, id)}</g>`;
+};
+
+/* ---------- Décors : hautes terres volcaniques et ciel stellaire ---------- */
+
+const grad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+
+function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, op = 0.85): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (ymax - b.y0), r = 0.3 + c.r() * c.r() * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="#FFF6D8" opacity="${f(op * (0.4 + c.r() * 0.6))}"/>`;
+  }
+  return s;
+}
+
+function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, fill: string, extra = ''): string {
+  const q: Pt[] = [];
+  for (let i = 0; i <= n; i++) q.push([b.x0 - 10 + ((b.x1 - b.x0 + 20) * i) / n, y - c.r() * amp, i % 2]);
+  return `<path d="${cr(q)} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z" fill="${fill}"${extra}/>`;
+}
+
+/** Braises qui montent (petits points lumineux). */
+function embers(c: DrawCtx, b: Bounds, n: number, col: string, y0: number): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (y0 - b.y0);
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(0.5 + c.r() * 1.2)}" fill="${col}" opacity="${f(0.4 + c.r() * 0.5)}"/>`;
+  }
+  return s;
+}
+
+/** Panache de fumée : bouffées superposées, hachures fines. */
+function smoke(x: number, y: number, h: number, col: string): string {
+  let s = '';
+  for (let k = 0; k < 6; k++) {
+    const t = k / 5, cx = x + Math.sin(t * 3) * h * 0.18 + t * h * 0.25, cy = y - t * h, r = 6 + t * h * 0.16;
+    s += `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(r * 1.3)}" fill="${col}" opacity="${f(0.55 - t * 0.3)}" filter="url(#soft)"/>`
+      + `<path d="M${f(cx - r)} ${f(cy + r * 0.2)} A${f(r)} ${f(r)} 0 0 1 ${f(cx + r * 0.6)} ${f(cy - r * 0.8)}" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="${f(0.35 - t * 0.2)}"/>`;
+  }
+  return s;
+}
+
+phenova.scene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, pal } = c;
+  const id = `phenova-${stage}-bg`;
+  const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
+  const V = 270 + (c.hue - 20) * 0.1;
+  let s = '';
+  if (stage === 0) {
+    // Corniche au crépuscule, volcan lointain qui fume, coulées de lave.
+    s += `<defs>${grad(`${id}-sky`, [[0, hsl(V, 45, 12)], [0.55, hsl(V + 40, 35, 30)], [0.85, hsl(20, 60, 50)], [1, hsl(35, 70, 62)]])}</defs>`;
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 40, 90, 0.7);
+    s += smoke(150, 96, 90, hsl(V + 30, 15, 38));
+    s += `<path d="M96 160 L136 104 L146 98 L158 100 L168 106 L214 160Z" fill="${hsl(V + 20, 22, 30)}" stroke="#140F24" stroke-width="0.7"/>`;
+    s += `<path d="M146 100 C143 116 147 128 140 160 M158 102 C163 120 155 140 162 160" fill="none" stroke="#FFB070" stroke-width="2" opacity="0.9" filter="url(#glow)"/>`;
+    s += `<ellipse cx="152" cy="100" rx="14" ry="5" fill="#FFC27A" opacity="0.8" filter="url(#glow)"/>`;
+    s += ridge(c, b, 162, 14, 8, hsl(V + 20, 20, 24));
+    s += embers(c, b, 30, '#FFC27A', 170);
+    // Paroi rocheuse du nid (avant-plan).
+    const cliff = cr([[b.x0 - 10, 176], [20, 172], [60, 180], [110, 190], [170, 182], [b.x1 + 10, 170]]) + ` L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
+    s += `<path d="${cliff}" fill="${hsl(V, 22, 18)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += clip(`${id}-cl`, cliff, `<path d="${cliff}" fill="url(#xhatch)" opacity="0.5"/>` + line('M20 190 l14 20 l-4 20 M180 192 l-10 24 l8 16 M90 210 l18 14', 0.8, '#140F24'));
+    s += rim(cr([[b.x0 - 10, 176], [20, 172], [60, 180], [110, 190], [170, 182], [b.x1 + 10, 170]]), '#FFB070', 1.1);
+    return s;
+  }
+  if (stage === 1) {
+    // Nuit au bord d'une caldeira : deux lunes, lueur de lave, colonnes de fumée.
+    s += `<defs>${grad(`${id}-sky`, [[0, hsl(V - 20, 50, 7)], [0.7, hsl(V, 35, 18)], [1, hsl(15, 55, 34)]])}</defs>`;
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 60, 140);
+    s += `<circle cx="44" cy="44" r="13" fill="#E9DFC6" stroke="#140F24" stroke-width="0.7"/><circle cx="49" cy="40" r="13" fill="${hsl(V - 20, 45, 9)}"/>`;
+    s += `<circle cx="70" cy="30" r="5" fill="#E9DFC6" opacity="0.8"/>`;
+    s += smoke(30, 170, 110, hsl(V, 15, 26)) + smoke(196, 176, 120, hsl(V, 15, 24));
+    s += ridge(c, b, 168, 22, 7, hsl(V, 25, 16));
+    s += `<ellipse cx="111" cy="${b.y1}" rx="${W * 0.7}" ry="46" fill="#FF8A3C" opacity="0.55" filter="url(#soft)"/>`;
+    const fl = `M${b.x0 - 10} 206 C40 200 90 210 140 204 C180 200 210 206 ${b.x1 + 10} 202 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
+    s += `<path d="${fl}" fill="${hsl(V, 20, 12)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += clip(`${id}-fl`, fl, `<path d="M10 216 L40 222 L70 214 L110 226 L150 216 L196 224" fill="none" stroke="#FFB070" stroke-width="1.6" filter="url(#glow)"/>`);
+    s += embers(c, b, 40, '#FFC27A', 230);
+    return s;
+  }
+  // Très haut au-dessus d'une planète : limbe lumineux, bandes de nuages, nébuleuse.
+  s += `<defs>${grad(`${id}-sky`, [[0, hsl(V - 30, 55, 6)], [1, hsl(V, 40, 16)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>`;
+  s += `<ellipse cx="40" cy="60" rx="80" ry="40" fill="${pal.accent2}" opacity="0.18" filter="url(#soft)"/><ellipse cx="190" cy="40" rx="60" ry="30" fill="${pal.accent}" opacity="0.15" filter="url(#soft)"/>`;
+  s += stars(c, b, 90, b.y1 - 40);
+  const R = 300, cx = 111, cy = 196 + R;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R + 6}" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
+  s += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="${hsl(V + 160, 22, 22)}" stroke="#140F24" stroke-width="0.8"/>`;
+  let bands = '';
+  for (let i = 0; i < 7; i++) bands += `<ellipse cx="${cx + (c.r() - 0.5) * 40}" cy="${f(cy - R + 12 + i * 11)}" rx="${R}" ry="${f(4 + c.r() * 4)}" fill="${i % 2 ? hsl(V + 170, 22, 38) : hsl(V + 150, 22, 18)}" opacity="0.6"/>`;
+  s += clip(`${id}-pl`, `M${cx - R} ${cy} a${R} ${R} 0 1 0 ${2 * R} 0 a${R} ${R} 0 1 0 ${-2 * R} 0`, bands + `<rect x="${b.x0}" y="${cy - R}" width="${W}" height="80" fill="url(#fine)" opacity="0.6"/>`);
+  s += rim(`M${b.x0} ${f(cy - Math.sqrt(R * R - (b.x0 - cx) ** 2))} A${R} ${R} 0 0 1 ${b.x1} ${f(cy - Math.sqrt(R * R - (b.x1 - cx) ** 2))}`, '#FFF6D8', 1.2);
+  return s;
 };

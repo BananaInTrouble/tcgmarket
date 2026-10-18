@@ -1,5 +1,5 @@
-import { constellation, eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
-import { along, band, f, frames, P, tube, type Pt } from './legendkit.ts';
+import { constellation, eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { along, band, f, frames, grad, P, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Koiluna : deux carpes koï célestes, l'une d'ivoire, l'autre d'encre et d'or, qui tournent sans fin autour d'une
@@ -141,5 +141,49 @@ export const koiluna: Species = (c) => {
   // Bulles d'étoiles et constellation.
   s += constellation([[22, 30], [34, 22], [46, 28]], pal.gold) + constellation([[176, 200], [190, 192], [202, 200]], pal.gold);
   for (const [x, y, z] of [[196, 30, 3.4], [24, 196, 3], [111, 18, 2.2], [111, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
+  return s;
+};
+
+/**
+ * Décor : un bassin céleste vu d'en haut, la nuit. Eau d'encre où se reflètent les étoiles, ondes concentriques,
+ * nénuphars et lotus d'or aux coins, alevins-étoiles, et quelques pétales qui dérivent.
+ */
+koiluna.scene = (c: DrawCtx, b: Bounds) => {
+  const { pal } = c;
+  const id = `koiluna-${c.stage}-bg`;
+  const wh = c.hue * 0.3 + 215 * 0.7;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs><radialGradient id="${id}-w" cx="0.5" cy="0.47" r="0.62">`
+    + `<stop offset="0" stop-color="${hsl(wh, 40, 30)}"/><stop offset="0.55" stop-color="${hsl(wh + 10, 45, 15)}"/><stop offset="1" stop-color="${hsl(wh + 20, 45, 7)}"/></radialGradient></defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-w)"/>`;
+  // Reflets d'étoiles (petits traits tremblés horizontaux) et voie lactée reflétée.
+  s += `<path d="M${b.x0} 40 C60 60 160 150 ${b.x1} 200" fill="none" stroke="${pal.accent2}" stroke-width="40" opacity="0.08" filter="url(#soft)"/>`;
+  for (let i = 0; i < 44; i++) {
+    const x = b.x0 + c.r() * W, y = b.y0 + c.r() * H, l = 1 + c.r() * 3;
+    s += `<path d="M${f(x - l)} ${f(y)} h${f(l * 2)}" stroke="#FFF6D8" stroke-width="${f(0.4 + c.r() * 0.6)}" stroke-linecap="round" opacity="${f(0.25 + c.r() * 0.45)}"/>`;
+  }
+  // Ondes concentriques autour de la ronde des carpes.
+  for (const r of [92, 104, 118]) s += `<circle cx="111" cy="112" r="${r}" fill="none" stroke="${pal.light}" stroke-width="0.5" opacity="${f(0.35 - (r - 92) * 0.008)}"/>`;
+  // Nénuphars (feuilles fendues, nervures) et lotus.
+  const pad = (x: number, y: number, r: number, rot: number) => {
+    let o = `<g transform="translate(${x} ${y}) rotate(${rot})">`;
+    o += `<path d="M0 0 L${f(r * 0.96)} ${f(-r * 0.26)} A${r} ${r * 0.82} 0 1 1 ${f(r * 0.96)} ${f(r * 0.26)} Z" fill="${hsl(150 * 0.75 + wh * 0.25, 26, 26)}" stroke="#140F24" stroke-width="0.7"/>`;
+    o += `<path d="M0 0 L${f(r * 0.96)} ${f(-r * 0.26)} A${r} ${r * 0.82} 0 0 0 ${f(-r)} 0 Z" fill="url(#fine)" opacity="0.5"/>`;
+    for (let k = 0; k < 7; k++) { const a = 0.5 + k * 0.78; o += `<path d="M0 0 L${f(Math.cos(a) * r * 0.85)} ${f(Math.sin(a) * r * 0.7)}" stroke="${pal.light}" stroke-width="0.4" opacity="0.35"/>`; }
+    return o + `</g>`;
+  };
+  const lotus = (x: number, y: number, k: number) => {
+    let o = `<g transform="translate(${x} ${y}) scale(${k})">`;
+    for (let i = 0; i < 8; i++) o += `<path d="M0 0 C-3 -5 -2 -11 0 -13 C2 -11 3 -5 0 0 Z" fill="${i % 2 ? '#F6E8D4' : pal.light}" stroke="#140F24" stroke-width="0.5" transform="rotate(${i * 45})"/>`;
+    for (let i = 0; i < 8; i++) o += `<path d="M0 0 C-2 -3 -1.4 -7 0 -8 C1.4 -7 2 -3 0 0 Z" fill="#FFF6D8" stroke="#140F24" stroke-width="0.4" transform="rotate(${i * 45 + 22})"/>`;
+    o += `<circle r="2.4" fill="${pal.gold}" stroke="#140F24" stroke-width="0.4"/><circle r="9" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
+    return o + `</g>`;
+  };
+  s += pad(b.x0 + 16, b.y0 + 22, 28, 30) + pad(b.x0 + 52, b.y0 + 8, 15, 200) + lotus(b.x0 + 24, b.y0 + 34, 1.1);
+  s += pad(b.x1 - 16, b.y1 - 22, 30, 210) + pad(b.x1 - 54, b.y1 - 8, 16, 20) + pad(b.x1 - 8, b.y1 - 62, 12, 140) + lotus(b.x1 - 26, b.y1 - 34, 1.2);
+  s += pad(b.x1 - 8, b.y0 + 34, 16, 160) + pad(b.x0 + 8, b.y1 - 40, 18, -20) + lotus(b.x0 + 12, b.y1 - 46, 0.7);
+  // Alevins-étoiles et pétales qui dérivent.
+  for (const [x, y, a] of [[190, 70, 120], [198, 80, 130], [184, 84, 110], [30, 150, -60], [24, 140, -50]] as const) s += starfish(x, y, 0.55, a, hsl(wh, 30, 66), pal.glow);
+  for (const [x, y, a] of [[60, 210, 30], [150, 20, -20], [206, 150, 70]] as const) s += `<path d="M0 0 C-2 -3 -1 -7 0 -8 C1 -7 2 -3 0 0 Z" fill="#F6E8D4" stroke="#140F24" stroke-width="0.4" transform="translate(${x} ${y}) rotate(${a})"/>`;
   return s;
 };

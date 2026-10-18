@@ -1,5 +1,5 @@
-import { constellation, eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
-import { band, f, spline, tube, type Pt } from './legendkit.ts';
+import { constellation, eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, grad, spline, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Nébularaie : raie manta géante vue de dessus, en virage lent. Ses nageoires pectorales sont des fenêtres sur une
@@ -109,4 +109,71 @@ export const nebularaie: Species = (c) => {
   // Étoiles détachées dans le sillage.
   for (const [x, y, z] of [[30, 150, 3], [196, 150, 2.6], [150, 196, 2.2], [52, 46, 2.6]] as const) s += sparkle(x, y, z, pal.glow, false);
   return `<g transform="translate(111 116) rotate(-6) scale(1 1.04) translate(-111 -116)">${s}</g>`;
+};
+
+/**
+ * Décor : océan cosmique vu entre deux eaux. Surface ondoyante et rais de lumière en haut, étoiles en suspension,
+ * banc de poissons-étoiles, petites méduses, et tout en bas un fond de sable gravé planté d'algues lumineuses.
+ */
+nebularaie.scene = (c: DrawCtx, b: Bounds) => {
+  const { pal } = c;
+  const id = `nebularaie-${c.stage}-bg`;
+  const oh = c.hue * 0.2 + 205 * 0.8;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs>${grad(`${id}-sea`, [[0, hsl(oh - 10, 45, 34)], [0.35, hsl(oh, 50, 20)], [0.75, hsl(oh + 15, 50, 11)], [1, hsl(oh + 25, 45, 7)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-sea)"/>`;
+  // Nébuleuses diffuses dans l'eau.
+  s += `<ellipse cx="40" cy="70" rx="60" ry="30" fill="${pal.accent}" opacity="0.14" filter="url(#soft)"/>`;
+  s += `<ellipse cx="190" cy="150" rx="50" ry="26" fill="${pal.accent2}" opacity="0.14" filter="url(#soft)"/>`;
+  // Rais de lumière depuis la surface.
+  for (const [x, w, sk] of [[30, 16, 30], [78, 10, 18], [140, 20, 8], [196, 12, -10]] as const) {
+    s += `<path d="M${x} ${b.y0} L${x + w} ${b.y0} L${x + w + sk + 30} ${b.y0 + H * 0.8} L${x + sk - 10} ${b.y0 + H * 0.8} Z" fill="#FFF6D8" opacity="0.06"/>`;
+  }
+  // Surface : ondulations gravées.
+  const sy = b.y0 + 16;
+  s += `<path d="M${b.x0} ${b.y0} H${b.x1} V${sy} ${Array.from({ length: 12 }, (_, i) => `Q${f(b.x1 - (i + 0.5) * W / 12)} ${sy + (i % 2 ? 5 : -3)} ${f(b.x1 - (i + 1) * W / 12)} ${sy}`).join(' ')} Z" fill="${hsl(oh - 15, 40, 46)}" opacity="0.55"/>`;
+  for (let k = 0; k < 3; k++) {
+    const y = sy + 6 + k * 7;
+    s += `<path d="M${b.x0} ${y} ${Array.from({ length: 9 }, (_, i) => `q${f(W / 18)} ${k % 2 ? 3 : -3} ${f(W / 9)} 0`).join(' ')}" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="${0.3 - k * 0.08}"/>`;
+  }
+  // Étoiles en suspension et bulles.
+  for (let i = 0; i < 40; i++) {
+    s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(sy + c.r() * (200 - sy))}" r="${f(0.3 + c.r() * 0.9)}" fill="#FFF6D8" opacity="${f(0.3 + c.r() * 0.5)}"/>`;
+  }
+  for (const [x, y, r] of [[18, 150, 2.2], [22, 138, 1.4], [16, 128, 1], [204, 70, 1.8], [208, 60, 1.2]] as const) {
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="0.6"/>`;
+  }
+  // Petites méduses lointaines.
+  for (const [x, y, k] of [[196, 40, 1], [178, 58, 0.7], [26, 186, 0.8]] as const) {
+    s += `<g transform="translate(${x} ${y}) scale(${k})" opacity="0.75"><path d="M-7 0 C-7 -8 7 -8 7 0 C4 1.5 -4 1.5 -7 0 Z" fill="${pal.accent2}" opacity="0.5" stroke="#FFF6D8" stroke-width="0.5"/>`
+      + `<path d="M-4 1 q-1 5 1 10 M0 1.5 q1 6 -1 12 M4 1 q1 5 -1 10" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="0.7"/></g>`;
+  }
+  // Banc de poissons-étoiles (courbe fluide, en arrière-plan puis plus près).
+  for (let i = 0; i < 14; i++) {
+    const t = i / 13;
+    const x = 8 + t * 70 + Math.sin(t * 9) * 4, y = 46 + Math.sin(t * Math.PI) * -18 + t * 10 + (i % 3) * 5;
+    s += starfish(x, y, 0.55 + (i % 3) * 0.08, -8 + Math.cos(t * 3) * 10, hsl(oh - 10, 40, 62), pal.glow);
+  }
+  for (let i = 0; i < 7; i++) {
+    const t = i / 6;
+    s += starfish(150 + t * 60, 188 - t * 14 + (i % 2) * 6, 0.7, 196, hsl(oh - 10, 40, 66), pal.glow);
+  }
+  // Fond : sable gravé, ombre portée de la raie, algues et éventails de corail lumineux.
+  const fy = 206;
+  s += `<path d="M${b.x0} ${fy} C40 198 80 204 120 202 C160 200 190 196 ${b.x1} 204 V${b.y1} H${b.x0} Z" fill="${hsl(oh + 20, 30, 16)}"/>`;
+  s += `<path d="M${b.x0} ${fy} C40 198 80 204 120 202 C160 200 190 196 ${b.x1} 204 V${b.y1} H${b.x0} Z" fill="url(#fine)" opacity="0.6"/>`;
+  s += `<ellipse cx="116" cy="214" rx="80" ry="7" fill="#000" opacity="0.3" filter="url(#soft)"/>`;
+  for (let k = 0; k < 4; k++) s += `<path d="M${b.x0} ${212 + k * 7} q30 -4 60 0 t60 0 t60 0 t60 0" fill="none" stroke="${pal.light}" stroke-width="0.4" opacity="0.25"/>`;
+  for (const [x, h, sw, col] of [[8, 70, 10, pal.accent], [20, 50, -6, pal.accent2], [36, 34, 8, pal.accent], [190, 60, -10, pal.accent2], [206, 84, 8, pal.accent], [216, 44, -4, pal.accent2]] as [number, number, number, string][]) {
+    const pts: Pt[] = [[x, fy + 4], [x + sw * 0.4, fy - h * 0.35], [x - sw * 0.3, fy - h * 0.7], [x + sw, fy - h]];
+    const path = spline(pts, 6);
+    s += `<path d="${tube(path, (u) => 2.4 * (1 - u) + 0.6)}" fill="${hsl(oh + 30, 35, 22)}" stroke="#140F24" stroke-width="0.6"/>`;
+    s += `<path d="M${path.map(([px, py]) => `${f(px)} ${f(py)}`).join(' L')}" fill="none" stroke="${col}" stroke-width="0.6" opacity="0.7"/>`;
+    for (let i = 3; i < path.length; i += 4) s += `<circle cx="${f(path[i][0])}" cy="${f(path[i][1])}" r="1" fill="${pal.glow}" opacity="0.8"/>`;
+  }
+  // Éventail de corail (gauche) et rochers.
+  s += `<path d="M56 206 C50 196 48 186 52 178 C56 186 58 192 60 198 C60 188 64 180 70 176 C70 186 66 196 64 206 Z" fill="${hsl(oh + 40, 30, 20)}" stroke="#140F24" stroke-width="0.6"/>`;
+  s += `<path d="M150 210 C152 202 162 198 172 200 C180 202 182 208 180 212 Z" fill="${hsl(oh + 20, 20, 12)}" stroke="#140F24" stroke-width="0.6"/>`;
+  s += `<path d="M150 210 C152 202 162 198 172 200 C180 202 182 208 180 212 Z" fill="url(#xhatch)"/>`;
+  return s;
 };

@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
+import { aura, constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -61,6 +61,32 @@ function at(fr: Fr, t: number, o = 0): P {
 }
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
+
+/* ---------- Décor : petits outils ---------- */
+const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
+/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
+const vgrad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
+function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+  }
+  return s;
+}
+/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
+function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
+  const pts: P[] = [];
+  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
+  const top = smooth(pts);
+  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
+    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
+}
+/** Halo flou (lumière d'ambiance). */
+const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
+  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
 
 /* ---------- Lièvre lunaire ---------- */
 const cl = (pts: P[]) => smooth(pts, true);
@@ -135,16 +161,6 @@ export const lapinova: Species = (c) => {
 
   if (st >= 2) {
     g += aura(120, 70, 80, pal.glow);
-    // Grand croissant de lune gravé, derrière.
-    // Pleine lune gravée derrière le lièvre (mers, cratères, terminateur hachuré).
-    const mx = 128, my = 100, mr = 72;
-    g += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${pal.belly}" opacity="0.5"/>`;
-    g += `<defs><clipPath id="${id}-m"><circle cx="${mx}" cy="${my}" r="${mr}"/></clipPath></defs><g clip-path="url(#${id}-m)">`;
-    for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) g += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${pal.shade}" opacity="0.35"/>`;
-    for (const [x, y, r] of [[176, 92, 5], [86, 104, 4], [138, 44, 3.5], [184, 132, 3]] as const) g += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.deep}" stroke-width="0.6" opacity="0.6"/>`;
-    g += shadow(`M${mx + 20} ${my - mr - 4} A${mr} ${mr} 0 0 1 ${mx + 20} ${my + mr + 4} L${mx + mr + 6} ${my + mr + 6} L${mx + mr + 6} ${my - mr - 6} Z`, pal.shade, 0.35, 'fine');
-    g += `</g><circle cx="${mx}" cy="${my}" r="${mr}" fill="none" stroke="#E9C25B" stroke-width="1.3"/>`;
-    g += `<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="none" stroke="#E9C25B" stroke-width="0.6" stroke-dasharray="1 4" opacity="0.8"/>`;
   }
   g += ground(124, 205, st === 0 ? 70 : 74);
 
@@ -210,7 +226,9 @@ export const lapinova: Species = (c) => {
   // Joue : ombre fine sous l'œil, arcade claire.
   g += shadow(`M${f(ex - 4)} ${f(ey + 12)} Q${f(ex + 10)} ${f(ey + 8)} ${f(ex + 26)} ${f(ey + 16)} L${f(ex + 30)} ${f(ey + 30)} L${f(ex - 4)} ${f(ey + 30)} Z`, pal.shade, 0.3, 'fine');
   g += `</g>`;
-  g += eyeA(ex, ey, 6, pal.eye, { angle: p.eyeAng, slit: false, open: 0.6 });
+  // Le levraut dort : paupière close, cils fins.
+  if (st === 0) g += line(`M${f(ex - 6)} ${f(ey)} Q${f(ex)} ${f(ey + 4)} ${f(ex + 6)} ${f(ey - 1)}`, 1.4) + line(`M${f(ex - 3)} ${f(ey + 2)} l-1 3 M${f(ex)} ${f(ey + 2.6)} l0 3 M${f(ex + 3)} ${f(ey + 2)} l1 3`, 0.6);
+  else g += eyeA(ex, ey, 6, pal.eye, { angle: p.eyeAng, slit: false, open: 0.6 });
   g += `<path d="M${f(ex - 9)} ${f(ey + 2)} Q${f(ex)} ${f(ey + 9)} ${f(ex + 9)} ${f(ey + 1)}" fill="none" stroke="${pal.light}" stroke-width="1" opacity="0.7"/>`;
   const [nx, ny] = p.nose;
   g += `<path d="M${f(nx)} ${f(ny - 2)} q3 -1 4 1.5 q-2 2 -4 1 Z" fill="#140F24"/>`;
@@ -237,3 +255,82 @@ export const lapinova: Species = (c) => {
   }
   return `<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${g}</g>`;
 };
+
+/* ---------- Décor : prairies lunaires (0 gîte d'herbes d'argent la nuit, 1 crête au crépuscule, 2 cercle de pierres sous la pleine lune) ---------- */
+function blade(x: number, y: number, h: number, bend: number, col: string, w = 1.6): string {
+  return `<path d="M${f(x - w)} ${f(y)} Q${f(x + bend * 0.4)} ${f(y - h * 0.6)} ${f(x + bend)} ${f(y - h)} Q${f(x + bend * 0.4 + w)} ${f(y - h * 0.55)} ${f(x + w)} ${f(y)} Z" fill="${col}"/>`;
+}
+function grassBand(c: DrawCtx, b: Bounds, y: number, n: number, h: number, col: string, ink2 = false): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 - 4 + c.r() * (b.x1 - b.x0 + 8), hh = h * (0.5 + c.r() * 0.7);
+    s += blade(x, y + c.r() * 6, hh, (c.r() - 0.4) * hh * 0.5, col, 1 + c.r());
+    if (ink2 && i % 3 === 0) s += line(`M${f(x)} ${f(y + 4)} q${f(2)} ${f(-hh * 0.5)} ${f(hh * 0.15)} ${f(-hh * 0.9)}`, 0.5, '#140F24', ' opacity="0.5"');
+  }
+  return s;
+}
+function moonFlower(x: number, y: number, h: number, glow: string): string {
+  return line(`M${x} ${y} q-2 ${-h * 0.6} ${2} ${-h}`, 0.8, '#140F24', ' opacity="0.7"')
+    + `<circle cx="${x + 2}" cy="${y - h}" r="6" fill="${glow}" opacity="0.35" filter="url(#soft)"/>`
+    + `<path d="M${x - 1} ${y - h} q3 -6 6 0 q-3 4 -6 0 Z" fill="${glow}" stroke="#140F24" stroke-width="0.5"/>`;
+}
+const lapinovaScene = (c: DrawCtx, b: Bounds): string => {
+  const { pal, stage, hue } = c;
+  const st = Math.min(stage, 2);
+  const id = `lapinova-${st}-bg`;
+  let s = '';
+  if (st === 0) {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 10, 40, 9)], [0.7, hsl(hue, 34, 20)], [1, hsl(hue - 10, 30, 24)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 80, 140);
+    // Fin croissant bas sur l'horizon.
+    s += glowAt(180, 60, 26, 26, '#FFF6D8', 0.35);
+    s += `<path d="M186 44 A18 18 0 1 0 192 76 A14 14 0 1 1 186 44 Z" fill="#FFF3D0" stroke="#140F24" stroke-width="0.6"/>`;
+    s += ridge(c, b, 140, 4, 6, hsl(hue + 10, 22, 22), 0.6);
+    s += grassBand(c, b, 150, 70, 30, hsl(hue + 20, 18, 30));
+    s += ridge(c, b, 178, 3, 5, hsl(hue + 10, 24, 18), 0.7);
+    s += grassBand(c, b, 186, 60, 46, hsl(hue + 30, 16, 38), true);
+    // Le gîte : creux d'herbe couchée.
+    s += `<ellipse cx="116" cy="206" rx="94" ry="18" fill="${hsl(hue + 20, 22, 16)}" stroke="#140F24" stroke-width="0.8"/>`;
+    for (let k = 0; k < 20; k++) { const a = Math.PI * (k / 19), x = 116 - Math.cos(a) * 92, y = 206 - Math.sin(a) * 12; s += blade(x, y + 6, 18 + c.r() * 10, -Math.cos(a) * 14, hsl(hue + 30, 18, 46)); }
+    for (const [x, y, h] of [[16, 196, 30], [204, 200, 36], [190, 208, 22], [30, 214, 20]] as const) s += moonFlower(x, y, h, pal.glow);
+    for (let k = 0; k < 9; k++) { const x = 20 + c.r() * 190, y = 90 + c.r() * 90; s += `<circle cx="${f(x)}" cy="${f(y)}" r="1.2" fill="${pal.glow}"/>` + glowAt(x, y, 4, 4, pal.glow, 0.5); }
+  } else if (st === 1) {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(232, 44, 14)], [0.45, hsl(262, 30, 30)], [0.62, hsl(hue + 330, 40, 52)], [0.7, hsl(hue + 340, 40, 60)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 60, 110);
+    s += `<path d="M40 30 A14 14 0 1 0 50 56 A11 11 0 1 1 40 30 Z" fill="#FFF3D0" stroke="#140F24" stroke-width="0.6"/>`;
+    // Vallée : collines successives (perspective atmosphérique).
+    s += ridge(c, b, 150, 6, 5, hsl(262, 18, 50), 0, ' opacity="0.8"');
+    s += glowAt(111, 150, 140, 10, '#FFF6D8', 0.3);
+    s += ridge(c, b, 162, 7, 6, hsl(250, 18, 40), 0.5);
+    s += ridge(c, b, 176, 6, 5, hsl(240, 20, 30), 0.6);
+    // Crête au premier plan.
+    s += `<path d="M${b.x0 - 4} 230 C20 210 60 200 120 199 C170 199 200 206 ${b.x1 + 4} 214 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z" fill="${hsl(hue + 100, 16, 20)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += grassBand(c, { ...b, x0: b.x0 }, 206, 50, 18, hsl(hue + 100, 18, 30), true);
+    s += `<path d="M184 208 C182 196 192 188 204 190 C214 192 218 202 214 210 Z" fill="${hsl(240, 10, 40)}" stroke="#140F24" stroke-width="0.8"/>` + shadow('M204 190 C214 192 218 202 214 210 L200 210 C206 204 206 196 204 190 Z', hsl(240, 30, 14), 0.6, 'fine');
+    for (const [x, y, h] of [[14, 214, 22], [34, 222, 16], [200, 224, 18]] as const) s += moonFlower(x, y, h, pal.glow);
+  } else {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 10, 44, 8)], [0.6, hsl(hue, 34, 18)], [1, hsl(hue - 10, 30, 22)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 90, 200);
+    // Pleine lune gravée (mers, cratères, terminateur hachuré), voilée de nuages.
+    const mx = 128, my = 100, mr = 72;
+    s += glowAt(mx, my, mr + 20, mr + 20, '#FFF6D8', 0.25);
+    s += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${hsl(hue + 40, 12, 80)}"/>`;
+    s += `<defs><clipPath id="${id}-m"><circle cx="${mx}" cy="${my}" r="${mr}"/></clipPath></defs><g clip-path="url(#${id}-m)">`;
+    for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${pal.shade}" opacity="0.35"/>`;
+    for (const [x, y, r] of [[176, 92, 5], [86, 104, 4], [138, 44, 3.5], [184, 132, 3]] as const) s += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.deep}" stroke-width="0.6" opacity="0.6"/>`;
+    s += shadow(`M${mx + 20} ${my - mr - 4} A${mr} ${mr} 0 0 1 ${mx + 20} ${my + mr + 4} L${mx + mr + 6} ${my + mr + 6} L${mx + mr + 6} ${my - mr - 6} Z`, pal.shade, 0.3, 'fine');
+    s += `</g><circle cx="${mx}" cy="${my}" r="${mr}" fill="none" stroke="#E9C25B" stroke-width="1.3"/>`;
+    s += `<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="none" stroke="#E9C25B" stroke-width="0.6" stroke-dasharray="1 4" opacity="0.8"/>`;
+    // Bandes de nuages.
+    for (const [y, x, w] of [[62, -10, 90], [136, 140, 100], [150, -20, 70]] as const) s += `<path d="M${x} ${y} q${w * 0.2} -8 ${w * 0.4} -2 q${w * 0.2} -10 ${w * 0.4} 0 q${w * 0.15} 2 ${w * 0.2} 6 Z" fill="${hsl(hue, 22, 30)}" stroke="#140F24" stroke-width="0.6" opacity="0.9"/>`;
+    // Cercle de pierres levées sur le sommet.
+    const stone = (x: number, w: number, h: number, col: string) => `<path d="M${x - w} 196 L${x - w * 0.8} ${196 - h} Q${x} ${190 - h - 6} ${x + w * 0.9} ${196 - h + 2} L${x + w} 196 Z" fill="${col}" stroke="#140F24" stroke-width="0.8"/>`
+      + shadow(`M${x + w * 0.2} ${190 - h} Q${x + w * 0.6} ${193 - h} ${x + w * 0.9} ${196 - h + 2} L${x + w} 196 L${x + w * 0.3} 196 Z`, hsl(hue, 40, 10), 0.7, 'fine');
+    s += stone(22, 10, 54, hsl(hue + 10, 12, 30)) + stone(52, 7, 34, hsl(hue + 10, 12, 26)) + stone(196, 11, 60, hsl(hue + 10, 12, 30)) + stone(176, 7, 30, hsl(hue + 10, 12, 26));
+    s += `<path d="M${b.x0 - 4} 214 C30 198 80 196 120 197 C170 197 200 200 ${b.x1 + 4} 208 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z" fill="${hsl(hue + 10, 18, 20)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += `<path d="M84 207 L92 198 L160 198 L168 207 Z" fill="${hsl(hue + 10, 12, 34)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += grassBand(c, b, 214, 30, 14, hsl(hue + 20, 16, 30), true);
+  }
+  return s;
+};
+lapinova.scene = lapinovaScene;

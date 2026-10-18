@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
+import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -62,6 +62,32 @@ function at(fr: Fr, t: number, o = 0): P {
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
 
+/* ---------- Décor : petits outils ---------- */
+const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
+/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
+const vgrad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
+function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+  }
+  return s;
+}
+/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
+function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
+  const pts: P[] = [];
+  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
+  const top = smooth(pts);
+  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
+    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
+}
+/** Halo flou (lumière d'ambiance). */
+const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
+  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
+
 /* ---------- Pièces ---------- */
 
 /** Prisme de cristal pointant vers +x. */
@@ -92,8 +118,8 @@ export const axolume: Species = (c) => {
   const nw = (t: number) => -W(t);
 
   let g = '';
-  if (st >= 2) g += aura(96, 112, 92, pal.glow);
-  g += ground(112, 204, 92);
+  if (st >= 2) g += aura(96, 112, 80, pal.accent2);
+  if (st > 0) g += ground(112, 204, 92);
 
   // ---- Nageoire (crête dorsale + ventrale de la queue), membrane translucide derrière le corps ----
   const finTop = tab([[0.22, 0], [0.3, st === 0 ? 7 : 3], [0.45, st === 0 ? 11 : 7], [0.62, 15], [0.8, 19], [0.94, 15], [1, 4]]);
@@ -230,5 +256,85 @@ export const axolume: Species = (c) => {
   // Bulles.
   for (const [x, y, r] of [[30, 104, 2.6], [22, 90, 1.7], [28, 78, 1.1]] as const) g += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.light}" stroke-width="0.7" opacity="0.8"/>`;
 
-  return `<g transform="translate(105 204) scale(${S}) translate(-111 -204)">${g}</g>`;
+  // 0 : la larve nage vers la surface ; 1 : le jeune, tête basse, guette sa proie ; 2 : l'adulte se dresse sur la corniche.
+  const pose = ['translate(-8 -30) rotate(12 111 150)', 'rotate(3 60 200)', ''][st];
+  return `<g transform="${pose}"><g transform="translate(105 204) scale(${S}) translate(-111 -204)">${g}</g></g>`;
 };
+
+/* ---------- Décor : étang de nébuleuse (0 herbier la nuit, 1 lit du lac à l'aube, 2 grotte de cristal) ---------- */
+function weed(c: DrawCtx, x: number, y0: number, h: number, sway: number, color: string, w = 2.4, bulbs = '', stroke = true): string {
+  const pts: P[] = [];
+  for (let k = 0; k <= 5; k++) pts.push([x + Math.sin(k * 0.9 + c.r()) * sway * (k / 5), y0 - (h * k) / 5]);
+  const fr = frame(pts, 5);
+  const d = outline(fr, tab([[0, w], [0.7, w * 0.8], [1, 0.4]]));
+  let s = `<path d="${d}" fill="${color}"${stroke ? ' stroke="#140F24" stroke-width="0.6"' : ''}/>`;
+  if (bulbs) for (const t of [0.35, 0.6, 0.85]) { const [bx, by] = at(fr, t, (t * 10) % 2 > 1 ? w * 1.6 : -w * 1.6); s += `<circle cx="${f(bx)}" cy="${f(by)}" r="1.6" fill="${bulbs}"/><circle cx="${f(bx)}" cy="${f(by)}" r="4" fill="${bulbs}" opacity="0.35" filter="url(#soft)"/>`; }
+  return s;
+}
+function crystalCluster(x: number, y: number, k: number, fillC: string, light: string, deep: string): string {
+  let s = `<ellipse cx="${x}" cy="${y - 10 * k}" rx="${22 * k}" ry="${26 * k}" fill="${light}" opacity="0.3" filter="url(#soft)"/>`;
+  for (const [a, L, w] of [[-28, 34, 6], [-8, 46, 7.5], [14, 30, 5.5], [34, 22, 4.5], [-46, 20, 4]] as const) {
+    const d = `M${-w} 0 L${-w} ${-L * 0.78} L0 ${-L} L${w} ${-L * 0.78} L${w} 0 Z`;
+    s += `<g transform="translate(${x} ${y}) rotate(${a}) scale(${k})"><path d="${d}" fill="${fillC}" stroke="#140F24" stroke-width="${0.8 / k}"/>`
+      + `<path d="M0 0 L0 ${-L} L${w} ${-L * 0.78} L${w} 0 Z" fill="${deep}" opacity="0.45"/><path d="M${-w * 0.5} ${-L * 0.2} L${-w * 0.5} ${-L * 0.7}" stroke="#fff" stroke-width="${0.8 / k}" opacity="0.7"/></g>`;
+  }
+  return s;
+}
+const axolumeScene = (c: DrawCtx, b: Bounds): string => {
+  const { pal, stage, hue } = c;
+  const st = Math.min(stage, 2);
+  const id = `axolume-${st}-bg`;
+  const W2 = b.x1 - b.x0;
+  let s = '';
+  if (st === 0) {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(hue + 10, 38, 30)], [0.45, hsl(hue + 20, 42, 16)], [1, hsl(hue + 30, 45, 7)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    // Surface et reflet de lune.
+    s += `<path d="M${b.x0} ${b.y0 + 16} Q${b.x0 + W2 * 0.25} ${b.y0 + 10} ${b.x0 + W2 * 0.5} ${b.y0 + 16} T${b.x1} ${b.y0 + 16} L${b.x1} ${b.y0} L${b.x0} ${b.y0} Z" fill="${hsl(hue, 30, 42)}" opacity="0.6"/>`;
+    s += glowAt(160, b.y0 + 12, 30, 10, '#FFF6D8', 0.55);
+    for (const [x, w2, o] of [[150, 46, 0.14], [178, 30, 0.1], [118, 24, 0.08]] as const) s += `<path d="M${x - 10} ${b.y0} L${x + 10} ${b.y0} L${x + w2} ${b.y1} L${x - w2} ${b.y1} Z" fill="${pal.glow}" opacity="${o}"/>`;
+    s += stars(c, b, 50, b.y1, pal.light);
+    // Herbier lointain (pâle, sans contour) puis proche (bulbes lumineux).
+    for (let k = 0; k < 9; k++) s += weed(c, b.x0 + 8 + k * 26 + c.r() * 10, b.y1 + 4, 90 + c.r() * 80, 10, hsl(hue + 30, 22, 30), 2.6, '', false);
+    s += ridge(c, b, 214, 4, 8, hsl(hue + 25, 30, 14), 0.8);
+    for (let k = 0; k < 14; k++) s += `<ellipse cx="${f(b.x0 + c.r() * W2)}" cy="${f(212 + c.r() * 20)}" rx="${f(3 + c.r() * 5)}" ry="${f(2 + c.r() * 2)}" fill="${hsl(hue + 20, 22, 26)}" stroke="#140F24" stroke-width="0.5"/>`;
+    for (const [x, h] of [[8, 150], [24, 110], [196, 170], [212, 120], [184, 90]] as const) s += weed(c, x, b.y1 + 4, h, 14, hsl(hue + 150, 28, 34), 3, pal.accent2);
+  } else if (st === 1) {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(hue + 50, 40, 40)], [0.5, hsl(hue + 30, 36, 22)], [1, hsl(hue + 20, 40, 10)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    s += glowAt(200, b.y0 + 10, 70, 40, '#FFE6A8', 0.5);
+    for (const [x, w2, o] of [[200, 70, 0.16], [160, 40, 0.1], [226, 50, 0.12]] as const) s += `<path d="M${x - 8} ${b.y0} L${x + 12} ${b.y0} L${x - 30 + w2} ${b.y1} L${x - 30 - w2} ${b.y1} Z" fill="#FFE6A8" opacity="${o}"/>`;
+    s += stars(c, b, 30, 180, '#FFF6D8');
+    // Roseaux lointains.
+    for (let k = 0; k < 14; k++) s += weed(c, b.x0 + c.r() * W2, 190, 70 + c.r() * 70, 6, hsl(hue + 40, 20, 34), 1.4, '', false);
+    // Rochers et lit de sable ridé.
+    s += `<path d="M-6 200 C-4 160 20 140 44 150 C58 156 62 178 60 200 Z" fill="${hsl(hue + 30, 18, 26)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += shadow('M44 150 C58 156 62 178 60 200 L40 200 C46 186 46 166 44 150 Z', hsl(hue + 30, 30, 14), 0.6, 'fine');
+    s += `<path d="M170 196 C172 170 196 156 222 162 L230 200 Z" fill="${hsl(hue + 30, 18, 24)}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += ridge(c, b, 198, 3, 6, hsl(hue + 45, 26, 34), 0.8);
+    for (let k = 0; k < 6; k++) s += line(`M${f(b.x0 + c.r() * W2)} ${f(206 + k * 5)} q12 -3 24 0 t24 0`, 0.6, '#140F24', ' opacity="0.35"');
+    // La proie : une crevette-étoile lumineuse devant le museau.
+    const sh = `<g transform="translate(18 112) rotate(-20) scale(1.6)">`
+      + glowAt(0, 0, 12, 8, pal.glow, 0.7)
+      + `<path d="M-7 0 C-4 -4 4 -4 7 -1 C4 3 -3 4 -7 0 Z" fill="${pal.glow}" stroke="#140F24" stroke-width="0.6"/>`
+      + `<path d="M7 -1 l5 -3 l-1 4 l4 2 l-5 1 Z" fill="${pal.glow}" stroke="#140F24" stroke-width="0.5"/>`
+      + `<path d="M-7 0 q-6 -8 -2 -14 M-6 1 q-9 -2 -10 -10" fill="none" stroke="${pal.glow}" stroke-width="0.6"/>`
+      + `<path d="M-3 2 l-1 3 M0 2 l0 3 M3 1 l1 3" stroke="#140F24" stroke-width="0.5"/></g>`;
+    s += sh;
+  } else {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(hue + 30, 40, 9)], [0.55, hsl(hue + 20, 38, 17)], [1, hsl(hue + 10, 40, 10)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    // Reflets de l'eau sur la voûte.
+    for (let k = 0; k < 10; k++) s += `<path d="M${f(b.x0 + c.r() * W2)} ${f(b.y0 + 20 + c.r() * 50)} q8 -3 16 0" fill="none" stroke="${pal.accent2}" stroke-width="0.8" opacity="0.35"/>`;
+    // Stalactites.
+    const tip = (x: number, w: number, h: number, col: string) => `<path d="M${x - w} ${b.y0 - 2} Q${x - w * 0.3} ${b.y0 + h * 0.6} ${x} ${b.y0 + h} Q${x + w * 0.3} ${b.y0 + h * 0.6} ${x + w} ${b.y0 - 2} Z" fill="${col}" stroke="#140F24" stroke-width="0.7"/>`;
+    for (let k = 0; k < 9; k++) s += tip(b.x0 + k * 27 + c.r() * 12, 8 + c.r() * 8, 18 + c.r() * 34, hsl(hue + 25, 22, 22));
+    // Cristaux lointains (atténués) puis proches.
+    s += `<g opacity="0.6">${crystalCluster(34, 186, 1.5, pal.accent2, pal.light, pal.deep)}${crystalCluster(150, 170, 1.1, pal.accent2, pal.light, pal.deep)}${crystalCluster(206, 180, 1.3, pal.accent2, pal.light, pal.deep)}</g>`;
+    s += glowAt(111, 120, 80, 60, pal.accent2, 0.25);
+    // Corniche de roche où se tient la créature, bassin lumineux.
+    s += `<path d="M${b.x0 - 4} 222 C10 204 40 198 111 199 C180 198 208 204 ${b.x1 + 4} 218 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z" fill="${hsl(hue + 20, 22, 20)}" stroke="#140F24" stroke-width="1"/>`;
+    s += shadow(`M${b.x0 - 4} 226 C30 212 80 214 111 214 C160 214 200 216 ${b.x1 + 4} 228 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z`, hsl(hue + 20, 40, 8), 0.7, 'xhatch');
+    s += `<path d="M30 201 C70 197 150 197 196 201" fill="none" stroke="${pal.accent2}" stroke-width="1" opacity="0.6"/>`;
+    s += crystalCluster(8, 226, 0.75, pal.accent2, pal.light, pal.deep) + crystalCluster(214, 230, 0.6, pal.accent2, pal.light, pal.deep);
+  }
+  return s;
+};
+axolume.scene = axolumeScene;

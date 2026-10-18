@@ -1,209 +1,267 @@
-import { aura, ground, ink, line, shadow, shine, sparkle, speckles, type Palette, type Species } from './style.ts';
+import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
- * Hibouclipse → Éclipsule → Grand-Umbrel → Umbrelion : chouette aux yeux d'éclipse. Boule de plumes, jeune chouette,
- * grand duc constellé aux aigrettes en croissant, puis éveillé ailes déployées devant un halo d'éclipse.
+ * Hibouclipse → Éclipsule → Grand-Umbrel → Umbrelion : grand-duc des éclipses. Planche d'ornithologie céleste :
+ * poussin en duvet tapi au creux d'un vieil arbre, jeune « branchu » curieux sur sa branche, adulte dressé sur une
+ * colonne en ruine sous la lune, éveillé ailes déployées devant une éclipse totale.
  */
 
 const f = (v: number) => v.toFixed(1);
+const CX = 111;
+const mirror = (s: string) => s + `<g transform="matrix(-1 0 0 1 ${CX * 2} 0)">${s}</g>`;
+const glowDot = (x: number, y: number, r: number, col: string) => [1, 0.7, 0.45, 0.25].map((k) => `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r / k * 0.5)}" fill="${col}" opacity="${(0.22 * k).toFixed(2)}"/>`).join('');
 
-function fluff(cx: number, cy: number, rx: number, ry: number, n: number, amp: number, a0 = -Math.PI / 2): string {
+/** Ellipse au bord en mèches de duvet (pointes régulières). */
+function fluff(cx: number, cy: number, rx: number, ry: number, n: number, amp: number, a0 = 0): string {
   let d = '';
   for (let i = 0; i <= n; i++) {
-    const a = a0 + (i / n) * Math.PI * 2;
+    const a = a0 + (i / n) * Math.PI * 2, am = a - Math.PI / n;
     const x = cx + Math.cos(a) * rx, y = cy + Math.sin(a) * ry;
-    if (i === 0) { d += `M${f(x)} ${f(y)}`; continue; }
-    const am = a - Math.PI / n;
-    d += ` Q${f(cx + Math.cos(am) * rx * (1 + amp))} ${f(cy + Math.sin(am) * ry * (1 + amp))} ${f(x)} ${f(y)}`;
+    const k = 1 + amp * (i % 2 ? 1 : 0.7);
+    if (i === 0) d += `M${f(x)} ${f(y)}`;
+    else d += ` Q${f(cx + Math.cos(am - 0.05) * rx * k)} ${f(cy + Math.sin(am - 0.05) * ry * k)} ${f(x)} ${f(y)}`;
   }
-  return d + 'Z';
+  return d + ' Z';
 }
 
-/** Œil d'éclipse : couronne lumineuse que masque un disque sombre décalé. */
-function eclipseEye(x: number, y: number, r: number, pal: Palette, look = 0): string {
-  const ix = x + look * r * 0.15;
-  return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="#FFF6D8" stroke="#1A1230" stroke-width="2.2"/>`
-    + `<circle cx="${f(ix)}" cy="${f(y)}" r="${f(r * 0.76)}" fill="${pal.glow}" stroke="${pal.eye}" stroke-width="${f(r * 0.12)}"/>`
-    + `<circle cx="${f(ix + r * 0.12)}" cy="${f(y + r * 0.06)}" r="${f(r * 0.58)}" fill="#1A1230"/>`
-    + `<circle cx="${f(ix - r * 0.18)}" cy="${f(y - r * 0.3)}" r="${f(r * 0.17)}" fill="#fff"/>`
-    + `<circle cx="${f(ix + r * 0.3)}" cy="${f(y + r * 0.28)}" r="${f(r * 0.08)}" fill="#fff"/>`;
-}
-
-const crescent = (x: number, y: number, r: number, fill: string, w = 1.2) =>
-  ink(`M${f(x - r * 0.8)} ${f(y - r * 0.1)} a${f(r)} ${f(r)} 0 1 0 ${f(r * 1.6)} 0 a${f(r * 0.82)} ${f(r * 0.82)} 0 1 1 ${f(-r * 1.6)} 0 Z`, fill, w);
-
-/** Rangées de petites écailles de plumes. */
-function scallops(x0: number, y0: number, cols: number, rows: number, w: number, h: number): string {
+/** Rangées d'écailles de plumes (petits arcs) dans une zone, à découper par un clipPath. */
+function scales(x0: number, y0: number, x1: number, y1: number, w: number, h: number, col: string, op = 0.6): string {
   let d = '';
-  for (let j = 0; j < rows; j++) {
-    const off = j % 2 ? w / 2 : 0;
-    for (let i = 0; i < cols - (j % 2); i++) d += `M${f(x0 + off + i * w)} ${f(y0 + j * h)} q${f(w / 2)} ${f(h * 0.9)} ${f(w)} 0 `;
+  for (let y = y0, row = 0; y < y1; y += h, row++) {
+    for (let x = x0 + (row % 2 ? w / 2 : 0); x < x1; x += w) d += `M${f(x)} ${f(y)} q${f(w / 2)} ${f(h * 0.9)} ${f(w)} 0 `;
   }
-  return line(d, 1.3, '#1A1230', ' opacity="0.7"');
+  return `<path d="${d}" fill="none" stroke="${col}" stroke-width="0.6" opacity="${op}"/>`;
 }
 
-/** Chevrons du plastron. */
-function chevrons(cx: number, y0: number, rows: number, w: number, h: number, shrink = 0.12): string {
-  let d = '';
-  for (let j = 0; j < rows; j++) {
-    const ww = w * (1 - Math.abs(j - rows / 2) * shrink);
-    for (let i = -1; i <= 1; i++) {
-      const x = cx + i * ww * 0.9 + (j % 2 ? ww * 0.45 : 0) * (i === 1 ? -1 : 1) * 0;
-      d += `M${f(x - ww * 0.3)} ${f(y0 + j * h)} l${f(ww * 0.3)} ${f(h * 0.45)} l${f(ww * 0.3)} ${f(-h * 0.45)} `;
-    }
-  }
-  return line(d, 1.4, '#1A1230', ' opacity="0.65"');
-}
-
-/** Serres. */
-function talons(cx: number, y: number, size: number, pal: Palette): string {
+/** Poitrine : barres ondulées fines + stries verticales (motif de grand-duc). */
+function barring(c: DrawCtx, x0: number, y0: number, x1: number, y1: number): string {
   let s = '';
-  for (const dir of [-1, 1]) {
-    const x = cx + dir * size * 1.4;
-    s += ink(`M${f(x - size)} ${f(y - size * 0.6)} q${f(size * 0.2)} ${f(size * 0.9)} ${f(size * 0.5)} ${f(size * 0.7)} q${f(size * 0.25)} ${f(size * 0.35)} ${f(size * 0.5)} 0 q${f(size * 0.25)} ${f(size * 0.35)} ${f(size * 0.5)} 0 q${f(size * 0.4)} ${f(size * 0.2)} ${f(size * 0.5)} ${f(-size * 0.7)} Z`, pal.glow, 1.8);
+  for (let y = y0; y < y1; y += 5) s += `M${f(x0)} ${f(y)} ${Array.from({ length: Math.ceil((x1 - x0) / 6) }, (_, k) => `q3 ${k % 2 ? 1.6 : -1.6} 6 0`).join(' ')} `;
+  let st = '';
+  for (let i = 0; i < 16; i++) {
+    const x = x0 + 4 + c.r() * (x1 - x0 - 8), y = y0 + c.r() * (y1 - y0 - 12);
+    st += `M${f(x)} ${f(y)} q${f((c.r() - 0.5) * 2)} 5 0 ${f(7 + c.r() * 5)} `;
   }
+  return `<path d="${s}" fill="none" stroke="#140F24" stroke-width="0.55" opacity="0.5"/><path d="${st}" fill="none" stroke="#140F24" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/>`;
+}
+
+/** Œil d'éclipse : œil en amande, pupille ronde ceinte d'une couronne d'or. */
+function owlEye(c: DrawCtx, x: number, y: number, w: number, open: number, glow: boolean): string {
+  return (glow ? glowDot(x, y, w * 1.4, c.pal.eye) : '')
+    + eyeA(x, y, w, c.pal.eye, { angle: 6, slit: false, open })
+    + `<circle cx="${f(x + w * 0.05)}" cy="${f(y - w * open * 0.1)}" r="${f(w * open * 0.66)}" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="0.8"/>`;
+}
+
+/** Moitié gauche de la tête (miroir ensuite) : disque facial, aigrette, sourcil clair, œil. */
+function headHalf(c: DrawCtx, o: { tuft: number; open: number; glow: boolean; down: boolean }): string {
+  const { pal } = c;
+  let s = '';
+  // Aigrette (plumes de « corne »).
+  if (o.tuft > 0) {
+    const t = o.tuft;
+    const tip = [62 - t * 0.3, 40 - t];
+    s += ink(`M80 48 C78 ${f(40 - t * 0.5)} ${f(70 - t * 0.3)} ${f(36 - t * 0.9)} ${f(tip[0])} ${f(tip[1])} C76 ${f(36 - t * 0.7)} 92 ${f(36 - t * 0.4)} 100 44 Z`, pal.shade, 1.3);
+    for (let k = 0; k < 4; k++) s += line(`M${f(84 + k * 4)} 44 Q${f(76 + k * 2)} ${f(34 - t * 0.5)} ${f(tip[0] + 2 + k * 2)} ${f(tip[1] + 3 + k * 2)}`, 0.6, k % 2 ? pal.deep : pal.light, ' opacity="0.8"');
+  }
+  // Disque facial.
+  s += ink('M111 50 C100 46 84 48 78 58 C72 70 76 86 90 92 C98 95 106 92 111 88 Z', pal.light, 1.1);
+  s += line('M90 54 C82 60 80 72 84 82 M94 52 C86 60 86 74 90 84', 0.5, pal.shade, ' opacity="0.6"');
+  s += line('M111 50 C100 46 84 48 78 58 C72 70 76 86 90 92', 1.8, pal.deep);
+  // Sourcil clair en V.
+  s += ink('M111 60 C104 52 94 50 84 50 C94 46 106 48 112 54 Z', pal.belly, 0.8);
+  s += owlEye(c, 95, 68, 8.5, o.open, o.glow);
+  if (o.down) s += line('M80 86 l-4 3 M86 92 l-3 4 M94 94 l-2 4', 0.8, pal.belly);
   return s;
 }
 
-export const hibouclipse: Species = (c) => {
+/** Tête complète (centrée en x = 111, y ≈ 66), avec bec. */
+function owlHead(c: DrawCtx, o: { tuft: number; open: number; glow: boolean; down: boolean }): string {
   const { pal } = c;
-  const stage = Math.min(3, c.stage);
-  const cx = 111, gy = 206;
-  let s = '';
+  const outer = o.down ? fluff(CX, 68, 42, 36, 30, 0.07, -Math.PI / 2) : 'M111 32 C136 32 156 44 156 66 C156 88 138 104 111 104 C84 104 66 88 66 66 C66 44 86 32 111 32 Z';
+  let s = ink(outer, pal.body, 1.8);
+  s += `<clipPath id="hibouclipse-${c.stage}-hd"><path d="${outer}"/></clipPath><g clip-path="url(#hibouclipse-${c.stage}-hd)">`
+    + scales(64, 34, 160, 52, 6, 4, pal.deep, 0.5)
+    + shadow('M130 30 C150 36 162 54 160 74 C158 94 140 108 111 108 L111 104 C138 100 152 84 150 64 C148 48 140 38 130 30 Z', pal.shade, 0.8, 'fine')
+    + `</g>`;
+  s += mirror(headHalf(c, o));
+  // Bec crochu et soies.
+  s += ink('M111 70 C106 74 106 84 111 92 C116 84 116 74 111 70 Z', pal.deep, 1.2);
+  s += line('M109.5 74 C108.5 80 109 86 111 90', 0.7, pal.light, ' opacity="0.8"');
+  s += line('M104 74 l-6 -2 M104 78 l-7 0 M118 74 l6 -2 M118 78 l7 0', 0.6, pal.belly);
+  s += rim('M70 58 C74 44 90 34 111 32', pal.glow, 1.2);
+  return s;
+}
 
-  if (stage === 0) {
-    const by = 138;
-    s += ground(cx, gy + 2, 60);
-    // Petites aigrettes.
-    for (const dir of [-1, 1]) s += ink(`M${cx + dir * 22} ${by - 56} Q${cx + dir * 34} ${by - 80} ${cx + dir * 46} ${by - 82} Q${cx + dir * 44} ${by - 62} ${cx + dir * 40} ${by - 50} Z`, pal.shade, 2);
-    s += talons(cx, gy - 4, 9, pal);
-    s += ink(fluff(cx, by, 66, 62, 20, 0.08), pal.body, 2.8);
-    s += shadow(`M${cx + 30} ${by - 52} C${cx + 70} ${by - 30} ${cx + 72} ${by + 30} ${cx + 30} ${by + 58} C${cx + 52} ${by + 26} ${cx + 52} ${by - 24} ${cx + 30} ${by - 52} Z`, pal.shade, 0.55);
-    // Ailerons.
-    for (const dir of [-1, 1]) {
-      s += ink(`M${cx + dir * 54} ${by - 6} C${cx + dir * 80} ${by + 2} ${cx + dir * 80} ${by + 34} ${cx + dir * 58} ${by + 42} C${cx + dir * 52} ${by + 26} ${cx + dir * 50} ${by + 8} ${cx + dir * 54} ${by - 6} Z`, pal.shade, 2);
-      s += line(`M${cx + dir * 62} ${by + 10} q${dir * 6} 6 ${dir * 8} 14 M${cx + dir * 58} ${by + 18} q${dir * 4} 6 ${dir * 5} 14`, 1.2, '#1A1230', ' opacity="0.6"');
+/** Corps de profil frontal, ailes repliées, pattes emplumées sur un perchoir (y ≈ 198). */
+function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean }): string {
+  const { pal, stage } = c;
+  const id = `hibouclipse-${stage}`;
+  let s = '';
+  // Queue (derrière).
+  s += ink('M100 196 C99 206 100 216 104 224 L111 226 L118 224 C122 216 123 206 122 196 Z', pal.shade, 1.3) + line('M101 204 h20 M102 212 h18 M104 220 h14', 0.8, pal.light, ' opacity="0.6"');
+  // Corps.
+  const body = o.down ? fluff(CX, 150, 50, 58, 34, 0.05) : 'M74 92 C56 112 56 150 64 176 C72 196 90 206 111 208 C132 206 150 196 158 176 C166 150 166 112 148 92 Z';
+  s += ink(body, pal.body, 1.8);
+  s += ink('M90 100 C80 128 84 170 98 198 L124 198 C138 170 142 128 132 100 Z', pal.belly, 1);
+  s += `<clipPath id="${id}-br"><path d="M90 100 C80 128 84 170 98 198 L124 198 C138 170 142 128 132 100 Z"/></clipPath><g clip-path="url(#${id}-br)">${barring(c, 80, 104, 142, 198)}`
+    + shadow('M124 100 C136 128 136 170 124 198 L140 198 L140 100 Z', pal.shade, 0.6, 'fine') + `</g>`;
+  if (o.down) s += `<path d="${fluff(CX, 150, 26, 40, 24, 0.08)}" fill="${pal.belly}" opacity="0.75"/>`;
+  // Ailes repliées (gauche puis miroir).
+  const wing = 'M76 96 C58 114 54 156 62 186 C66 202 76 214 86 222 C84 200 84 168 90 140 C93 120 90 104 76 96 Z';
+  let w = ink(wing, pal.body, 1.6);
+  w += `<clipPath id="${id}-w"><path d="${wing}"/></clipPath><g clip-path="url(#${id}-w)">`
+    + scales(52, 98, 96, 150, 7, 5, '#140F24', 0.55)
+    + Array.from({ length: 10 }, (_, i) => `<circle cx="${f(60 + (i * 7) % 28)}" cy="${f(110 + i * 4.4)}" r="1.4" fill="${pal.belly}" opacity="0.8"/>`).join('')
+    // Rémiges : longues plumes aux barres claires.
+    + [0, 1, 2, 3].map((k) => ink(`M${64 + k * 6} 146 C${62 + k * 6} 176 ${70 + k * 5} 204 ${84 + k * 2} 224 C${78 + k * 5} 200 ${72 + k * 6} 172 ${72 + k * 6} 146 Z`, k % 2 ? pal.shade : pal.body, 0.8)).join('')
+    + line('M62 162 l10 2 M62 176 l12 2 M66 190 l12 3 M72 204 l10 3', 0.9, pal.light, ' opacity="0.6"')
+    + shadow('M54 150 C58 180 70 206 86 222 L90 222 C78 200 70 176 70 150 Z', pal.deep, 0.35, 'fine')
+    + `</g>` + ink(wing, 'none', 1.6);
+  if (o.gold) w += gild('M66 120 C62 140 62 166 68 188', 1);
+  w += rim('M74 98 C58 116 54 154 62 184', pal.glow, 1.1);
+  s += w + `<g transform="matrix(-1 0 0 1 ${CX * 2} 0)">${w.replace(/hibouclipse-(\d)-w/g, 'hibouclipse-$1-wr').replace(new RegExp(pal.glow.replace(/[()]/g, '\\$&'), 'g'), pal.shade)}</g>`;
+  // Pattes emplumées et serres.
+  for (const x of [100, 122]) {
+    s += ink(`M${x - 8} 188 C${x - 9} 194 ${x - 8} 198 ${x - 6} 199 L${x + 6} 199 C${x + 8} 198 ${x + 9} 194 ${x + 8} 188 Z`, pal.belly, 1.1);
+    s += line(`M${x - 6} 192 l1 5 M${x - 2} 192 l0.5 6 M${x + 2} 192 l-0.5 6 M${x + 6} 192 l-1 5`, 0.6, pal.shade);
+    for (const dx of [-5, 0, 5]) s += `<path d="M${x + dx - 1.6} 198 C${x + dx - 2} 202 ${x + dx} 205 ${x + dx + 2.4} 205.5 C${x + dx + 1} 203 ${x + dx + 1} 200 ${x + dx + 1.6} 198 Z" fill="#140F24"/>`;
+  }
+  s += o.head;
+  return s;
+}
+
+/** Stade 3 : ailes déployées en héraldique (moitié gauche, puis miroir). */
+function spreadWing(c: DrawCtx): string {
+  const { pal } = c;
+  let s = '';
+  // Rémiges secondaires (pendantes) puis primaires (en éventail).
+  for (let k = 0; k < 7; k++) {
+    const bx = 98 - k * 9, by = 108 - k * 6, len = 64 - k * 3, a = (100 + k * 6) * Math.PI / 180;
+    const tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len;
+    s += ink(`M${f(bx - 7)} ${f(by)} Q${f(tx - 9)} ${f(ty - 14)} ${f(tx)} ${f(ty)} Q${f(tx + 9)} ${f(ty - 16)} ${f(bx + 7)} ${f(by)} Z`, k % 2 ? pal.shade : pal.body, 1);
+    s += line(`M${f(bx)} ${f(by + 6)} Q${f(tx - 2)} ${f(ty - 14)} ${f(tx)} ${f(ty - 2)}`, 0.5, pal.light, ' opacity="0.7"');
+  }
+  for (let k = 0; k < 10; k++) {
+    const bx = 40 - k * 1, by = 64 - k * 1.5, len = 66 - Math.abs(k - 4) * 4, a = (186 + k * 11) * Math.PI / 180;
+    const tx = bx + Math.cos(a) * len, ty = by + Math.sin(a) * len;
+    const nx = -Math.sin(a) * 7, ny = Math.cos(a) * 7;
+    s += ink(`M${f(bx + nx)} ${f(by + ny)} Q${f(tx + nx * 1.2)} ${f(ty + ny * 1.2)} ${f(tx)} ${f(ty)} Q${f(tx - nx * 0.6)} ${f(ty - ny * 0.6)} ${f(bx - nx)} ${f(by - ny)} Z`, k % 2 ? pal.body : pal.shade, 1);
+    s += line(`M${f(bx)} ${f(by)} L${f(tx - Math.cos(a) * 3)} ${f(ty - Math.sin(a) * 3)}`, 0.6, '#140F24', ' opacity="0.6"');
+    for (let j = 1; j < 4; j++) {
+      const px = bx + Math.cos(a) * len * j / 4, py = by + Math.sin(a) * len * j / 4;
+      s += line(`M${f(px + nx * 0.8)} ${f(py + ny * 0.8)} L${f(px - nx * 0.8)} ${f(py - ny * 0.8)}`, 0.8, pal.light, ' opacity="0.55"');
     }
-    s += ink(fluff(cx, by + 40, 30, 18, 10, 0.18), pal.light, 1.8);
-    s += chevrons(cx, by + 30, 2, 14, 10, 0);
-    // Disque facial en cœur.
-    s += ink(`M${cx} ${by - 30} C${cx - 14} ${by - 52} ${cx - 56} ${by - 46} ${cx - 54} ${by - 12} C${cx - 52} ${by + 18} ${cx - 16} ${by + 22} ${cx} ${by + 10} C${cx + 16} ${by + 22} ${cx + 52} ${by + 18} ${cx + 54} ${by - 12} C${cx + 56} ${by - 46} ${cx + 14} ${by - 52} ${cx} ${by - 30} Z`, pal.belly, 2);
-    s += eclipseEye(cx - 26, by - 14, 18, pal, 0.3) + eclipseEye(cx + 26, by - 14, 18, pal, 0.3);
-    s += ink(`M${cx - 6} ${by + 2} L${cx + 6} ${by + 2} L${cx} ${by + 14} Z`, pal.glow, 1.6);
-    s += `<ellipse cx="${cx - 44}" cy="${by + 12}" rx="6" ry="3.5" fill="${pal.accent}" opacity="0.6"/><ellipse cx="${cx + 44}" cy="${by + 12}" rx="6" ry="3.5" fill="${pal.accent}" opacity="0.6"/>`;
-    s += sparkle(cx, by - 44, 5, pal.glow);
-    s += shine(`M${cx - 50} ${by - 34} q8 -16 24 -22`, 2.4);
+  }
+  // Bras de l'aile et couvertures.
+  const arm = 'M100 96 C84 76 62 62 40 56 C30 56 24 64 30 72 C44 80 56 96 62 114 C72 116 86 116 100 112 Z';
+  s += ink(arm, pal.body, 1.6);
+  s += `<clipPath id="hibouclipse-3-a"><path d="${arm}"/></clipPath><g clip-path="url(#hibouclipse-3-a)">${scales(24, 58, 104, 118, 7, 5, '#140F24', 0.55)}`
+    + shadow('M30 72 C44 80 56 96 62 114 C72 116 86 116 100 112 L100 104 C86 108 72 106 64 100 C56 88 44 76 30 72 Z', pal.shade, 0.7, 'fine') + `</g>`;
+  s += gild('M98 98 C84 80 62 66 40 60', 1.3) + rim('M100 94 C84 74 62 60 40 54', pal.glow, 1.2);
+  s += constellation([[36, 110], [52, 124], [46, 146], [62, 158]], pal.gold);
+  return s;
+}
+
+export const hibouclipse: Species = (c: DrawCtx) => {
+  const { pal, stage } = c;
+  if (stage <= 0) {
+    // Poussin en duvet tapi au creux de l'arbre (le bord du creux passe devant).
+    let s = ink(fluff(CX, 160, 44, 46, 34, 0.07), pal.light, 1.6);
+    s += `<path d="${fluff(CX, 166, 26, 30, 22, 0.1)}" fill="${pal.belly}" opacity="0.9"/>` + shadow(fluff(CX + 22, 160, 22, 42, 20, 0.08), pal.shade, 0.55, 'fine');
+    s += line('M84 150 q-6 12 -2 24 M138 150 q6 12 2 24', 0.8, pal.shade);
+    const head = `<g transform="translate(111 96) rotate(-8) scale(0.92) translate(-111 -70)">${owlHead({ ...c, pal: { ...pal, body: pal.light } }, { tuft: 0, open: 0.32, glow: false, down: true })}</g>`;
+    s += head;
+    // Lèvre du creux, devant.
+    const bark = hsl(c.hue + 20, 22, 24);
+    s += ink('M24 236 L26 206 C40 188 76 180 111 182 C146 180 182 188 198 206 L200 236 Z', bark, 1.8);
+    s += line('M40 206 C70 194 100 192 120 194 M34 220 C70 210 140 208 190 216 M60 232 C90 224 130 224 170 230', 0.8, '#140F24', ' opacity="0.6"');
+    s += line('M70 192 c10 -4 20 -4 30 -2 M130 192 c10 0 20 2 28 6', 1.4, hsl(c.hue + 110, 35, 42));
+    s += rim('M42 195 C62 184 92 182 112 184', pal.glow, 1);
     return s;
   }
-
-  // Géométrie des stades 1–3.
-  const hy = [0, 94, 86, 86][stage], hrx = [0, 50, 54, 54][stage], hry = [0, 42, 42, 42][stage];
-  const by = [0, 160, 156, 156][stage], brx = [0, 56, 64, 60][stage], bry = [0, 48, 56, 56][stage];
-  if (stage >= 3) {
-    const ey = hy - 26;
-    s += aura(cx, ey, 96, pal.glow);
-    // Halo d'éclipse : rayons, couronne, disque sombre.
-    let rays = '';
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2, r0 = 64, r1 = 64 + (i % 2 ? 8 : 16);
-      rays += `M${f(cx + Math.cos(a) * r0)} ${f(ey + Math.sin(a) * r0)} L${f(cx + Math.cos(a) * r1)} ${f(ey + Math.sin(a) * r1)} `;
-    }
-    s += line(rays, 2.2, pal.glow, ' opacity="0.9"');
-    s += `<circle cx="${cx}" cy="${ey}" r="62" fill="${pal.glow}" stroke="#1A1230" stroke-width="2.2"/>`;
-    s += `<circle cx="${cx + 7}" cy="${ey + 4}" r="57" fill="#1A1230"/>`;
-    s += speckles(c, cx + 7, ey + 4, 50, 50, 22);
+  if (stage === 1) {
+    // Jeune « branchu » : encore du duvet, tête penchée vers une phalène.
+    const head = `<g transform="rotate(-16 111 100)">${owlHead(c, { tuft: 8, open: 0.62, glow: false, down: true })}</g>`;
+    return perched(c, { head, down: true, gold: false });
   }
-  s += ground(cx, gy + 4, [0, 62, 70, 84][stage]);
-
-  // Ailes déployées (éveillé).
-  if (stage >= 3) {
-    for (const dir of [-1, 1]) {
-      const X = (x: number) => f(cx + dir * x);
-      let d = `M${X(34)} 116 C${X(58)} 84 ${X(86)} 50 ${X(110)} 30`;
-      const tips: [number, number][] = [[108, 62], [104, 94], [94, 124], [80, 150], [64, 170], [46, 184]];
-      let px = 110, py = 30;
-      for (const [tx, ty] of tips) {
-        d += ` Q${X((px + tx) / 2 + 12)} ${f((py + ty) / 2 + 6)} ${X(tx)} ${ty}`;
-        d += ` L${X(tx - 6)} ${ty - 4}`;
-        px = tx - 6; py = ty - 4;
-      }
-      d += ` Q${X(36)} 186 ${X(30)} 170 Z`;
-      s += ink(d, pal.shade, 2.6);
-      s += `<g transform="translate(${X(34)} 120) scale(0.72) translate(${f(-(cx + dir * 34))} -120)">${ink(d, pal.body, 2)}</g>`;
-      s += `<g transform="translate(${X(34)} 120) scale(0.42) translate(${f(-(cx + dir * 34))} -120)">${ink(d, pal.light, 1.6)}</g>`;
-      // Rémiges.
-      s += line(tips.map(([tx, ty]) => `M${X(tx - 6)} ${ty - 4} L${X(34 + (tx - 34) * 0.6)} ${f(120 + (ty - 120) * 0.6)}`).join(' '), 1.3, '#1A1230', ' opacity="0.6"');
-      // Constellation sur l'aile.
-      const cs: [number, number][] = [[58, 90], [78, 70], [96, 50], [90, 96], [70, 130]];
-      s += line('M' + cs.map(([x, y]) => `${X(x)} ${y}`).join(' L'), 1.5, pal.glow, ' stroke-dasharray="4 3"');
-      cs.forEach(([x, y], i) => { s += i === 2 ? sparkle(cx + dir * x, y, 5, pal.glow) : `<circle cx="${X(x)}" cy="${y}" r="2.6" fill="#FFF6D8" stroke="#1A1230" stroke-width="1"/>`; });
-    }
+  if (stage === 2) {
+    const head = owlHead(c, { tuft: 22, open: 0.55, glow: false, down: false });
+    return perched(c, { head, down: false, gold: true })
+      + gild('M106 38 a6 6 0 1 0 10 0 a5 5 0 1 1 -10 0 Z', 1.1);
   }
+  // Stade 3 : éveillé, ailes levées.
+  let s = aura(CX, 100, 96, pal.glow);
+  s += mirror(spreadWing(c));
+  const head = owlHead(c, { tuft: 24, open: 0.6, glow: true, down: false });
+  s += `<g transform="translate(0 6)">${perched(c, { head, down: false, gold: true })}</g>`;
+  s += gild('M100 38 a12 12 0 1 0 22 0 a9 9 0 1 1 -22 0 Z', 1.3);
+  for (const [x, y, z] of [[30, 200, 3], [196, 200, 3], [111, 18, 4.5], [20, 30, 3], [204, 30, 3]] as const) s += sparkle(x, y, z, pal.gold, false);
+  return s;
+};
 
-  // Queue.
-  s += ink(`M${cx - 18} ${by + bry - 14} L${cx - 22} ${by + bry + 14} L${cx - 8} ${by + bry + 8} L${cx} ${by + bry + 18} L${cx + 8} ${by + bry + 8} L${cx + 22} ${by + bry + 14} L${cx + 18} ${by + bry - 14} Z`, pal.shade, 2);
-  // Corps.
-  s += ink(`M${cx - brx} ${by} C${cx - brx} ${by - bry * 1.1} ${cx + brx} ${by - bry * 1.1} ${cx + brx} ${by} C${cx + brx} ${by + bry * 0.75} ${cx + brx * 0.5} ${by + bry} ${cx} ${by + bry} C${cx - brx * 0.5} ${by + bry} ${cx - brx} ${by + bry * 0.75} ${cx - brx} ${by} Z`, pal.body, 2.6);
-  // Plastron.
-  s += ink(`M${cx - brx * 0.62} ${by - bry * 0.3} C${cx - brx * 0.74} ${by + bry * 0.5} ${cx - brx * 0.3} ${by + bry * 0.94} ${cx} ${by + bry * 0.94} C${cx + brx * 0.3} ${by + bry * 0.94} ${cx + brx * 0.74} ${by + bry * 0.5} ${cx + brx * 0.62} ${by - bry * 0.3} C${cx + brx * 0.4} ${by - bry * 0.8} ${cx - brx * 0.4} ${by - bry * 0.8} ${cx - brx * 0.62} ${by - bry * 0.3} Z`, pal.belly, 1.8);
-  if (stage === 1) s += chevrons(cx, by - bry * 0.1, 4, 14, 11);
-  else {
-    for (let j = 0; j < 4; j++) for (let i = -1; i <= 1; i++) {
-      const x = cx + i * 17 + (j % 2 ? 8.5 : 0), y = by - bry * 0.3 + j * 15;
-      if (j % 2 && i === 1) continue;
-      s += sparkle(x, y, j === 1 && i === 0 ? 5 : 3.4, (i + j) % 3 ? '#FFF6D8' : pal.glow);
+/* ---------- Décor : forêt des éclipses et ruines célestes ---------- */
+
+hibouclipse.scene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, hue } = c;
+  const id = `hibouclipse-${stage}-bg`;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  const sh = hue + 200;
+  const skyTop = [hsl(sh, 40, 10), hsl(sh - 30, 45, 30), hsl(sh, 45, 12), hsl(sh + 20, 50, 8)][stage] ?? hsl(sh, 45, 12);
+  const skyBot = [hsl(sh + 20, 40, 6), hsl(sh + 40, 55, 46), hsl(sh + 10, 40, 24), hsl(sh - 20, 50, 20)][stage] ?? hsl(sh, 40, 20);
+  let s = `<defs><linearGradient id="${id}-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${skyTop}"/><stop offset="1" stop-color="${skyBot}"/></linearGradient></defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-g)"/>`;
+  for (let i = 0; i < 55; i++) s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(b.y0 + c.r() * H * 0.7)}" r="${f(0.3 + c.r() * 1)}" fill="#FFF6D8" opacity="${f((stage === 1 ? 0.15 : 0.3) + c.r() * 0.6)}"/>`;
+  const trunkCol = hsl(hue + 20, 22, 20), trunkLight = hsl(hue + 10, 25, 34), far = hsl(sh + 10, 30, 22);
+  if (stage === 0) {
+    // Gros plan sur le tronc d'un vieil arbre : écorce, mousse, creux sombre ; lucioles.
+    s += `<path d="M${b.x0} ${b.y0} L${b.x1} ${b.y0} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${trunkCol}" opacity="0.92"/>`;
+    let bark = '';
+    for (let i = 0; i < 18; i++) { const x = b.x0 + (i / 18) * W + c.r() * 6; bark += `M${f(x)} ${f(b.y0)} C${f(x + 6)} ${f(b.y0 + H * 0.3)} ${f(x - 6)} ${f(b.y0 + H * 0.6)} ${f(x + 3)} ${f(b.y1)} `; }
+    s += `<path d="${bark}" fill="none" stroke="#140F24" stroke-width="1.2" opacity="0.55"/><path d="${bark}" fill="none" stroke="${trunkLight}" stroke-width="0.6" opacity="0.5" transform="translate(2 0)"/>`;
+    s += `<ellipse cx="${CX}" cy="150" rx="66" ry="80" fill="#0B0816" stroke="#140F24" stroke-width="2"/>`;
+    s += `<ellipse cx="${CX}" cy="150" rx="66" ry="80" fill="none" stroke="${trunkLight}" stroke-width="5" opacity="0.6"/>`;
+    s += `<path d="M48 120 C50 90 70 70 90 66" fill="none" stroke="${hsl(hue + 100, 30, 40)}" stroke-width="7" stroke-linecap="round" opacity="0.6"/>`;
+    for (let i = 0; i < 16; i++) s += `<circle cx="${f(50 + i * 3 + c.r() * 4)}" cy="${f(118 - i * 3.2 + c.r() * 4)}" r="${f(1.5 + c.r() * 2)}" fill="${hsl(hue + 110, 35, 46)}" opacity="0.7"/>`;
+    for (const [x, y] of [[24, 40], [196, 70], [180, 30], [30, 228], [204, 210]] as const) s += glowDot(x, y, 7, hsl(hue + 60, 90, 75)) + `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF6D8"/>`;
+  } else if (stage === 1) {
+    // Crépuscule dans la canopée : cimes lointaines, croissant de lune, branche, phalène.
+    s += `<circle cx="176" cy="44" r="16" fill="${hsl(sh - 40, 60, 88)}" opacity="0.9"/><circle cx="183" cy="40" r="14" fill="${skyTop}"/>`;
+    s += `<path d="M${b.x0} 150 ${Array.from({ length: 12 }, (_, i) => `l${f(W / 24)} ${i % 2 ? 14 : -18} l${f(W / 24)} ${i % 2 ? -10 : 14}`).join(' ')} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(sh + 30, 30, 36)}" opacity="0.55"/>`;
+    s += `<path d="M${b.x0} 180 ${Array.from({ length: 9 }, (_, i) => `l${f(W / 18)} ${i % 2 ? 16 : -22} l${f(W / 18)} ${i % 2 ? -12 : 18}`).join(' ')} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(sh + 30, 30, 22)}" opacity="0.85"/>`;
+    s += ink(`M${b.x0} 206 C40 200 90 198 130 202 C170 206 200 196 ${b.x1} 190 L${b.x1} 202 C200 210 170 214 130 212 C90 210 40 212 ${b.x0} 218 Z`, trunkCol, 1.4);
+    s += `<path d="M30 206 C60 204 100 203 130 206" fill="none" stroke="${trunkLight}" stroke-width="0.8"/>`;
+    s += `<path d="M190 196 C196 186 204 178 214 176" fill="none" stroke="${trunkCol}" stroke-width="3"/><path d="M204 180 c6 -6 12 -6 14 -2 c-4 4 -10 4 -14 2 Z" fill="${hsl(hue + 110, 30, 34)}" stroke="#140F24" stroke-width="0.8"/>`;
+    // Phalène qui attire son regard.
+    s += `<g transform="translate(46 70) rotate(-20)"><path d="M0 0 C-8 -10 -16 -8 -14 0 C-12 4 -6 4 0 0 C6 4 12 4 14 0 C16 -8 8 -10 0 0 Z" fill="${hsl(hue + 40, 40, 70)}" stroke="#140F24" stroke-width="0.8"/><path d="M0 -2 V6" stroke="#140F24" stroke-width="1.6"/><path d="M0 -2 q-3 -5 -6 -6 M0 -2 q3 -5 6 -6" fill="none" stroke="#140F24" stroke-width="0.6"/></g>`;
+    s += glowDot(46, 70, 8, hsl(hue + 40, 80, 80));
+  } else if (stage === 2) {
+    // Ruines célestes sous la pleine lune : colonnes brisées, brume.
+    s += glowDot(60, 50, 60, hsl(sh - 40, 50, 80)) + `<circle cx="60" cy="50" r="24" fill="${hsl(sh - 40, 30, 86)}" stroke="#140F24" stroke-width="0.8" opacity="0.92"/>`;
+    s += `<circle cx="52" cy="44" r="5" fill="${hsl(sh - 30, 20, 72)}" opacity="0.6"/><circle cx="68" cy="58" r="3.5" fill="${hsl(sh - 30, 20, 72)}" opacity="0.6"/>`;
+    for (const [x, w, h] of [[14, 14, 90], [176, 16, 120], [204, 12, 70]] as const) {
+      s += `<rect x="${x}" y="${f(b.y1 - h - (b.y1 - 236))}" width="${w}" height="${f(h + (b.y1 - 236))}" fill="${far}" stroke="#140F24" stroke-width="0.8" opacity="0.8"/>`;
+      s += `<path d="M${x + 3} ${f(236 - h + 4)} V236 M${x + w - 3} ${f(236 - h + 4)} V236" stroke="${hsl(sh, 20, 40)}" stroke-width="0.6" opacity="0.6"/>`;
     }
-  }
-  s += talons(cx, gy - 2, stage === 1 ? 9 : 11, pal);
-
-  // Ailes repliées (stades 1–2).
-  if (stage <= 2) {
-    for (const dir of [-1, 1]) {
-      const X = (x: number) => f(cx + dir * x);
-      const top = by - bry * 0.62, bot = stage === 1 ? by + bry * 0.86 : by + bry + 12;
-      const out = brx + (stage === 1 ? 10 : 14);
-      const d = `M${X(brx * 0.62)} ${f(top)} C${X(out)} ${f(top - 4)} ${X(out + 6)} ${f(by + bry * 0.3)} ${X(brx * 0.68)} ${f(bot)} L${X(brx * 0.56)} ${f(bot - 10)} L${X(brx * 0.5)} ${f(bot + 2)} C${X(brx * 0.4)} ${f(by)} ${X(brx * 0.48)} ${f(top + 14)} ${X(brx * 0.62)} ${f(top)} Z`;
-      s += ink(d, pal.shade, 2.4);
-      s += ink(`M${X(brx * 0.62)} ${f(top)} C${X(out - 2)} ${f(top)} ${X(out)} ${f(top + 26)} ${X(out - 6)} ${f(top + 36)} C${X(brx * 0.7)} ${f(top + 30)} ${X(brx * 0.56)} ${f(top + 26)} ${X(brx * 0.62)} ${f(top)} Z`, pal.body, 1.6);
-      s += line(`M${X(brx * 0.62)} ${f(top + 46)} Q${X(out - 4)} ${f(by + 20)} ${X(brx * 0.7)} ${f(bot - 8)} M${X(brx * 0.6)} ${f(top + 60)} Q${X(out - 10)} ${f(by + 30)} ${X(brx * 0.62)} ${f(bot - 4)}`, 1.3, '#1A1230', ' opacity="0.6"');
-      if (stage === 2) {
-        // Plumes constellées.
-        const pts: [number, number][] = [[brx * 0.7, top + 36], [brx * 0.9, by - 4], [brx * 0.76, by + 24], [brx * 0.84, by + 46]];
-        s += line('M' + pts.map(([x, y]) => `${X(x)} ${f(y)}`).join(' L'), 1.3, pal.glow, ' stroke-dasharray="3 3"');
-        pts.forEach(([x, y], i) => { s += i === 1 ? sparkle(cx + dir * x, y, 4, pal.glow) : `<circle cx="${X(x)}" cy="${f(y)}" r="2.3" fill="#FFF6D8" stroke="#1A1230" stroke-width="0.9"/>`; });
-      }
+    // Colonne du perchoir, au premier plan.
+    s += ink(`M64 208 L158 208 L154 ${b.y1 + 2} L68 ${b.y1 + 2} Z`, hsl(sh - 10, 18, 40), 1.6);
+    s += ink('M50 198 L172 198 L168 210 L54 210 Z', hsl(sh - 10, 18, 52), 1.4);
+    s += ink('M56 194 L166 194 L172 198 L50 198 Z', hsl(sh - 10, 18, 62), 1.2);
+    s += line(`M80 212 V${b.y1} M96 212 V${b.y1} M126 212 V${b.y1} M142 212 V${b.y1}`, 0.8, '#140F24', ' opacity="0.7"') + shadow(`M138 210 L158 210 L154 ${b.y1} L134 ${b.y1} Z`, hsl(sh, 30, 20), 0.6, 'fine');
+    s += gild('M56 204 h110', 0.8) + gild('M60 206 c4 -4 8 -4 12 0 c4 -4 8 -4 12 0 M138 206 c4 -4 8 -4 12 0 c4 -4 8 -4 12 0', 0.7);
+    s += line('M150 196 l-6 14 l4 6', 0.7, '#140F24');
+    s += `<ellipse cx="111" cy="226" rx="140" ry="16" fill="${hsl(sh - 20, 30, 70)}" opacity="0.18" filter="url(#soft)"/>`;
+  } else {
+    // Éclipse totale au-dessus d'une mer de nuages.
+    s += glowDot(CX, 84, 120, hsl(sh - 60, 80, 70));
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2, r1 = 50, r2 = 58 + (i % 3) * 10;
+      s += `<path d="M${f(CX + Math.cos(a) * r1)} ${f(84 + Math.sin(a) * r1)} L${f(CX + Math.cos(a) * r2)} ${f(84 + Math.sin(a) * r2)}" stroke="#E9C25B" stroke-width="0.8" opacity="0.5"/>`;
     }
-  }
-
-  // Aigrettes : petites pointes (jeune) ou croissants (adulte).
-  for (const dir of [-1, 1]) {
-    const X = (x: number) => f(cx + dir * x);
-    if (stage === 1) s += ink(`M${X(18)} ${hy - hry + 6} Q${X(28)} ${hy - hry - 20} ${X(44)} ${hy - hry - 22} Q${X(42)} ${hy - hry - 2} ${X(38)} ${hy - hry + 10} Z`, pal.shade, 2);
-    else {
-      const t = hy - hry;
-      // Aigrette en croissant, bord externe en plumes dentelées.
-      s += ink(`M${X(12)} ${t + 10} C${X(14)} ${t - 22} ${X(36)} ${t - 38} ${X(54)} ${t - 40} L${X(52)} ${t - 32} L${X(66)} ${t - 38} L${X(62)} ${t - 30} L${X(80)} ${t - 30} C${X(62)} ${t - 24} ${X(44)} ${t - 14} ${X(40)} ${t + 10} Z`, pal.shade, 2.2);
-      s += line(`M${X(24)} ${t + 2} C${X(26)} ${t - 18} ${X(46)} ${t - 30} ${X(66)} ${t - 30}`, 3, pal.glow);
+    s += `<circle cx="${CX}" cy="84" r="50" fill="#FFF0C8" opacity="0.9"/><circle cx="${CX}" cy="84" r="46" fill="#0B0816" stroke="#140F24" stroke-width="1"/>`;
+    for (let k = 0; k < 3; k++) {
+      const y = 196 + k * 16;
+      s += `<path d="M${b.x0} ${b.y1} L${b.x0} ${y} ${Array.from({ length: 7 }, (_, i) => `q${f(W / 14)} ${-12 + (i % 2) * 4} ${f(W / 7)} 0`).join(' ')} L${b.x1} ${b.y1} Z" fill="${hsl(sh - 20 + k * 10, 30, 30 + k * 8)}" stroke="#140F24" stroke-width="0.8" opacity="${f(0.65 + k * 0.12)}"/>`;
     }
   }
-
-  // Tête.
-  s += ink(fluff(cx, hy, hrx, hry, 16, 0.07), pal.body, 2.6);
-  s += shadow(`M${cx + hrx * 0.5} ${hy - hry * 0.8} C${cx + hrx * 1.08} ${hy - hry * 0.3} ${cx + hrx * 1.05} ${hy + hry * 0.5} ${cx + hrx * 0.5} ${hy + hry * 0.95} C${cx + hrx * 0.8} ${hy + hry * 0.4} ${cx + hrx * 0.8} ${hy - hry * 0.3} ${cx + hrx * 0.5} ${hy - hry * 0.8} Z`, pal.shade, 0.5);
-  // Disque facial.
-  const fy = hy + 4;
-  s += ink(`M${cx} ${fy - 20} C${cx - 12} ${fy - 38} ${cx - hrx * 0.95} ${fy - 34} ${cx - hrx * 0.92} ${fy - 2} C${cx - hrx * 0.88} ${fy + 26} ${cx - 14} ${fy + 30} ${cx} ${fy + 18} C${cx + 14} ${fy + 30} ${cx + hrx * 0.88} ${fy + 26} ${cx + hrx * 0.92} ${fy - 2} C${cx + hrx * 0.95} ${fy - 34} ${cx + 12} ${fy - 38} ${cx} ${fy - 20} Z`, pal.belly, 1.8);
-  const er = stage === 1 ? 15 : 14;
-  s += eclipseEye(cx - 21, fy - 2, er, pal, stage === 1 ? 0.3 : 0) + eclipseEye(cx + 21, fy - 2, er, pal, stage === 1 ? 0.3 : 0);
-  if (stage >= 2) {
-    // Sourcils sévères en plumes.
-    for (const dir of [-1, 1]) s += ink(`M${cx + dir * 4} ${fy - 14} L${cx + dir * 38} ${fy - 24} L${cx + dir * 34} ${fy - 17} Z`, pal.shade, 1.6);
-  }
-  s += ink(`M${cx - 6} ${fy + 8} L${cx + 6} ${fy + 8} L${cx} ${fy + 22} Z`, pal.glow, 1.6);
-  if (stage === 1) s += `<ellipse cx="${cx - 36}" cy="${fy + 16}" rx="5" ry="3" fill="${pal.accent}" opacity="0.6"/><ellipse cx="${cx + 36}" cy="${fy + 16}" rx="5" ry="3" fill="${pal.accent}" opacity="0.6"/>`;
-  if (stage >= 2) s += crescent(cx, hy - hry + 10, 5.5, pal.glow);
-  else s += sparkle(cx, hy - hry + 10, 4.5, pal.glow);
-  s += shine(`M${cx - hrx * 0.82} ${hy - hry * 0.45} q6 -12 18 -16`, 2.2);
-  if (stage >= 3) for (let i = 0; i < 6; i++) s += sparkle(14 + c.r() * 194, 150 + c.r() * 70, 2 + c.r() * 2.5, pal.glow, false);
   return s;
 };

@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
+import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -62,6 +62,32 @@ function at(fr: Fr, t: number, o = 0): P {
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
 
+/* ---------- Décor : petits outils ---------- */
+const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
+/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
+const vgrad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
+function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+  }
+  return s;
+}
+/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
+function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
+  const pts: P[] = [];
+  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
+  const top = smooth(pts);
+  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
+    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
+}
+/** Halo flou (lumière d'ambiance). */
+const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
+  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
+
 /** Cétoile → Baleinelle → Nébulène → Abyssiale : baleine à bosse du vide (sillons ventraux, nageoires pectorales immenses), dont le flanc s'ouvre sur une nébuleuse au stade éveillé. */
 export const cetoile: Species = (c) => {
   const { pal, stage } = c;
@@ -78,7 +104,7 @@ export const cetoile: Species = (c) => {
   const body = outline(fr, W);
   let g = '';
   if (st >= 3) g += aura(110, 108, 100, pal.glow);
-  g += ground(100, 210, 66);
+  if (st === 2) g += ground(100, 214, 60);
 
   // Traînée de poussière d'étoiles (sillage).
   if (st >= 2) {
@@ -197,5 +223,147 @@ export const cetoile: Species = (c) => {
   } else {
     g += sparkle(48, 60, 2.4, pal.glow, false);
   }
-  return `<g transform="translate(104 124) scale(${S}) translate(-104 -124)">${g}</g>`;
+  let out = `<g transform="translate(104 124) scale(${S}) translate(-104 -124)">${g}</g>`;
+  // 1 : le jeune sonde depuis la surface : corps qui plonge, caudale encore dressée hors de l'eau.
+  if (st === 1) {
+    out = `<g transform="translate(0 10) rotate(-22 110 130)">${out}</g>`;
+    let sp = `<path d="M128 62 C134 52 142 58 148 50 C152 58 160 50 166 58 C172 52 180 60 186 62 C170 70 140 70 128 62 Z" fill="${pal.light}" opacity="0.9" stroke="#140F24" stroke-width="0.9"/>`;
+    for (let k = 0; k < 12; k++) { const a = Math.PI * (0.15 + 0.7 * (k / 11)), r = 26 + (k % 3) * 6; sp += `<circle cx="${f(157 - Math.cos(a) * r)}" cy="${f(60 - Math.sin(a) * r * 0.6)}" r="${f(0.8 + (k % 3) * 0.5)}" fill="${pal.light}" stroke="#140F24" stroke-width="0.4"/>`; }
+    out += sp;
+  }
+  return out;
 };
+
+/* ---------- Décor : océan d'étoiles (0 près de sa mère sous la surface, 1 saut au crépuscule, 2 chant dans l'abysse, 3 vol au-dessus d'une planète-océan) ---------- */
+function starFish(x: number, y: number, s: number, col: string): string {
+  return `<g transform="translate(${f(x)} ${f(y)}) scale(${s})"><path d="M-4 0 C-2 -2.4 2 -2.4 4 0 L7 -2.4 L6.4 2.4 L4 0 C2 2.4 -2 2.4 -4 0 Z" fill="${col}" stroke="#140F24" stroke-width="${f(0.5 / s)}"/></g>`;
+}
+function jelly(x: number, y: number, r: number, col: string): string {
+  let s = glowAt(x, y, r * 1.6, r * 1.4, col, 0.35);
+  s += `<path d="M${x - r} ${y} A${r} ${r * 0.8} 0 0 1 ${x + r} ${y} Q${x} ${y + r * 0.35} ${x - r} ${y} Z" fill="${col}" opacity="0.75" stroke="#140F24" stroke-width="0.5"/>`;
+  for (let k = 0; k < 4; k++) { const tx = x - r * 0.6 + k * r * 0.4; s += `<path d="M${f(tx)} ${f(y + 1)} q${f(r * 0.3)} ${f(r)} 0 ${f(r * 2)} t0 ${f(r * 1.4)}" fill="none" stroke="${col}" stroke-width="0.6" opacity="0.7"/>`; }
+  return s;
+}
+function whaleShape(x: number, y: number, k: number, col: string): string {
+  return `<path transform="translate(${x} ${y}) scale(${k})" d="M0 0 C10 -16 50 -22 90 -18 C120 -15 140 -8 160 -12 L176 -26 L172 -8 L190 -2 L168 0 C140 4 120 10 90 14 C50 18 14 14 0 0 Z" fill="${col}"/>`;
+}
+const cetoileScene = (c: DrawCtx, b: Bounds): string => {
+  const { pal, stage, hue } = c;
+  const st = Math.min(stage, 3);
+  const id = `cetoile-${st}-bg`;
+  const W2 = b.x1 - b.x0;
+  let s = '';
+  if (st === 0) {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(hue + 180, 40, 40)], [0.4, hsl(hue + 200, 44, 22)], [1, hsl(hue + 220, 50, 9)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    s += `<path d="M${b.x0} ${b.y0 + 12} Q${b.x0 + W2 * 0.25} ${b.y0 + 6} ${b.x0 + W2 * 0.5} ${b.y0 + 12} T${b.x1} ${b.y0 + 12} L${b.x1} ${b.y0} L${b.x0} ${b.y0} Z" fill="${hsl(hue + 180, 40, 60)}" opacity="0.5"/>`;
+    for (const [x, w2, o] of [[60, 50, 0.14], [120, 36, 0.1], [180, 44, 0.12]] as const) s += `<path d="M${x - 8} ${b.y0} L${x + 8} ${b.y0} L${x + 20 + w2} ${b.y1} L${x + 20 - w2} ${b.y1} Z" fill="#FFF6D8" opacity="${o}"/>`;
+    s += stars(c, b, 50, b.y1, hsl(hue + 180, 60, 85));
+    // La mère, immense, dans le bleu (plan lointain).
+    s += whaleShape(-40, 196, 1.45, hsl(hue + 210, 26, 28)) + `<path d="M40 206 q20 20 54 26 q-30 -2 -60 -18 Z" fill="${hsl(hue + 210, 26, 34)}"/>`;
+    s += `<path d="M30 206 q30 18 70 22" fill="none" stroke="${hsl(hue + 200, 30, 34)}" stroke-width="1" opacity="0.7"/>`;
+    s += `<circle cx="36" cy="190" r="2" fill="${hsl(hue + 200, 30, 40)}"/>`;
+    // Banc de poissons-étoiles.
+    for (let k = 0; k < 16; k++) s += starFish(150 + c.r() * 66, 26 + c.r() * 50, 0.8 + c.r() * 0.5, hsl(hue + 170, 50, 70));
+  } else if (st === 1) {
+    const sy = 64;
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(262, 30, 30)], [0.2, hsl(hue + 20, 55, 62)], [0.27, hsl(hue + 30, 60, 72)], [0.28, hsl(hue + 190, 40, 36)], [1, hsl(hue + 210, 46, 10)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, { ...b, y1: sy }, 20, sy - 14);
+    s += glowAt(50, sy - 4, 50, 12, '#FFE3A0', 0.7) + `<path d="M38 ${sy} a12 12 0 0 1 24 0 Z" fill="#FFF0C8"/>`;
+    // Surface vue d'en dessous : houle, reflet du soleil, rayons.
+    let d = `M${b.x0 - 4} ${sy}`;
+    for (let x = b.x0 - 4; x < b.x1 + 8; x += 14) d += ` q3.5 -3 7 0 t7 0`;
+    s += line(d, 1, '#140F24', ' opacity="0.6"');
+    for (let k = 0; k < 5; k++) s += line(`M${f(30 + k * 5)} ${f(sy + 4 + k * 4)} h${f(26 - k * 4)}`, 1, '#FFE3A0', ' opacity="0.5"');
+    for (const [x, w2, o] of [[50, 60, 0.14], [100, 40, 0.08], [10, 40, 0.1]] as const) s += `<path d="M${x - 8} ${sy} L${x + 8} ${sy} L${x + 30 + w2} ${b.y1} L${x + 30 - w2} ${b.y1} Z" fill="#FFE3A0" opacity="${o}"/>`;
+    s += stars(c, { ...b, y0: sy + 4 }, 50, b.y1, hsl(hue + 180, 60, 85));
+    for (let k = 0; k < 10; k++) s += starFish(10 + c.r() * 60, 180 + c.r() * 50, 0.8 + c.r() * 0.4, hsl(hue + 170, 50, 70));
+  } else if (st === 2) {
+    g += sparkle(40, 50, 2.8, pal.glow, false) + sparkle(150, 186, 2.4, pal.glow, false);
+  } else {
+    g += sparkle(48, 60, 2.4, pal.glow, false);
+  }
+  let out = `<g transform="translate(104 124) scale(${S}) translate(-104 -124)">${g}</g>`;
+  // 1 : le jeune sonde depuis la surface : corps qui plonge, caudale encore dressée hors de l'eau.
+  if (st === 1) {
+    out = `<g transform="translate(0 10) rotate(-22 110 130)">${out}</g>`;
+    let sp = `<path d="M128 62 C134 52 142 58 148 50 C152 58 160 50 166 58 C172 52 180 60 186 62 C170 70 140 70 128 62 Z" fill="${pal.light}" opacity="0.9" stroke="#140F24" stroke-width="0.9"/>`;
+    for (let k = 0; k < 12; k++) { const a = Math.PI * (0.15 + 0.7 * (k / 11)), r = 26 + (k % 3) * 6; sp += `<circle cx="${f(157 - Math.cos(a) * r)}" cy="${f(60 - Math.sin(a) * r * 0.6)}" r="${f(0.8 + (k % 3) * 0.5)}" fill="${pal.light}" stroke="#140F24" stroke-width="0.4"/>`; }
+    out += sp;
+  }
+  return out;
+};
+
+/* ---------- Décor : océan d'étoiles (0 près de sa mère sous la surface, 1 saut au crépuscule, 2 chant dans l'abysse, 3 vol au-dessus d'une planète-océan) ---------- */
+function starFish(x: number, y: number, s: number, col: string): string {
+  return `<g transform="translate(${f(x)} ${f(y)}) scale(${s})"><path d="M-4 0 C-2 -2.4 2 -2.4 4 0 L7 -2.4 L6.4 2.4 L4 0 C2 2.4 -2 2.4 -4 0 Z" fill="${col}" stroke="#140F24" stroke-width="${f(0.5 / s)}"/></g>`;
+}
+function jelly(x: number, y: number, r: number, col: string): string {
+  let s = glowAt(x, y, r * 1.6, r * 1.4, col, 0.35);
+  s += `<path d="M${x - r} ${y} A${r} ${r * 0.8} 0 0 1 ${x + r} ${y} Q${x} ${y + r * 0.35} ${x - r} ${y} Z" fill="${col}" opacity="0.75" stroke="#140F24" stroke-width="0.5"/>`;
+  for (let k = 0; k < 4; k++) { const tx = x - r * 0.6 + k * r * 0.4; s += `<path d="M${f(tx)} ${f(y + 1)} q${f(r * 0.3)} ${f(r)} 0 ${f(r * 2)} t0 ${f(r * 1.4)}" fill="none" stroke="${col}" stroke-width="0.6" opacity="0.7"/>`; }
+  return s;
+}
+function whaleShape(x: number, y: number, k: number, col: string): string {
+  return `<path transform="translate(${x} ${y}) scale(${k})" d="M0 0 C10 -16 50 -22 90 -18 C120 -15 140 -8 160 -12 L176 -26 L172 -8 L190 -2 L168 0 C140 4 120 10 90 14 C50 18 14 14 0 0 Z" fill="${col}"/>`;
+}
+const cetoileScene = (c: DrawCtx, b: Bounds): string => {
+  const { pal, stage, hue } = c;
+  const st = Math.min(stage, 3);
+  const id = `cetoile-${st}-bg`;
+  const W2 = b.x1 - b.x0;
+  let s = '';
+  if (st === 0) {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(hue + 180, 40, 40)], [0.4, hsl(hue + 200, 44, 22)], [1, hsl(hue + 220, 50, 9)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    s += `<path d="M${b.x0} ${b.y0 + 12} Q${b.x0 + W2 * 0.25} ${b.y0 + 6} ${b.x0 + W2 * 0.5} ${b.y0 + 12} T${b.x1} ${b.y0 + 12} L${b.x1} ${b.y0} L${b.x0} ${b.y0} Z" fill="${hsl(hue + 180, 40, 60)}" opacity="0.5"/>`;
+    for (const [x, w2, o] of [[60, 50, 0.14], [120, 36, 0.1], [180, 44, 0.12]] as const) s += `<path d="M${x - 8} ${b.y0} L${x + 8} ${b.y0} L${x + 20 + w2} ${b.y1} L${x + 20 - w2} ${b.y1} Z" fill="#FFF6D8" opacity="${o}"/>`;
+    s += stars(c, b, 50, b.y1, hsl(hue + 180, 60, 85));
+    // La mère, immense, dans le bleu (plan lointain).
+    s += whaleShape(-40, 196, 1.45, hsl(hue + 210, 26, 28)) + `<path d="M40 206 q20 20 54 26 q-30 -2 -60 -18 Z" fill="${hsl(hue + 210, 26, 34)}"/>`;
+    s += `<path d="M30 206 q30 18 70 22" fill="none" stroke="${hsl(hue + 200, 30, 34)}" stroke-width="1" opacity="0.7"/>`;
+    s += `<circle cx="36" cy="190" r="2" fill="${hsl(hue + 200, 30, 40)}"/>`;
+    // Banc de poissons-étoiles.
+    for (let k = 0; k < 16; k++) s += starFish(150 + c.r() * 66, 26 + c.r() * 50, 0.8 + c.r() * 0.5, hsl(hue + 170, 50, 70));
+  } else if (st === 1) {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(240, 40, 14)], [0.4, hsl(280, 30, 30)], [0.66, hsl(hue + 20, 55, 62)], [0.67, hsl(hue + 200, 40, 30)], [1, hsl(hue + 210, 45, 12)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 60, 130);
+    s += glowAt(170, 156, 60, 14, '#FFE3A0', 0.6);
+    s += `<path d="M156 158 a14 14 0 0 1 28 0 Z" fill="#FFF0C8"/>`;
+    // Mer d'étoiles : houle au trait, reflets.
+    for (let k = 0; k < 9; k++) {
+      const y = 162 + k * k * 1.2, a = 2 + k * 0.6;
+      let d = `M${b.x0 - 4} ${y}`;
+      for (let x = b.x0 - 4; x < b.x1 + 8; x += 12 + k * 2) d += ` q${f(3 + k)} ${f(-a)} ${f(6 + k)} 0 t${f(6 + k)} 0`;
+      s += line(d, 0.5 + k * 0.08, k % 2 ? '#140F24' : hsl(hue + 190, 40, 60), ` opacity="${0.4 + k * 0.03}"`);
+    }
+    for (let k = 0; k < 7; k++) s += line(`M${f(150 + k * 4 - k * k)} ${f(164 + k * 6)} h${f(14 - k)}`, 1, '#FFE3A0', ' opacity="0.6"');
+    s += stars(c, { ...b, y0: 166 }, 30, b.y1, hsl(hue + 180, 60, 85));
+  } else if (st === 2) {
+    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(215, 40, 22)], [0.5, hsl(228, 46, 11)], [1, hsl(240, 50, 5)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
+    for (const [x, w2, o] of [[90, 60, 0.08], [150, 40, 0.06]] as const) s += `<path d="M${x - 10} ${b.y0} L${x + 10} ${b.y0} L${x + w2} ${b.y1} L${x - w2} ${b.y1} Z" fill="${pal.glow}" opacity="${o}"/>`;
+    s += stars(c, b, 70, b.y1, hsl(hue + 180, 50, 80));
+    s += whaleShape(150, 40, 0.4, hsl(222, 30, 24)) + whaleShape(176, 58, 0.26, hsl(222, 30, 22));
+    // Le chant : ondes gravées qui partent de la tête.
+    for (let k = 1; k <= 4; k++) s += `<path d="M${f(30 - k * 10)} ${f(110 - k * 16)} A${k * 22} ${k * 22} 0 0 0 ${f(30 - k * 10)} ${f(170 + k * 12)}" fill="none" stroke="#E9C25B" stroke-width="${f(1.1 - k * 0.15)}" opacity="${f(0.7 - k * 0.12)}" stroke-dasharray="${k > 2 ? '2 4' : 'none'}"/>`;
+    s += jelly(196, 170, 8, pal.accent2) + jelly(30, 40, 6, pal.accent) + jelly(206, 104, 5, pal.accent);
+    s += ridge(c, b, 226, 6, 6, hsl(hue + 220, 30, 12), 0.7);
+  } else {
+    s += fill(b, hsl(hue + 230, 46, 7));
+    s += glowAt(40, 50, 80, 50, pal.accent, 0.35) + glowAt(190, 40, 60, 40, pal.accent2, 0.3) + glowAt(120, 20, 70, 20, pal.glow, 0.2);
+    s += stars(c, b, 120, b.y1);
+    // Aurore en rideaux.
+    for (let k = 0; k < 12; k++) { const x = 10 + k * 18; s += `<path d="M${x} 20 q6 30 0 70" fill="none" stroke="${pal.accent2}" stroke-width="5" opacity="0.12" filter="url(#soft)"/>`; }
+    // Planète-océan en contrebas, limbe lumineux.
+    s += `<defs><clipPath id="${id}-p"><circle cx="111" cy="520" r="330"/></clipPath></defs>`;
+    s += glowAt(111, 196, 150, 18, pal.glow, 0.45);
+    s += `<circle cx="111" cy="520" r="330" fill="${hsl(hue + 190, 46, 26)}"/>`;
+    s += `<g clip-path="url(#${id}-p)">`;
+    for (const [x, y, rx] of [[40, 214, 30], [150, 206, 40], [200, 224, 20], [90, 230, 26]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${f(rx * 0.22)}" fill="${hsl(hue + 120, 20, 40)}" opacity="0.7"/>`;
+    for (let k = 0; k < 5; k++) s += `<path d="M${-20 + k * 40} ${200 + k * 4} q30 -6 60 0" fill="none" stroke="#FFF6D8" stroke-width="0.8" opacity="0.5"/>`;
+    s += shadow('M-20 210 C60 196 160 196 260 214 L260 300 L-20 300 Z', hsl(hue + 220, 50, 8), 0.4, 'fine');
+    s += `</g><circle cx="111" cy="520" r="330" fill="none" stroke="${pal.glow}" stroke-width="1.6" opacity="0.8"/>`;
+    // Comète.
+    s += `<path d="M210 12 L150 40" stroke="#FFF6D8" stroke-width="1.5" opacity="0.5" filter="url(#soft)"/>` + sparkle(206, 14, 3, '#FFF6D8', false);
+  }
+  return s;
+};
+cetoile.scene = cetoileScene;

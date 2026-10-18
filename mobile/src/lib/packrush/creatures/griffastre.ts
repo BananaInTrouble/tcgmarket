@@ -1,5 +1,5 @@
-import { constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
-import { band, f, feather, P, spline, tube, type Pt } from './legendkit.ts';
+import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, feather, grad, P, smooth, spline, tube, type Pt } from './legendkit.ts';
 
 /**
  * Griffastre : griffon céleste de profil, avant d'aigle et arrière de lion, une serre levée, ailes dressées
@@ -41,7 +41,7 @@ export const griffastre: Species = (c) => {
   };
 
   let s = '';
-  s += ground(124, 208, 90);
+  s += ground(128, 206, 76);
 
   // ——— Aile lointaine ———
   {
@@ -115,8 +115,8 @@ export const griffastre: Species = (c) => {
   // Lisière plumes → pelage : pointes de plumes débordant sur l'épaule.
   for (let i = 0; i < 7; i++) {
     const t = i / 6, x = 92 + t * 9 + Math.sin(t * 3) * 2, y = 84 + t * 54;
-    const fe = feather([x - 6, y - 3], [x + 7, y + 3], 2.6, 0.2);
-    s += ink(fe.d, pal.light, 0.7);
+    const fe = feather([x - 8, y - 3], [x + 5, y + 2], 2.2, 0.3);
+    s += `<path d="${fe.d}" fill="${pal.light}"/>` + line(fe.rachis.replace(/^M[^Q]+/, `M${f(x - 2)} ${f(y)} `), 0.5, pal.ink, ' opacity="0.5"');
   }
   s += gild('M58 118 C68 126 82 128 94 122 M62 124 l2 5 l2 -5', 1);
 
@@ -193,4 +193,54 @@ export const griffastre: Species = (c) => {
   // ——— Éclats ———
   for (const [x, y, z] of [[24, 30, 3.4], [16, 110, 2.4], [30, 196, 2.6], [212, 112, 2.4]] as const) s += sparkle(x, y, z, pal.glow, false);
   return `<g transform="translate(116 206) scale(1.02) translate(-116 -206)">${s}</g>`;
+};
+
+/**
+ * Décor : un pic au-dessus d'une mer de nuages, à l'aube. Ciel qui passe de la nuit (dernières étoiles) à l'ambre,
+ * planète annelée qui se lève, sommets lointains bleutés, hirondelles, et la corniche de roche où se tient le griffon.
+ */
+griffastre.scene = (c: DrawCtx, b: Bounds) => {
+  const { pal } = c;
+  const id = `griffastre-${c.stage}-bg`;
+  const sh = c.hue * 0.3 + 235 * 0.7;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs>${grad(`${id}-sky`, [[0, hsl(sh, 40, 12)], [0.4, hsl(sh - 10, 35, 26)], [0.62, hsl(sh + 60, 35, 44)], [0.78, hsl(32, 60, 66)], [1, hsl(28, 50, 60)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
+  for (let i = 0; i < 30; i++) {
+    const y = b.y0 + c.r() * 100;
+    s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(y)}" r="${f(0.3 + c.r() * 0.8)}" fill="#FFF6D8" opacity="${f((1 - (y - b.y0) / 110) * (0.4 + c.r() * 0.5))}"/>`;
+  }
+  // Planète annelée qui se lève derrière la mer de nuages.
+  const PX = 70, PY = 58, PR = 40;
+  s += `<circle cx="${PX}" cy="${PY}" r="${PR + 10}" fill="#FFE7B8" opacity="0.25" filter="url(#soft)"/>`;
+  s += `<ellipse cx="${PX}" cy="${PY}" rx="${PR * 1.9}" ry="${PR * 0.42}" fill="none" stroke="#F6E2BC" stroke-width="2.4" opacity="0.5" transform="rotate(-16 ${PX} ${PY})"/>`;
+  s += `<circle cx="${PX}" cy="${PY}" r="${PR}" fill="${hsl(28, 40, 74)}" stroke="#140F24" stroke-width="0.6" opacity="0.9"/>`;
+  for (let k = 0; k < 5; k++) s += `<path d="M${PX - PR + 2} ${PY - 18 + k * 9} Q${PX} ${PY - 22 + k * 9} ${PX + PR - 2} ${PY - 16 + k * 9}" fill="none" stroke="${hsl(20, 35, 56)}" stroke-width="${k % 2 ? 1.6 : 0.8}" opacity="0.5"/>`;
+  s += `<path d="M${PX + 4} ${PY - PR} A${PR} ${PR} 0 0 1 ${PX + 4} ${PY + PR} A${PR * 0.7} ${PR} 0 0 0 ${PX + 4} ${PY - PR} Z" fill="url(#fine)" opacity="0.6"/>`;
+  s += `<path d="M${PX - PR * 1.9} ${PY + 14} A${PR * 1.9} ${PR * 0.42} 0 0 0 ${PX + PR * 1.9} ${PY - 2}" fill="none" stroke="#F6E2BC" stroke-width="2.4" opacity="0.75" transform="rotate(-16 ${PX} ${PY})"/>`;
+  // Sommets lointains (perspective atmosphérique : pâles, bleutés).
+  const far = `M${b.x0} 176 L14 156 L26 164 L44 138 L58 154 L70 146 L86 170 L120 172 L134 150 L146 160 L160 144 L176 168 L${b.x1} 166 L${b.x1} 200 L${b.x0} 200 Z`;
+  s += `<path d="${far}" fill="${hsl(sh + 20, 22, 58)}" opacity="0.85" stroke="#140F24" stroke-width="0.4"/>`;
+  s += `<path d="M44 138 L50 156 L58 154 M134 150 L138 162 M160 144 L164 160" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.6"/>`;
+  // Mer de nuages : bancs festonnés, plus clairs en avant.
+  for (const [y, col, op] of [[172, hsl(sh + 40, 22, 62), 0.75], [184, hsl(sh + 70, 28, 70), 0.8], [198, hsl(30, 35, 76), 0.85]] as [number, string, number][]) {
+    let d = `M${b.x0} ${y + 6}`;
+    let x = b.x0, k = 0;
+    while (x < b.x1) { const w = 10 + ((k * 7 + y) % 4) * 5; d += ` q${f(w / 2)} ${f(-w * 0.55)} ${w} 0`; x += w; k++; }
+    d += ` L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`;
+    s += `<path d="${d}" fill="${col}" opacity="${op}" stroke="#140F24" stroke-width="0.4"/>`;
+  }
+  // Hirondelles au loin.
+  for (const [x, y, k] of [[20, 96, 1], [34, 104, 0.8], [14, 110, 0.7], [150, 128, 0.7]] as const) {
+    s += `<path d="M${x - 5 * k} ${y - 2 * k} Q${x - 2 * k} ${y - 1 * k} ${x} ${y + 1 * k} Q${x + 2 * k} ${y - 1 * k} ${x + 5 * k} ${y - 3 * k}" fill="none" stroke="#140F24" stroke-width="${0.9 * k}" stroke-linecap="round"/>`;
+  }
+  // Corniche : roche taillée, face ombrée, arête éclairée par l'aube.
+  const ledge = `M62 205 C80 200 140 200 ${b.x1} 202 L${b.x1} ${b.y1} L76 ${b.y1} C72 230 66 220 62 205 Z`;
+  s += `<path d="${ledge}" fill="${hsl(sh + 10, 18, 26)}" stroke="#140F24" stroke-width="0.9"/>`;
+  s += `<path d="${ledge}" fill="url(#xhatch)" opacity="0.55"/>`;
+  s += `<path d="M62 205 C80 200 140 200 ${b.x1} 202 L${b.x1} 210 C150 208 90 208 66 212 Z" fill="${hsl(30, 30, 46)}" opacity="0.9"/>`;
+  s += `<path d="M62 205 C80 200 140 200 ${b.x1} 202" fill="none" stroke="#FFE7B8" stroke-width="1" opacity="0.8"/>`;
+  s += `<path d="M90 212 L96 226 M128 210 L124 222 L130 236 M172 212 L178 230 M66 214 L70 230" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.7"/>`;
+  s += `<path d="${smooth([[200, 203], [206, 196], [214, 198], [222, 203]])}" fill="${hsl(sh + 10, 18, 30)}" stroke="#140F24" stroke-width="0.6"/>`;
+  return s;
 };

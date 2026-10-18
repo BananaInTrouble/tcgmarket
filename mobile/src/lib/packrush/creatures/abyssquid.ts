@@ -1,5 +1,5 @@
-import { eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
-import { along, band, f, frames, spline, tube, type Pt } from './legendkit.ts';
+import { eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { along, band, f, frames, grad, smooth, spline, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Abyssquid : calmar géant des abysses du ciel, manteau dressé en diagonale, qui enlace de ses bras un trou noir
@@ -115,5 +115,71 @@ export const abyssquid: Species = (c) => {
   const tip = along(spline(arms[4].pts, 9), 1).p;
   s += sparkle(tip[0], tip[1], 3, pal.gold, false);
   for (const [x, y, z] of [[30, 40, 3.4], [48, 92, 2.4], [190, 228, 2.6], [16, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
+  return s;
+};
+
+/**
+ * Décor : la fosse abyssale du ciel. Parois de roche stratifiée qui plongent vers le trou noir, neige d'étoiles
+ * qui tombe, lueurs de créatures des profondeurs (baudroie, siphonophore) et poissons-lanternes aspirés.
+ */
+abyssquid.scene = (c: DrawCtx, b: Bounds) => {
+  const { pal } = c;
+  const id = `abyssquid-${c.stage}-bg`;
+  const ah = c.hue * 0.15 + 255 * 0.85;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs>${grad(`${id}-d`, [[0, hsl(ah - 20, 40, 20)], [0.45, hsl(ah, 45, 10)], [1, hsl(ah + 10, 50, 5)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-d)"/>`;
+  // Lueur du disque d'accrétion qui remonte la fosse.
+  s += `<ellipse cx="113" cy="170" rx="80" ry="44" fill="${pal.accent2}" opacity="0.12" filter="url(#soft)"/>`;
+  s += `<ellipse cx="113" cy="166" rx="60" ry="26" fill="${pal.glow}" opacity="0.14" filter="url(#soft)"/>`;
+  // Blocs de basalte arrachés et aspirés : polygones à facettes, face éclairée tournée vers le disque.
+  const rock = (cx: number, cy: number, r: number, far: boolean) => {
+    const n = 7, pts: Pt[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + c.r() * 0.4, rr = r * (0.7 + c.r() * 0.45);
+      pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.8]);
+    }
+    const d = `M${pts.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z`;
+    const ang = Math.atan2(166 - cy, 113 - cx);
+    const lit = pts.filter(([x, y]) => Math.cos(Math.atan2(y - cy, x - cx) - ang) > 0.1);
+    const col = far ? hsl(ah - 10, 18, 26) : hsl(ah + 10, 25, 12);
+    let o = `<path d="${d}" fill="${col}" stroke="#140F24" stroke-width="${far ? 0.5 : 0.9}" stroke-linejoin="round"/>`;
+    if (lit.length > 1) o += `<path d="M${f(cx)} ${f(cy)} L${lit.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z" fill="${pal.accent2}" opacity="${far ? 0.25 : 0.35}"/>`;
+    o += `<path d="M${f(cx)} ${f(cy)} L${pts.filter((p) => !lit.includes(p)).map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z" fill="url(#xhatch)" opacity="${far ? 0.4 : 0.8}"/>`;
+    o += `<path d="M${pts.map(([x, y]) => `${f(x)} ${f(y)}`).join(' L')} Z" fill="none" stroke="#140F24" stroke-width="${far ? 0.4 : 0.7}"/>`;
+    for (const [x, y] of lit.slice(0, 3)) o += `<path d="M${f(cx)} ${f(cy)} L${f(x)} ${f(y)}" stroke="#140F24" stroke-width="0.4" opacity="0.6"/>`;
+    return o;
+  };
+  // Lointaine crête de la fosse, en silhouette pâle.
+  s += `<path d="M${b.x0} ${b.y1} L${b.x0} 196 L18 186 L30 192 L44 178 L58 190 L70 184 L80 196 L150 198 L160 184 L174 190 L188 176 L200 186 L212 180 L${b.x1} 188 L${b.x1} ${b.y1} Z" fill="${hsl(ah - 10, 20, 20)}" stroke="#140F24" stroke-width="0.5" opacity="0.85"/>`;
+  s += `<path d="M${b.x0} ${b.y1} L${b.x0} 196 L18 186 L30 192 L44 178 L58 190 L70 184 L80 196 L150 198 L160 184 L174 190 L188 176 L200 186 L212 180 L${b.x1} 188 L${b.x1} ${b.y1} Z" fill="url(#fine)" opacity="0.5"/>`;
+  for (const [x, y, r] of [[26, 44, 11], [192, 128, 9], [16, 122, 7], [206, 22, 8], [62, 18, 5], [150, 30, 4]] as const) s += rock(x, y, r, true);
+  // Traînée de débris étirée qui spirale vers le disque (spaghettification).
+  s += `<path d="M34 48 C60 70 40 120 70 150 C84 162 100 166 112 166" fill="none" stroke="${pal.light}" stroke-width="2.4" opacity="0.18" filter="url(#glow)"/>`;
+  for (let i = 0; i < 16; i++) {
+    const t = i / 15, x = 34 + t * 78 - Math.sin(t * Math.PI) * 20, y = 48 + t * 118;
+    s += `<rect x="${f(x)}" y="${f(y)}" width="${f(2.2 - t * 1.4)}" height="${f(1.6 - t)}" fill="${hsl(ah, 20, 50)}" stroke="#140F24" stroke-width="0.3" transform="rotate(${f(t * 140)} ${f(x)} ${f(y)})"/>`;
+  }
+  // Neige d'étoiles qui tombe vers le trou noir.
+  for (let i = 0; i < 46; i++) {
+    const x = b.x0 + 30 + c.r() * (W - 60), y = b.y0 + c.r() * H, l = 1 + c.r() * 3;
+    s += `<path d="M${f(x)} ${f(y)} l${f((113 - x) * 0.02)} ${f(l)}" stroke="#FFF6D8" stroke-width="${f(0.5 + c.r() * 0.6)}" stroke-linecap="round" opacity="${f(0.25 + c.r() * 0.5)}"/>`;
+  }
+  // Siphonophore lointain (chapelet lumineux) et poissons-lanternes.
+  let sp = 'M180 20';
+  for (let i = 0; i < 8; i++) sp += ` q${i % 2 ? 4 : -4} 6 0 12`;
+  s += `<path d="${sp}" fill="none" stroke="${pal.accent}" stroke-width="0.7" opacity="0.5"/>`;
+  for (let i = 0; i < 8; i++) s += `<circle cx="180" cy="${20 + i * 12}" r="${f(1.8 - i * 0.15)}" fill="${pal.glow}" opacity="0.55"/>`;
+  for (const [x, y, sc, a] of [[40, 70, 0.7, 30], [52, 82, 0.55, 40], [30, 92, 0.6, 20], [186, 202, 0.7, 200], [196, 214, 0.55, 210]] as const) {
+    s += starfish(x, y, sc, a, hsl(ah, 25, 40), pal.glow);
+  }
+  // Baudroie des abysses, tapie contre la paroi gauche (seul son leurre brille vraiment).
+  s += `<g transform="translate(74 222) scale(0.8)"><path d="M-14 0 C-12 -10 4 -12 12 -4 L20 -9 L18 0 L20 9 L12 4 C4 12 -12 10 -14 0 Z" fill="${hsl(ah + 10, 25, 14)}" stroke="#140F24" stroke-width="0.7"/>`
+    + `<path d="M-14 -1 l3 2 l2 -2 l2 2 l2 -2" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="0.7"/>`
+    + `<path d="M-6 -9 C-6 -18 -14 -22 -20 -18" fill="none" stroke="#140F24" stroke-width="0.8"/>`
+    + `<circle cx="-20" cy="-18" r="5" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/><circle cx="-20" cy="-18" r="1.6" fill="#FFF6D8"/>`
+    + `<circle cx="-7" cy="-4" r="1.1" fill="${pal.eye}"/></g>`;
+  // Avant-plan : gros blocs sombres en coin (cadrage).
+  s += rock(b.x0 + 8, 228, 22, false) + rock(b.x1 - 6, 70, 14, false) + rock(b.x1 - 14, 226, 16, false);
   return s;
 };

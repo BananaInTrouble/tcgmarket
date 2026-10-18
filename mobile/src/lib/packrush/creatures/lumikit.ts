@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
+import { aura, constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
  * Lumikit → Lunaréon → Selenvulpe → Astravulpe : renard des comètes dont la queue est une nébuleuse (pointe = tête
@@ -47,52 +47,37 @@ function nebula(c: DrawCtx, id: string, d: string, blobs: [number, number, numbe
   return s + `</g>`;
 }
 
-/** Stade 0 : renardeau assis, duvet encore épais, museau court, grandes oreilles ; queue enroulée devant les pattes. */
-function kit(c: DrawCtx): string {
+/** Stade 0 : renardeau endormi, enroulé, la queue-nébuleuse ramenée sur le museau. */
+function sleeper(c: DrawCtx): string {
   const { pal } = c;
   const id = 'lumikit-0';
-  let g = ground(112, 205, 70);
-  // Oreille lointaine.
-  g += ink('M86 84 C80 68 80 52 86 40 C96 48 104 62 106 78 Z', pal.deep, 1.5);
-  // Corps duveteux (bord en mèches).
-  const back: Chain = [126, 100, 148, 112, 164, 140, 164, 168, 164, 186, 156, 200, 140, 205];
-  const chest: Chain = [92, 205, 86, 186, 80, 160, 82, 140, 84, 128, 90, 120, 100, 116];
-  const body = `M126 100${tufts(back, 8, 3, 1, 0.3)} L92 205${tufts(chest, 7, 2.6, 1, -0.3)} Z`;
+  let g = ground(112, 206, 82);
+  const back: Chain = [44, 194, 40, 166, 66, 140, 106, 136, 146, 132, 184, 150, 188, 180];
+  const body = `M44 194${tufts(back, 9, 2.6, 1, 0.4)} C190 198 176 206 150 206 L60 206 C50 206 45 202 44 194 Z`;
   g += ink(body, pal.body, 1.8);
-  g += shadow('M164 168 C164 186 156 200 140 205 L128 205 C140 196 148 182 148 164 C148 146 142 128 134 116 C150 124 162 144 164 168 Z', pal.shade, 0.85, 'fine');
-  g += shadow('M92 205 C100 192 112 186 124 186 C120 194 122 200 126 205 Z', pal.shade, 0.75, 'xhatch');
-  g += line('M124 198 C116 180 122 160 140 156 C152 154 160 164 162 176', 1.1);
-  g += fur(c, 146, 140, 7, 70, 4, 8) + fur(c, 140, 176, 6, 80, 3, 6) + fur(c, 118, 130, 6, 90, 3, 6);
-  g += rim('M128 102 C148 112 162 138 164 164', pal.light, 1);
-  // Plastron.
-  g += ink('M100 116 C90 120 84 128 82 140 C80 154 84 166 92 174 C96 164 100 156 104 150 L100 144 L106 138 L101 132 L107 126 L102 120 Z', pal.belly, 1);
-  g += fur(c, 92, 150, 7, 95, 4, 5, pal.shade);
-  // Pattes avant courtes.
-  g += ink('M104 164 L104 200 C101 201 100 203 100 205 L112 205 C112 201 111 198 111 194 L113 164 Z', pal.deep, 1.2);
-  g += ink('M86 160 C88 174 89 190 88 199 C84 200 81 202 81 205 L96 205 C97 202 96 199 96 196 C96 184 98 172 100 162 Z', pal.body, 1.4);
-  g += ink('M88.4 184 C89 192 88.6 196 88 199 C84 200 81 202 81 205 L96 205 C97 202 96 199 96 196 C96 192 96.4 188 96.8 184 C94 182.6 91 182.6 88.4 184 Z', pal.shade, 1.1);
-  // Tête : crâne rond mais museau réel, joues duveteuses.
-  const head = 'M58 104 C64 100 70 96 76 92 C82 82 92 76 104 75 C118 74 130 82 132 96 C134 104 132 110 128 114 L132 120 L122 119 L124 125 L113 121 L106 124 L102 119 C92 120 82 118 74 114 C68 112 62 110 58 108 C55 107 55 105 58 104 Z';
-  g += ink(head, pal.body, 1.8);
-  g += shadow('M132 96 C134 104 132 110 128 114 L132 120 L122 119 C126 110 128 100 124 90 C120 82 112 76 104 75 C118 74 130 82 132 96 Z', pal.shade, 0.75, 'fine');
-  g += ink('M59 107 C66 108 74 107 82 105 C94 102 106 106 114 114 L122 119 L114 119 L116 123 L106 120 L102 119 C92 120 82 118 74 114 C68 112 63 110 59 107 Z', pal.belly, 1);
-  // Oreille proche, grande.
-  g += ink('M108 80 C110 64 118 50 132 40 C138 56 136 74 128 92 Z', pal.body, 1.6);
-  g += ink('M112 80 C114 66 120 54 130 47 C133 60 131 72 126 84 Z', pal.deep, 0);
-  g += fur(c, 120, 78, 9, -75, 4, 6, pal.light, 0.8);
-  g += ink('M53 103 C55 100 61 100 62 103 C61 107 56 108 54 106 Z', pal.ink, 0);
-  g += line('M60 108 C64 110 68 110 72 109', 0.9);
-  g += eyeA(84, 92, 6.2, pal.eye, { angle: -10, slit: false, open: 0.5 });
-  g += line('M80 98 C78 102 74 106 70 108', 0.8, pal.ink);
-  g += fur(c, 106, 92, 6, 150, 4, 8, pal.shade) + fur(c, 126, 112, 6, 110, 3, 6);
-  g += rim('M58 104 C64 100 70 96 76 92 C82 82 92 76 104 75', pal.glow, 1.2);
-  g += sparkle(100, 82, 3, pal.gold, false);
-  // Queue enroulée devant, nébuleuse naissante.
-  const top: Chain = [158, 194, 140, 186, 110, 190, 84, 194, 70, 196, 56, 192, 48, 186];
-  const tail = `M158 194${tufts(top, 7, 2.6, 1, 0.8)} C40 192 42 204 58 208 C88 214 136 212 162 204 Z`;
-  g += nebula(c, `${id}-t`, tail, [[70, 200, 22, 8, pal.accent, 0.6], [124, 200, 22, 7, pal.accent2, 0.5], [52, 194, 10, 9, '#FFF6D8', 0.9]], [104, 200, 50, 7, 12]);
-  g += ink(tail, 'none', 1.6) + rim('M150 192 C130 188 104 190 84 194 C70 196 58 192 50 188', pal.glow, 0.9);
-  g += glowDot(52, 196, 6, '#FFF6D8') + sparkle(51, 195, 3.5, '#FFF6D8', false);
+  g += shadow('M188 180 C190 198 176 206 150 206 L120 206 C150 200 168 188 170 168 C172 156 166 146 160 140 C176 148 186 162 188 180 Z', pal.shade, 0.85, 'fine');
+  g += line('M146 150 C170 160 176 186 160 204', 1.1) + shadow('M146 150 C160 158 166 176 160 196 C150 180 148 164 146 150 Z', pal.shade, 0.45, 'fine');
+  g += fur(c, 130, 146, 7, 80, 5, 12) + fur(c, 98, 146, 6, 90, 4, 10) + fur(c, 170, 170, 6, 100, 3, 6);
+  g += rim('M48 170 C56 150 76 140 106 136 C140 132 170 140 182 156', pal.light, 1.1);
+  // Oreilles couchées.
+  g += ink('M100 156 C110 146 122 142 134 142 C128 150 120 158 110 162 Z', pal.deep, 1.3);
+  g += ink('M92 154 C100 140 112 134 126 132 C122 142 114 152 104 158 Z', pal.body, 1.4) + ink('M98 152 C104 144 112 139 120 137 C117 143 112 149 105 153 Z', pal.deep, 0);
+  // Tête posée, yeux clos.
+  const head = 'M44 182 C50 174 60 166 72 158 C82 150 98 148 108 154 C118 160 118 176 108 184 C98 192 76 194 58 192 C50 191 45 188 44 185 Z';
+  g += ink(head, pal.body, 1.7);
+  g += shadow('M108 154 C118 160 118 176 108 184 C102 188 94 190 86 191 C100 182 106 170 104 158 Z', pal.shade, 0.7, 'fine');
+  g += ink('M45 186 C50 190 58 192 66 191 C60 188 53 186 47 183 Z', pal.belly, 0.8);
+  g += ink('M39 182 C41 178 47 178 49 181 C48 185 43 186 40 185 Z', pal.ink, 0);
+  g += line('M66 168 Q73 173 81 168', 1.4) + line('M68 171 l-1 2 M72 172.5 l-0.4 2.2 M76 172 l0.4 2.2', 0.7);
+  g += line('M60 164 C66 160 74 159 82 161', 0.8, pal.shade) + fur(c, 96, 170, 6, 150, 4, 8, pal.shade);
+  g += rim('M44 182 C50 174 60 166 72 158 C82 150 98 148 108 154', pal.glow, 1.1);
+  g += sparkle(92, 160, 2.6, pal.gold, false);
+  // Queue enroulée par-dessus les pattes, pointe sous le museau.
+  const low: Chain = [184, 184, 178, 206, 140, 214, 100, 214, 70, 214, 46, 210, 34, 200];
+  const tail = `M184 184${tufts(low, 9, 2.6, 1, 0.6)} C30 194 34 188 42 190 C60 198 90 200 120 198 C150 196 172 190 184 184 Z`;
+  g += nebula(c, `${id}-t`, tail, [[70, 206, 26, 8, pal.accent, 0.6], [130, 206, 24, 7, pal.accent2, 0.5], [40, 198, 10, 8, '#FFF6D8', 0.9]], [110, 206, 66, 7, 16]);
+  g += ink(tail, 'none', 1.6) + rim('M176 188 C150 196 120 198 90 199 C70 198 54 194 44 190', pal.glow, 0.9);
+  g += glowDot(40, 198, 6, '#FFF6D8') + sparkle(39, 197, 3.4, '#FFF6D8', false);
   return g;
 }
 
@@ -165,6 +150,8 @@ function young(c: DrawCtx): string {
   g += rim('M84 130 C86 138 88 144 86 148 C80 150 72 150 68 152', pal.light, 1);
   // Tête un peu plus fine que l'adulte.
   g += `<g transform="translate(110 96) scale(0.86) translate(-112 -100)">${foxHead(c)}${sparkle(97, 60, 3.2, pal.gold, false)}</g>`;
+  // Hautes herbes au premier plan, devant les pattes.
+  for (const [x, h, bd] of [[58, 30, -6], [88, 22, 5], [112, 34, -8], [134, 20, 6], [150, 28, -4], [186, 26, 7], [200, 34, -5]] as const) g += blade(x, 208, h, bd, hsl(c.hue + 80, 28, 30));
   return g;
 }
 
@@ -217,26 +204,98 @@ function adult(c: DrawCtx): string {
   g += rim('M85 150 C85.5 160 86 170 86 178', pal.light, 1);
   g += shadow('M98 146 C95 162 93 176 93.6 178 C92 170 91 160 92 148 Z', pal.shade, 0.6, 'fine');
 
-  g += foxHead(c);
-
-  // Marques célestes.
-  if (stage >= 2) g += gild('M92 62 a5 5 0 1 0 8 -3 a4 4 0 1 1 -8 3 Z', 1.1);
+  // Tête (levée vers le ciel, en plein chant, chez l'éveillé) et marques célestes du visage.
+  let hd = foxHead(c);
+  if (stage >= 2) hd += gild('M92 62 a5 5 0 1 0 8 -3 a4 4 0 1 1 -8 3 Z', 1.1);
+  if (woke) {
+    hd += gild('M84 76 C90 80 96 80 100 76 M86 82 C92 88 100 88 104 84', 1) + glowDot(78, 72, 12, pal.eye) + gild('M106 62 C110 46 118 32 129 22', 1.1);
+    for (const [x, y, z] of [[100, 40, 3.2], [112, 30, 4.2], [124, 14, 3.2]] as const) hd += sparkle(x, y, z, pal.gold, false);
+    // Souffle d'étoiles qui s'échappe du museau.
+    hd += line('M40 82 C30 76 24 66 22 56 M42 88 C30 86 20 80 14 72', 0.9, pal.glow, ' opacity="0.8" stroke-dasharray="2 3"');
+    for (const [x, y, z] of [[22, 50, 3], [12, 66, 2.4], [30, 70, 2]] as const) hd += sparkle(x, y, z, pal.glow, false);
+  }
+  g += woke ? `<g transform="rotate(26 116 100)">${hd}</g>` : hd;
   g += constellation([[140, 160], [150, 170], [146, 184], [158, 190]], pal.gold);
   if (woke) {
-    g += gild('M84 76 C90 80 96 80 100 76 M86 82 C92 88 100 88 104 84', 1) + gild('M128 132 c10 -6 22 -2 24 8 c2 10 -10 14 -14 6', 1.2);
-    g += gild('M84 120 l4 -6 l4 6 l-4 6 Z M86 140 l3 -4 l3 4 l-3 4 Z', 1);
-    g += glowDot(78, 72, 12, pal.eye);
-    g += constellation([[24, 48], [40, 36], [58, 44], [66, 28]], pal.gold);
-    // Filets d'or le long du dos, des oreilles et de la queue ; diadème d'étoiles.
-    g += gild('M118 72 C124 88 132 106 142 118 C154 134 162 156 164 172', 1.3) + gild('M106 62 C110 46 118 32 129 22', 1.1) + gild('M210 134 C214 160 200 186 170 194', 1.2);
+    g += gild('M128 132 c10 -6 22 -2 24 8 c2 10 -10 14 -14 6', 1.2) + gild('M84 120 l4 -6 l4 6 l-4 6 Z M86 140 l3 -4 l3 4 l-3 4 Z', 1);
+    g += gild('M118 72 C124 88 132 106 142 118 C154 134 162 156 164 172', 1.3) + gild('M210 134 C214 160 200 186 170 194', 1.2);
     g += gild('M90 150 c-6 -6 -6 -16 2 -20 c-4 6 -2 14 4 18 Z', 1);
-    for (const [x, y, z] of [[100, 40, 3.2], [112, 30, 4.2], [124, 14, 3.2]] as const) g += sparkle(x, y, z, pal.gold, false);
     for (const [x, y, z] of [[30, 120, 4], [56, 160, 3], [140, 26, 3.5], [36, 190, 3]] as const) g += sparkle(x, y, z, pal.glow, false);
   }
   return g;
 }
 
-export const lumikit: Species = (c) => {
-  const k = [1.14, 0.97, 0.95, 0.95, 0.95][c.stage] ?? 0.95;
-  return `<g transform="translate(114 205) scale(${k}) translate(-114 -205)">${c.stage === 0 ? kit(c) : c.stage === 1 ? young(c) : adult(c)}</g>`;
+export const lumikit: Species = (c: DrawCtx) => {
+  const k = [1.08, 0.97, 0.95, 0.95, 0.95][c.stage] ?? 0.95;
+  return `<g transform="translate(114 205) scale(${k}) translate(-114 -205)">${c.stage === 0 ? sleeper(c) : c.stage === 1 ? young(c) : adult(c)}</g>`;
+};
+
+/* ---------- Décor : plaines et cimes des comètes ---------- */
+
+/** Brin d'herbe haute (trait plein effilé). */
+const blade = (x: number, y: number, h: number, bend: number, col: string, op = 1) =>
+  `<path d="M${f1(x - 1.6)} ${f1(y)} Q${f1(x + bend * 0.4)} ${f1(y - h * 0.6)} ${f1(x + bend)} ${f1(y - h)} Q${f1(x + bend * 0.4 + 1)} ${f1(y - h * 0.55)} ${f1(x + 1.6)} ${f1(y)} Z" fill="${col}" stroke="#140F24" stroke-width="0.5" opacity="${op}"/>`;
+
+function cometSky(c: DrawCtx, b: Bounds, id: string, top: string, bot: string, stars: number): string {
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs><linearGradient id="${id}-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="1" stop-color="${bot}"/></linearGradient></defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-g)"/>`;
+  for (let i = 0; i < stars; i++) s += `<circle cx="${f1(b.x0 + c.r() * W)}" cy="${f1(b.y0 + c.r() * H * 0.75)}" r="${f1(0.3 + c.r() * 1.1)}" fill="#FFF6D8" opacity="${f1(0.25 + c.r() * 0.7)}"/>`;
+  return s;
+}
+
+lumikit.scene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, hue } = c;
+  const id = `lumikit-${stage}-bg`;
+  const W = b.x1 - b.x0, sh = hue + 200;
+  let s = '';
+  if (stage <= 0) {
+    // Terrier sous les racines : voûte de terre, ouverture sur la nuit et une étoile filante, mousse, champignons.
+    s += cometSky(c, b, id, hsl(sh, 45, 14), hsl(sh + 20, 40, 22), 40);
+    s += line('M150 30 L196 14', 1.2, '#FFF6D8', ' opacity="0.8"') + sparkle(150, 30, 3, '#FFF6D8', false);
+    const earth = hsl(hue + 25, 25, 14), earth2 = hsl(hue + 25, 22, 20);
+    s += `<path d="M${b.x0} ${b.y0} L${b.x1} ${b.y0} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z M24 236 C10 160 30 70 111 60 C192 70 214 160 200 236 Z" fill="${earth}" fill-rule="evenodd" stroke="#140F24" stroke-width="1.4"/>`;
+    s += `<path d="M24 236 C14 170 32 84 111 72 C190 84 210 170 200 236" fill="none" stroke="${earth2}" stroke-width="8" opacity="0.8"/>`;
+    for (const d of ['M30 70 C50 90 46 120 60 140', 'M80 40 C90 70 70 90 76 110', 'M170 50 C160 80 180 100 170 130', 'M200 90 C186 110 196 130 186 150']) s += line(d, 4, '#140F24', ' opacity="0.9"') + line(d, 2.4, hsl(hue + 25, 25, 30));
+    s += `<path d="M${b.x0} ${b.y1} L${b.x0} 204 C50 196 170 196 ${b.x1} 204 L${b.x1} ${b.y1} Z" fill="${hsl(hue + 110, 30, 22)}" stroke="#140F24" stroke-width="1"/>`;
+    for (let i = 0; i < 30; i++) s += `<circle cx="${f1(b.x0 + c.r() * W)}" cy="${f1(204 + c.r() * 30)}" r="${f1(1 + c.r() * 2)}" fill="${hsl(hue + 110, 35, 34)}" opacity="0.8"/>`;
+    for (const [x, y, k] of [[22, 206, 1], [32, 210, 0.7], [200, 204, 0.9]] as const) {
+      s += `<g transform="translate(${x} ${y}) scale(${k})"><path d="M-1.5 0 L-1 -10 L1 -10 L1.5 0 Z" fill="${hsl(hue + 40, 30, 80)}" stroke="#140F24" stroke-width="0.6"/><path d="M-8 -9 C-7 -17 7 -17 8 -9 Z" fill="${hsl(hue + 160, 60, 60)}" stroke="#140F24" stroke-width="0.7"/></g>` + glowDot(x, y - 12 * k, 8 * k, hsl(hue + 160, 80, 70));
+    }
+  } else if (stage === 1) {
+    // Prairie au crépuscule : collines, hautes herbes, lucioles, souris-étoile dans l'herbe.
+    s += cometSky(c, b, id, hsl(sh - 20, 40, 22), hsl(hue + 20, 55, 58), 26);
+    s += `<circle cx="168" cy="160" r="40" fill="${hsl(hue + 30, 80, 80)}" opacity="0.35" filter="url(#soft)"/>`;
+    s += `<path d="M${b.x0} 170 C40 150 90 160 130 152 C170 144 200 156 ${b.x1} 150 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(sh + 30, 25, 38)}" opacity="0.7"/>`;
+    s += `<path d="M${b.x0} 190 C60 178 120 186 ${b.x1} 176 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(hue + 80, 25, 22)}" stroke="#140F24" stroke-width="0.8"/>`;
+    for (let i = 0; i < 40; i++) { const x = b.x0 + (i / 40) * W + c.r() * 4; s += blade(x, 200 + c.r() * 10, 26 + c.r() * 34, (c.r() - 0.5) * 18, hsl(hue + 80, 28, 28 + c.r() * 12), 0.9); }
+    // Souris-étoile, proie du jeune renard.
+    s += `<g transform="translate(30 196)"><path d="M0 0 C0 -7 10 -9 14 -3 L18 -2 L14 1 C10 3 2 3 0 0 Z" fill="${hsl(hue + 40, 25, 70)}" stroke="#140F24" stroke-width="0.8"/><circle cx="10" cy="-6" r="2.2" fill="${hsl(hue + 40, 25, 70)}" stroke="#140F24" stroke-width="0.6"/><circle cx="14" cy="-3" r="0.7" fill="#140F24"/><path d="M0 0 C-6 2 -10 -2 -14 -6" fill="none" stroke="#140F24" stroke-width="0.8"/></g>`;
+    for (const [x, y] of [[24, 120], [60, 150], [190, 110], [176, 190], [150, 130]] as const) s += glowDot(x, y, 6, hsl(hue + 60, 90, 75)) + `<circle cx="${x}" cy="${y}" r="1.2" fill="#FFF6D8"/>`;
+  } else if (stage === 2) {
+    // Promontoire rocheux sous une grande comète.
+    s += cometSky(c, b, id, hsl(sh, 50, 9), hsl(sh + 20, 40, 24), 70);
+    s += `<path d="M20 20 C60 34 100 50 140 80" fill="none" stroke="${hsl(hue + 180, 60, 80)}" stroke-width="10" opacity="0.18" filter="url(#soft)"/>` + line('M24 22 C60 34 100 50 138 78', 1, '#FFF6D8', ' opacity="0.6"') + glowDot(140, 80, 10, '#FFF6D8') + sparkle(140, 80, 4, '#FFF6D8', false);
+    s += `<path d="M${b.x0} 170 L30 140 L52 156 L84 118 L110 150 L140 128 L170 160 L196 136 L${b.x1} 158 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(sh + 10, 25, 30)}" stroke="#140F24" stroke-width="0.8" opacity="0.75"/>`;
+    s += `<path d="M84 118 L92 128 L88 134 M140 128 L148 136" fill="none" stroke="${hsl(sh, 30, 80)}" stroke-width="1" opacity="0.6"/>`;
+    s += ink(`M${b.x0} 214 C30 204 60 200 90 202 C130 204 180 196 ${b.x1} 202 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`, hsl(hue + 30, 15, 26), 1.4);
+    s += shadow(`M${b.x0} 226 C60 216 140 220 ${b.x1} 214 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`, hsl(hue + 30, 20, 14), 0.7, 'xhatch');
+    s += line('M40 206 l10 8 M150 204 l-8 10 l6 8', 0.8, '#140F24') + rim(`M${b.x0} 214 C30 204 60 200 90 202 C130 204 180 196 ${b.x1} 202`, hsl(sh - 20, 40, 70), 1);
+  } else {
+    // Cime enneigée sous les aurores.
+    s += cometSky(c, b, id, hsl(sh + 20, 55, 8), hsl(sh - 20, 45, 22), 70);
+    for (let k = 0; k < 3; k++) {
+      const col = hsl(hue + 120 + k * 40, 70, 60);
+      let d = `M${b.x0} ${40 + k * 18}`;
+      for (let i = 1; i <= 8; i++) d += ` Q${f1(b.x0 + (i - 0.5) * W / 8)} ${f1(30 + k * 18 + (i % 2 ? -16 : 16))} ${f1(b.x0 + i * W / 8)} ${f1(40 + k * 18)}`;
+      s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="${14 - k * 3}" opacity="0.22" filter="url(#soft)"/>`;
+      s += `<path d="${d}" fill="none" stroke="${col}" stroke-width="0.8" opacity="0.5" stroke-dasharray="1 4"/>`;
+    }
+    s += `<path d="M${b.x0} 176 L36 120 L60 150 L96 96 L128 140 L160 110 L200 160 L${b.x1} 150 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(sh, 20, 46)}" stroke="#140F24" stroke-width="0.8" opacity="0.8"/>`;
+    s += `<path d="M36 120 L44 132 L38 136 L50 140 M96 96 L104 108 L98 112 L110 118 M160 110 L168 122 L176 126" fill="none" stroke="#FFF6D8" stroke-width="1" opacity="0.7"/>`;
+    s += ink(`M${b.x0} 212 C40 200 90 198 130 200 C170 202 200 196 ${b.x1} 200 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`, hsl(sh - 10, 25, 82), 1.4);
+    s += shadow(`M${b.x0} 224 C70 214 150 220 ${b.x1} 212 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`, hsl(sh, 30, 60), 0.6, 'fine');
+    for (let i = 0; i < 24; i++) s += `<circle cx="${f1(b.x0 + c.r() * W)}" cy="${f1(b.y0 + c.r() * 200)}" r="${f1(0.6 + c.r() * 1)}" fill="#FFFFFF" opacity="0.7"/>`;
+  }
+  return s;
 };

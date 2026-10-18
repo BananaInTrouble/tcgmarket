@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
+import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -61,6 +61,32 @@ function at(fr: Fr, t: number, o = 0): P {
 }
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
+
+/* ---------- Décor : petits outils ---------- */
+const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
+/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
+const vgrad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
+function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+  }
+  return s;
+}
+/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
+function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
+  const pts: P[] = [];
+  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
+  const top = smooth(pts);
+  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
+    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
+}
+/** Halo flou (lumière d'ambiance). */
+const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
+  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
 
 /** Carapluton → Orbitortue → Mondécaille : tortue terrestre dont la dossière est une planète (lune cratérisée, puis géante gazeuse annelée). */
 export const carapluton: Species = (c) => {
@@ -132,7 +158,7 @@ export const carapluton: Species = (c) => {
   g += `<path d="M${f(x0 + 4)} ${f(rimY)} Q${f(sx)} ${f(rimY + 30)} ${f(x1 - 4)} ${f(rimY)} Z" fill="${pal.deep}"/>`;
 
   // ---- Cou et tête ----
-  const hx = x0 - 4, hy = rimY - (st === 0 ? 38 : 46);
+  const hx = x0 - 4, hy = rimY - [42, 44, 56][st];
   const neckFr = frame([[x0 + 18, rimY - 2], [x0 + 6, rimY - 12], [x0 - 2, rimY - 26], [hx + 4, hy + 4]], 6);
   const neckW = tab([[0, 13 * Math.min(1.1, headK)], [1, 8.5 * headK]]);
   g += ink(outline(neckFr, neckW), pal.body, 1.4);
@@ -227,5 +253,86 @@ export const carapluton: Species = (c) => {
   } else if (st === 0) {
     g += sparkle(54, 70, 2.6, pal.glow, false) + sparkle(196, 76, 2.2, pal.glow, false);
   }
+  // 0 : le petit vient d'éclore, coquille brisée autour de lui.
+  if (st === 0) {
+    g += `<path d="M30 206 C26 190 34 178 44 176 L48 184 L54 180 L58 190 L66 186 L70 198 C70 204 60 208 30 206 Z" fill="#F2EAD8" stroke="#140F24" stroke-width="1.1"/>`;
+    g += shadow('M30 206 C26 190 34 178 44 176 C40 188 44 200 70 198 C70 204 60 208 30 206 Z', pal.shade, 0.5, 'fine');
+    g += `<path d="M168 206 C168 196 176 188 186 190 L190 196 L196 194 L200 204 Z" fill="#F2EAD8" stroke="#140F24" stroke-width="1"/>`;
+  }
   return `<g transform="translate(111 204) scale(${S}) translate(-111 -204)">${g}</g>`;
 };
+
+/* ---------- Décor : désert lunaire (0 nid de sable la nuit, 1 traversée à l'aube, 2 astéroïde au-dessus d'une géante) ---------- */
+function eggAt(x: number, y: number, r: number, col: string, dots: string): string {
+  return `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 1.15)}" fill="${col}" stroke="#140F24" stroke-width="0.9"/>`
+    + `<path d="M${f(x + r * 0.2)} ${f(y - r * 1.1)} A${r} ${f(r * 1.15)} 0 0 1 ${f(x + r * 0.3)} ${f(y + r * 1.1)} A${f(r * 0.7)} ${f(r * 1.15)} 0 0 0 ${f(x + r * 0.2)} ${f(y - r * 1.1)} Z" fill="url(#fine)"/>`
+    + `<circle cx="${f(x - r * 0.3)}" cy="${f(y - r * 0.2)}" r="${f(r * 0.18)}" fill="${dots}" opacity="0.6"/><circle cx="${f(x + r * 0.1)}" cy="${f(y + r * 0.4)}" r="${f(r * 0.12)}" fill="${dots}" opacity="0.6"/>`;
+}
+function craterAt(x: number, y: number, rx: number, col: string, lit: string): string {
+  return `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${f(rx * 0.28)}" fill="${col}" stroke="#140F24" stroke-width="0.6" opacity="0.9"/>`
+    + `<path d="M${f(x - rx * 0.9)} ${f(y + rx * 0.08)} A${rx} ${f(rx * 0.28)} 0 0 0 ${f(x + rx * 0.9)} ${f(y + rx * 0.08)}" fill="none" stroke="${lit}" stroke-width="0.8" opacity="0.7"/>`;
+}
+const caraplutonScene = (c: DrawCtx, b: Bounds): string => {
+  const { pal, stage, hue } = c;
+  const st = Math.min(stage, 2);
+  const id = `carapluton-${st}-bg`;
+  let s = '';
+  if (st === 0) {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 220, 40, 8)], [0.7, hsl(hue + 210, 36, 18)], [1, hsl(hue + 200, 30, 26)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 90, 150);
+    // Planète bleue qui se lève.
+    s += glowAt(178, 52, 40, 30, '#9CC7FF', 0.35);
+    s += `<circle cx="178" cy="52" r="26" fill="${hsl(210, 40, 46)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<path d="M160 44 q8 -5 14 2 q6 6 14 1 M156 58 q10 3 16 -2 q8 -3 14 3" fill="none" stroke="${hsl(120, 25, 50)}" stroke-width="2.4" opacity="0.6"/>`;
+    s += shadow('M184 26 A26 26 0 0 1 184 78 A18 26 0 0 0 184 26 Z', hsl(220, 50, 14), 0.75, 'fine');
+    s += ridge(c, b, 150, 4, 6, hsl(hue + 210, 14, 34), 0.8);
+    s += ridge(c, b, 176, 6, 5, hsl(hue + 210, 14, 42), 0.9);
+    s += craterAt(186, 186, 18, hsl(hue + 210, 14, 34), '#FFF6D8');
+    // Nid creusé, autres œufs, fragments de coquille.
+    s += `<ellipse cx="118" cy="208" rx="98" ry="16" fill="${hsl(hue + 210, 16, 30)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += shadow('M20 208 A98 16 0 0 1 216 208 A98 10 0 0 0 20 208 Z', hsl(hue + 210, 30, 14), 0.7, 'fine');
+    s += eggAt(196, 200, 11, hsl(hue + 30, 18, 82), pal.shade) + eggAt(212, 210, 9, hsl(hue + 30, 18, 78), pal.shade) + eggAt(16, 206, 10, hsl(hue + 30, 18, 80), pal.shade);
+    s += ridge(c, b, 226, 3, 6, hsl(hue + 210, 14, 44), 0.8);
+  } else if (st === 1) {
+    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(235, 40, 12)], [0.4, hsl(262, 28, 28)], [0.6, hsl(20, 50, 56)], [0.68, hsl(36, 75, 74)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
+    s += stars(c, b, 60, 110);
+    s += glowAt(40, 150, 70, 26, '#FFE3A0', 0.75);
+    s += `<path d="M24 155 a16 16 0 0 1 32 0 Z" fill="#FFF0C8" stroke="#140F24" stroke-width="0.6"/>`;
+    // Mesas lointaines (pâles), puis dunes de régolithe.
+    s += `<path d="M${b.x0 - 4} 154 L${b.x0 - 4} 132 L14 130 L20 138 L50 138 L56 146 L92 148 L96 154 Z" fill="${hsl(262, 18, 42)}" opacity="0.8"/>`;
+    s += `<path d="M196 154 L198 140 L208 136 L222 138 L${b.x1 + 4} 140 L${b.x1 + 4} 154 Z" fill="${hsl(262, 18, 42)}" opacity="0.8"/>`;
+    s += ridge(c, b, 154, 2, 6, hsl(250, 12, 40), 0.7);
+    s += ridge(c, b, 170, 5, 5, hsl(30, 12, 46), 0.8);
+    s += ridge(c, b, 196, 4, 5, hsl(30, 14, 54), 0.9);
+    for (let k = 0; k < 6; k++) s += line(`M${f(130 + k * 18)} ${f(178 + k * 3)} q6 -2 10 0`, 0.7, '#140F24', ' opacity="0.35"');
+    // Traces de pas qui s'éloignent derrière.
+    for (let k = 0; k < 6; k++) s += `<ellipse cx="${f(212 - k * 12 + (k % 2) * 3)}" cy="${f(208 - k * 5)}" rx="${f(4 - k * 0.4)}" ry="${f(1.6 - k * 0.15)}" fill="${hsl(30, 14, 38)}"/>`;
+    s += craterAt(36, 214, 22, hsl(30, 12, 44), '#FFF6D8') + craterAt(198, 182, 10, hsl(30, 12, 44), '#FFF6D8');
+    // Lumière rasante : liseré chaud sur les crêtes.
+    s += glowAt(50, 168, 90, 12, '#FFE3A0', 0.25);
+  } else {
+    s += fill(b, hsl(hue + 230, 45, 8));
+    s += stars(c, b, 110, b.y1);
+    s += glowAt(60, 40, 60, 40, pal.accent, 0.25) + glowAt(180, 60, 40, 30, pal.accent2, 0.2);
+    // Géante gazeuse en contrebas.
+    s += `<defs><clipPath id="${id}-p"><circle cx="40" cy="330" r="190"/></clipPath></defs>`;
+    s += glowAt(40, 150, 140, 30, pal.glow, 0.25);
+    s += `<circle cx="40" cy="330" r="190" fill="${hsl(hue + 180, 28, 40)}"/>`;
+    s += `<g clip-path="url(#${id}-p)">`;
+    for (let k = 0; k < 9; k++) s += `<ellipse cx="40" cy="${330 - 150 + k * 14}" rx="210" ry="12" fill="${[hsl(hue + 170, 30, 70), hsl(hue + 190, 30, 26), hsl(hue + 200, 25, 54), hsl(hue + 160, 30, 80)][k % 4]}" opacity="0.4" transform="rotate(-8 40 330)"/>`;
+    s += shadow('M100 140 A190 190 0 0 1 230 330 L240 330 L240 120 Z', hsl(hue + 230, 50, 8), 0.6, 'fine');
+    s += `</g><circle cx="40" cy="330" r="190" fill="none" stroke="#140F24" stroke-width="0.9"/>`;
+    s += `<path d="M-60 210 A190 190 0 0 1 110 146" fill="none" stroke="${pal.glow}" stroke-width="1.4" opacity="0.7"/>`;
+    // Astéroïdes flottants.
+    const rock = (x: number, y: number, r: number) => `<path d="M${x - r} ${y} Q${x - r} ${y - r * 0.9} ${x} ${y - r * 0.8} Q${x + r * 1.1} ${y - r * 0.7} ${x + r} ${y + r * 0.1} Q${x + r * 0.6} ${y + r * 0.8} ${x - r * 0.2} ${y + r * 0.7} Q${x - r} ${y + r * 0.5} ${x - r} ${y} Z" fill="${hsl(hue + 20, 14, 36)}" stroke="#140F24" stroke-width="0.7"/>`
+      + `<path d="M${x + r * 0.2} ${y - r * 0.7} Q${x + r * 1.1} ${y - r * 0.6} ${x + r} ${y + r * 0.1} Q${x + r * 0.6} ${y + r * 0.8} ${x - r * 0.2} ${y + r * 0.7} Q${x + r * 0.5} ${y} ${x + r * 0.2} ${y - r * 0.7} Z" fill="url(#fine)"/>`;
+    s += rock(198, 30, 7) + rock(24, 30, 4) + rock(206, 120, 5) + rock(150, 18, 3);
+    // L'astéroïde sous les pattes.
+    s += `<path d="M${b.x0 - 4} 214 C20 198 70 194 120 196 C170 196 206 200 ${b.x1 + 4} 210 L${b.x1 + 4} 230 C180 244 60 246 ${b.x0 - 4} 232 Z" fill="${hsl(hue + 20, 14, 34)}" stroke="#140F24" stroke-width="1"/>`;
+    s += shadow(`M${b.x0 - 4} 222 C40 216 120 214 ${b.x1 + 4} 220 L${b.x1 + 4} 230 C180 244 60 246 ${b.x0 - 4} 232 Z`, hsl(hue + 20, 40, 10), 0.7, 'xhatch');
+    s += craterAt(30, 206, 12, hsl(hue + 20, 14, 28), pal.glow) + craterAt(200, 206, 9, hsl(hue + 20, 14, 28), pal.glow);
+    s += `<path d="M10 200 C60 194 160 194 210 202" fill="none" stroke="${pal.glow}" stroke-width="0.9" opacity="0.6"/>`;
+  }
+  return s;
+};
+carapluton.scene = caraplutonScene;

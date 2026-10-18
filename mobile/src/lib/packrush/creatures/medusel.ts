@@ -1,4 +1,4 @@
-import { aura, constellation, gild, ink, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
+import { aura, constellation, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
  * Médusel → Filastra → Coronéa : méduse stellaire. Planche de zoologie marine céleste : éphyrule en étoile à huit
@@ -88,10 +88,10 @@ function medusa(c: DrawCtx, o: { top: number; rim: number; w: number; arms: numb
   s += arm(-16, -8, 0, pal.shade) + arm(18, 8, 2, pal.shade);
   s += arm(-6, 6, 4, pal.accent) + arm(6, -6, 1, pal.accent);
   // Sous-ombrelle (intérieur de la cloche vu par en dessous).
-  s += `<ellipse cx="${CX}" cy="${rimY}" rx="${f(w * 0.98)}" ry="${f(w * 0.14)}" fill="${pal.deep}" opacity="0.7" stroke="#140F24" stroke-width="1"/>`;
+  s += `<ellipse cx="${CX}" cy="${rimY}" rx="${f(w * 0.98)}" ry="${f(w * 0.14)}" fill="${pal.deep}" opacity="0.45" stroke="#140F24" stroke-width="1"/>`;
   // Cloche translucide, nébuleuse intérieure.
   s += `<clipPath id="${id}-b"><path d="${bell}"/></clipPath><g clip-path="url(#${id}-b)">`
-    + `<path d="${bell}" fill="${pal.deep}" opacity="0.55"/>`
+    + `<path d="${bell}" fill="${pal.deep}" opacity="0.32"/><path d="${bell}" fill="${pal.light}" opacity="0.12"/>`
     + `<ellipse cx="${CX - w * 0.3}" cy="${top + (rimY - top) * 0.35}" rx="${f(w * 0.6)}" ry="${f((rimY - top) * 0.35)}" fill="${pal.accent2}" opacity="0.5" filter="url(#soft)"/>`
     + `<ellipse cx="${CX + w * 0.35}" cy="${top + (rimY - top) * 0.6}" rx="${f(w * 0.5)}" ry="${f((rimY - top) * 0.3)}" fill="${pal.accent}" opacity="0.45" filter="url(#soft)"/>`
     + `<ellipse cx="${CX - w * 0.2}" cy="${top + (rimY - top) * 0.2}" rx="${f(w * 0.35)}" ry="${f((rimY - top) * 0.18)}" fill="#FFF6D8" opacity="0.5" filter="url(#soft)"/>`
@@ -149,22 +149,99 @@ function ephyra(c: DrawCtx): string {
     const sh = rot([10, -40], a);
     s += `<circle cx="${f(sh[0])}" cy="${f(sh[1])}" r="0.9" fill="#FFF6D8"/>`;
   }
-  s += shadow(`M${f(d.length ? 0 : 0)} 0` + ' ' + d.replace(/^M[^C]+/, (m) => m), pal.deep, 0, 'fine').replace(/<path d="[^"]*" fill="[^"]*" opacity="0"\/>/, '');
   s += ink(d, 'none', 1.5);
   // Estomac central en croix, filaments gastriques dorés.
   s += ink('M0 -14 C5 -5 5 -5 14 0 C5 5 5 5 0 14 C-5 5 -5 5 -14 0 C-5 -5 -5 -5 0 -14 Z', pal.belly, 1.2, ' opacity="0.9"');
   s += gild('M-6 -6 q3 2 6 0 q3 -2 6 0 M-6 6 q3 -2 6 0 q3 2 6 0', 0.9);
   s += `<circle cx="0" cy="0" r="2.4" fill="${pal.deep}"/>`;
-  s += rim(d.split(' Q')[0] ? 'M-86 -20 C-80 -50 -56 -74 -24 -86' : '', pal.glow, 1.2);
   return `<g transform="translate(${CX} 118) rotate(-12) scale(1 0.8)">${s}</g>`
     + glowDot(CX, 118, 10, '#FFF6D8') + sparkle(CX, 118, 4, '#FFF6D8', false)
     + speckles(c, CX, 120, 100, 100, 8, pal.glow) + sparkle(30, 40, 3, pal.gold, false) + sparkle(196, 200, 3.4, pal.glow, false);
 }
 
-export const medusel: Species = (c) => {
+/* ---------- Décor : océan d'étoiles ---------- */
+
+/** Petit poisson-étoile (silhouette encrée), orienté selon `a` (degrés). */
+function fish(x: number, y: number, k: number, a: number, col: string, belly: string, op = 1): string {
+  return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)}) scale(${f(k)})" opacity="${op}">`
+    + `<path d="M-7 0 C-4 -3.4 3 -3.6 6 0 C3 3.4 -4 3.2 -7 0 Z M5.5 0 L10 -3.4 L9 0 L10 3.4 Z" fill="${col}" stroke="#140F24" stroke-width="0.7" stroke-linejoin="round"/>`
+    + `<path d="M-6 0.8 C-3 2.6 2 2.6 5 0.8" fill="none" stroke="${belly}" stroke-width="0.8"/><circle cx="-4.4" cy="-0.8" r="0.8" fill="#FFF6D8"/></g>`;
+}
+/** Éventail de corail : branches qui se divisent. */
+function coral(x: number, y: number, len: number, a: number, depth: number, col: string, w: number): string {
+  if (depth === 0 || len < 3) return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(Math.max(0.8, w * 0.6))}" fill="${col}"/>`;
+  const x1 = x + Math.cos(a) * len, y1 = y + Math.sin(a) * len;
+  return `<path d="M${f(x)} ${f(y)} L${f(x1)} ${f(y1)}" stroke="${col}" stroke-width="${f(w)}" stroke-linecap="round"/>`
+    + coral(x1, y1, len * 0.74, a - 0.42, depth - 1, col, w * 0.72) + coral(x1, y1, len * 0.74, a + 0.38, depth - 1, col, w * 0.72);
+}
+/** Ruban d'algue qui ondule vers le haut. */
+function kelp(x: number, y: number, h: number, w: number, ph: number, col: string, op: number): string {
+  const n = 16, L: string[] = [], R: string[] = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, cx = x + Math.sin(t * 5 + ph) * 7 * t, cy = y - h * t, ww = w * (1 - t * 0.6) * (0.8 + 0.3 * Math.sin(t * 13 + ph));
+    L.push(`${f(cx - ww)} ${f(cy)}`); R.push(`${f(cx + ww)} ${f(cy)}`);
+  }
+  return `<path d="M${L.join(' L')} L${R.reverse().join(' L')} Z" fill="${col}" opacity="${op}" stroke="#140F24" stroke-width="0.6" stroke-opacity="${op}"/>`
+    + `<path d="M${f(x)} ${f(y)} ${Array.from({ length: n }, (_, i) => { const t = (i + 1) / n; return `L${f(x + Math.sin(t * 5 + ph) * 7 * t)} ${f(y - h * t)}`; }).join(' ')}" fill="none" stroke="#FFF6D8" stroke-width="0.5" opacity="${op * 0.5}"/>`;
+}
+
+const oceanScene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, hue } = c;
+  const id = `medusel-${stage}-bg`;
+  const oh = 195 + (((hue % 60) + 60) % 60) - 30;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  const top = [hsl(oh + 10, 50, 16), hsl(oh, 45, 24), hsl(oh - 10, 50, 34)][stage] ?? hsl(oh, 45, 24);
+  let s = `<defs><linearGradient id="${id}-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${top}"/><stop offset="0.55" stop-color="${hsl(oh + 15, 60, 11)}"/><stop offset="1" stop-color="${hsl(oh + 35, 60, 5)}"/></linearGradient></defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-g)"/>`;
+  // Rayons de lumière venus de la surface.
+  const sx = [150, 60, 120][stage] ?? 110;
+  for (let i = 0; i < 6; i++) {
+    const x = b.x0 + W * (i / 6) + (c.r() - 0.5) * 20, wd = 8 + c.r() * 16;
+    s += `<path d="M${f(sx - 10 + i * 4)} ${f(b.y0 - 10)} L${f(x)} ${f(b.y1)} L${f(x + wd)} ${f(b.y1)} Z" fill="${hsl(oh - 20, 70, 85)}" opacity="${f((stage === 0 ? 0.03 : 0.06) + c.r() * 0.05)}"/>`;
+  }
+  // Nébuleuses sous-marines.
+  s += `<ellipse cx="${f(b.x0 + W * 0.25)}" cy="${f(b.y0 + H * 0.35)}" rx="70" ry="40" fill="${hsl(oh + 60, 60, 50)}" opacity="0.18" filter="url(#soft)"/>`
+    + `<ellipse cx="${f(b.x0 + W * 0.8)}" cy="${f(b.y0 + H * 0.6)}" rx="60" ry="50" fill="${hsl(oh - 40, 60, 50)}" opacity="0.15" filter="url(#soft)"/>`;
+  // Neige marine et plancton-étoiles.
+  for (let i = 0; i < 70; i++) s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(b.y0 + c.r() * H)}" r="${f(0.3 + c.r() * 1.1)}" fill="#FFF6D8" opacity="${f(0.2 + c.r() * 0.6)}"/>`;
+  if (stage === 0) {
+    // Grand large, nuit profonde : copépodes, petites méduses lointaines.
+    for (const [x, y, k] of [[34, 50, 0.7], [190, 70, 0.55], [50, 190, 0.5], [180, 176, 0.8]] as const) {
+      s += `<g transform="translate(${x} ${y}) scale(${k})" opacity="0.45"><path d="M-10 0 C-10 -12 10 -12 10 0 Q5 2 0 0 Q-5 2 -10 0 Z" fill="${hsl(oh - 20, 50, 70)}" stroke="#140F24" stroke-width="0.8"/>`
+        + `<path d="M-6 1 q2 10 -1 20 M0 1 q-2 12 1 24 M6 1 q2 10 -1 18" fill="none" stroke="${hsl(oh - 20, 50, 80)}" stroke-width="0.8"/></g>`;
+    }
+    for (const [x, y, a] of [[160, 30, 20], [24, 120, -30], [200, 130, 60], [80, 220, 10], [140, 214, -20]] as const) {
+      s += `<g transform="translate(${x} ${y}) rotate(${a})" opacity="0.7"><ellipse rx="3" ry="1.6" fill="${hsl(oh + 140, 60, 70)}" stroke="#140F24" stroke-width="0.5"/>`
+        + `<path d="M-3 0 q-4 -4 -9 -3 M-3 0 q-4 4 -9 3 M3 0 l3 0" fill="none" stroke="${hsl(oh + 140, 60, 80)}" stroke-width="0.5"/></g>`;
+    }
+  } else if (stage === 1) {
+    // Récif de nébuleuse : coraux, algues, poissons-étoiles.
+    s += `<path d="M${b.x0} ${f(b.y1)} L${b.x0} 196 C30 180 60 192 90 200 C130 210 170 186 ${b.x1} 192 L${b.x1} ${f(b.y1)} Z" fill="${hsl(oh + 25, 35, 14)}" stroke="#140F24" stroke-width="1"/>`;
+    s += `<path d="M${b.x0} 204 C40 196 70 206 110 212 C150 216 190 204 ${b.x1} 206" fill="none" stroke="${hsl(oh, 40, 40)}" stroke-width="0.8" opacity="0.6"/>`;
+    for (const [x, h, ph, w] of [[16, 150, 0, 5], [34, 110, 1.4, 4], [196, 140, 2.2, 5], [210, 96, 0.6, 4]] as const) s += kelp(x, 208, h, w, ph, hsl(oh + 70, 35, 32), 0.75);
+    s += `<g opacity="0.85">${coral(60, 204, 16, -1.7, 5, hsl(oh + 150, 45, 46), 2.6)}${coral(170, 200, 18, -1.4, 5, hsl(oh + 110, 45, 50), 2.8)}${coral(140, 210, 10, -1.9, 4, hsl(oh + 170, 50, 60), 2)}</g>`;
+    s += `<path d="M96 210 l3 -7 l3 7 l-7 -4.4 h8 Z" fill="${hsl(oh + 170, 60, 62)}" stroke="#140F24" stroke-width="0.6"/>`;
+    for (const [x, y, a, k] of [[40, 70, -10, 1.1], [52, 80, -14, 0.9], [186, 50, 190, 1], [176, 60, 186, 0.8]] as const) s += fish(x, y, k, a, hsl(oh + 160, 50, 60), '#FFF6D8', 0.8);
+  } else {
+    // Près de la surface : reflets, lune déformée, banc de poissons.
+    s += `<circle cx="${sx}" cy="${f(b.y0 + 8)}" r="26" fill="${hsl(oh - 30, 60, 88)}" opacity="0.35" filter="url(#soft)"/>`;
+    for (let i = 0; i < 5; i++) {
+      const y = b.y0 + 6 + i * 7;
+      s += `<path d="M${b.x0} ${f(y)} ${Array.from({ length: 12 }, (_, k) => `q${f(W / 24)} ${k % 2 ? 3 : -3} ${f(W / 12)} 0`).join(' ')}" fill="none" stroke="${hsl(oh - 20, 60, 85)}" stroke-width="${f(1.1 - i * 0.18)}" opacity="${f(0.45 - i * 0.07)}"/>`;
+    }
+    for (let i = 0; i < 18; i++) {
+      const t = i / 18, x = b.x0 + 10 + t * (W - 20), y = 150 + Math.sin(t * Math.PI * 1.6) * 30 + (i % 3) * 7;
+      s += fish(x, y, 0.7 + (i % 3) * 0.12, -12 + Math.cos(t * 5) * 14, hsl(oh + 20, 40, 55), hsl(oh - 20, 60, 85), 0.55);
+    }
+    s += `<path d="M${b.x0} ${f(b.y1)} L${b.x0} 224 C60 214 140 228 ${b.x1} 218 L${b.x1} ${f(b.y1)} Z" fill="${hsl(oh + 30, 40, 8)}" opacity="0.8"/>`;
+  }
+  return s;
+};
+
+export const medusel: Species = (c: DrawCtx) => {
   const { pal, stage } = c;
   if (stage <= 0) return ephyra(c);
-  if (stage === 1) return medusa(c, { top: 22, rim: 104, w: 52, arms: 6, armLen: 100, tent: 10, tentLen: 96, lobes: 12 })
+  if (stage === 1) return `<g transform="rotate(-16 111 120)">${medusa(c, { top: 22, rim: 100, w: 52, arms: 6, armLen: 104, tent: 10, tentLen: 110, lobes: 12 })}</g>`
     + sparkle(186, 40, 3, pal.gold, false) + sparkle(34, 150, 2.6, pal.glow, false);
   let s = aura(CX, 80, 86, pal.glow);
   s += medusa(c, { top: 14, rim: 92, w: 74, arms: 8, armLen: 136, tent: 18, tentLen: 138, lobes: 16 });
@@ -175,3 +252,4 @@ export const medusel: Species = (c) => {
   s += speckles(c, CX, 180, 100, 50, 10, pal.glow);
   return s;
 };
+medusel.scene = oceanScene;

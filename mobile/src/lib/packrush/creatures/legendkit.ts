@@ -87,3 +87,16 @@ export function rot(p: Pt, c: Pt, deg: number): Pt {
   const a = (deg * Math.PI) / 180, x = p[0] - c[0], y = p[1] - c[1];
   return [c[0] + x * Math.cos(a) - y * Math.sin(a), c[1] + x * Math.sin(a) + y * Math.cos(a)];
 }
+
+/** Dégradé linéaire (vertical par défaut) pour les décors : `stops` = [décalage 0..1, couleur]. */
+export function grad(id: string, stops: [number, string][], x2 = 0, y2 = 1): string {
+  return `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+}
+
+/** Petit poisson-étoile de profil (créature secondaire des décors aquatiques). */
+export function starfish(x: number, y: number, s: number, ang: number, body: string, glow: string, ink = '#140F24'): string {
+  return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)}) scale(${f(s)})">`
+    + `<path d="M-6 0 C-3 -3.4 3 -3.6 6 0 C3 3.2 -3 3.2 -6 0 Z M5 0 L10 -3.6 L9 0 L10 3.6 Z" fill="${body}" stroke="${ink}" stroke-width="${f(0.6 / s)}" stroke-linejoin="round"/>`
+    + `<circle cx="-3.6" cy="-0.6" r="0.8" fill="${ink}"/><circle cx="9.6" cy="0" r="1.5" fill="${glow}"/>`
+    + `</g>`;
+}

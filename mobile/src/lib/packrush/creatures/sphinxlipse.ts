@@ -1,5 +1,5 @@
-import { constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
-import { band, f, feather, P, spline, tube, type Pt } from './legendkit.ts';
+import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, feather, grad, P, spline, tube, type Pt } from './legendkit.ts';
 
 /**
  * Sphinxlipse : sphinx ailé couché de profil, tête de lionne de face coiffée d'un némès rayé d'or, ailes en
@@ -31,7 +31,7 @@ export const sphinxlipse: Species = (c) => {
     const q = (x: number, y: number) => `${f(x + dx)} ${f(y + dy)}`;
     return `M${q(100, 122)} C${q(104, 100)} ${q(116, 82)} ${q(134, 72)} C${q(154, 62)} ${q(178, 60)} ${q(196, 50)} C${q(204, 46)} ${q(210, 38)} ${q(212, 30)} C${q(216, 42)} ${q(212, 56)} ${q(202, 66)} C${q(196, 84)} ${q(188, 104)} ${q(176, 122)} C${q(160, 130)} ${q(130, 130)} ${q(100, 122)} Z`;
   };
-  s += ink(wingShape(-14, -6), pal.shade, 1.1) + shadow(wingShape(-14, -6), pal.deep, 0.6, 'xhatch');
+  s += ink(wingShape(-14, 0), pal.shade, 1.1) + shadow(wingShape(-14, 0), pal.deep, 0.6, 'xhatch');
 
   // ——— Queue enroulée au sol ———
   const tailPath = spline([[198, 196], [194, 212], [160, 216], [126, 212], [110, 204]], 8);
@@ -40,22 +40,28 @@ export const sphinxlipse: Species = (c) => {
   s += ink('M112 198 C104 196 98 200 99 206 C100 211 108 212 113 208 C116 205 116 200 112 198 Z', pal.deep, 1);
   s += gild('M150 210 l0 8 M154 210 l0 8', 0.9);
 
-  s += ground(112, 208, 98);
+  s += ground(112, 206, 96);
   // ——— Patte avant lointaine ———
   const farFore = 'M84 140 C76 150 74 168 76 180 C64 184 52 186 40 188 C30 189 26 194 28 199 C30 201 36 201 42 201 L94 200 C98 190 98 176 96 164 Z';
   s += ink(farFore, pal.shade, 1.2) + shadow(farFore, pal.deep, 0.5, 'xhatch');
 
   // ——— Corps couché ———
-  const body = 'M66 152 C70 136 84 126 100 124 C124 122 148 128 168 138 C188 148 204 162 206 182 C207 196 202 204 194 207 L80 207 C70 200 64 176 66 152 Z';
+  const body = 'M66 154 C70 140 84 132 100 130 C124 128 148 134 168 144 C188 152 204 166 206 184 C207 196 202 204 194 207 L80 207 C70 200 64 178 66 154 Z';
   s += ink(body, pal.body, 1.7);
   s += shadow('M206 180 C207 194 202 204 194 207 L120 207 C150 204 176 200 190 188 C198 178 200 166 196 154 C202 162 205 170 206 180 Z', pal.shade, 0.85, 'fine');
   s += shadow('M80 207 C70 200 64 176 66 152 C72 170 80 190 96 207 Z', pal.shade, 0.6, 'fine');
-  s += rim('M100 124 C124 122 148 128 168 138 C188 148 204 162 206 182', pal.glow, 1.2);
+  s += rim('M100 130 C124 128 148 134 168 144 C188 152 204 166 206 184', pal.glow, 1.2);
   s += fur(c, 130, 180, 6, 95, 6, 16) + fur(c, 112, 140, 6, 80, 4, 10);
+  // Omoplate, côtes, flanc : volumes gravés.
+  s += line('M96 128 C108 136 112 150 106 166', 0.8, pal.ink, ' opacity="0.55"');
+  s += shadow('M96 128 C108 136 112 150 106 166 C102 154 100 140 96 128 Z', pal.shade, 0.5, 'fine');
+  for (const k of [0, 1, 2, 3]) s += line(`M${118 + k * 9} ${150 + k * 1.5} C${122 + k * 9} ${162 + k} ${122 + k * 9} ${174 + k} ${118 + k * 9} ${184}`, 0.5, pal.ink, ' opacity="0.3"');
+  s += shadow('M100 196 C120 192 140 194 150 200 L150 207 L96 207 Z', pal.shade, 0.6, 'fine');
+  s += fur(c, 122, 200, 5, 90, 8, 22, pal.ink, 0.6);
   // Cuisse repliée, patte arrière ramenée vers l'avant.
-  const haunch = 'M146 164 C152 146 180 142 194 160 C204 176 200 196 188 204 L136 206 C126 206 124 198 132 195 C142 192 152 193 158 190 C150 184 144 176 146 164 Z';
+  const haunch = 'M146 166 C152 150 180 148 194 164 C204 178 200 196 188 204 L136 206 C126 206 124 198 132 195 C142 192 152 193 158 190 C150 184 144 176 146 164 Z';
   s += ink(haunch, pal.body, 1.4);
-  s += shadow('M194 160 C204 176 200 196 188 204 L170 205 C184 198 192 184 190 170 C188 160 182 154 176 150 C184 150 190 154 194 160 Z', pal.shade, 0.85, 'fine');
+  s += shadow('M194 164 C204 178 200 196 188 204 L170 205 C184 198 192 184 190 172 C188 162 182 156 176 152 C184 152 190 156 194 164 Z', pal.shade, 0.85, 'fine');
   s += line('M132 206 C133 202 136 201 138 206 M138 206 C139 202 142 201 144 206', 0.7, pal.ink, ' opacity="0.7"');
   s += constellation([[158, 160], [170, 154], [182, 162], [178, 176], [166, 180]], pal.gold);
   s += fur(c, 172, 186, 6, 120, 4, 8);
@@ -63,6 +69,7 @@ export const sphinxlipse: Species = (c) => {
   // ——— Aile proche : faucille dressée, couvertures, rémiges dorées ———
   {
     const w = wingShape(0, 0);
+    const s0 = s.length;
     s += `<defs><clipPath id="${id}-w"><path d="${w}"/></clipPath></defs>`;
     let inner = `<path d="${w}" fill="${pal.body}"/>`;
     // Rémiges : trois rangs de plumes imbriquées, pointes vers l'arrière et le bas.
@@ -96,6 +103,7 @@ export const sphinxlipse: Species = (c) => {
     s += `<path d="${w}" fill="none" stroke="${pal.ink}" stroke-width="1.5" stroke-linejoin="round"/>`;
     s += rim('M104 100 C116 82 134 72 C154 62 178 60 196 50 C204 46 210 38 212 30'.replace('C154', 'S154').replace('M104 100 C116 82 134 72 S154 62', 'M104 100 C116 82 124 76 134 72 S154 62'), pal.glow, 1.3);
     s += gild('M118 98 C130 84 148 76 168 72 c10 -2 16 -8 14 -12 c-2 -3 -6 -1 -5 2', 0.9);
+    s = s.slice(0, s0) + `<g transform="translate(0 6)">${s.slice(s0)}</g>`;
   }
 
   // ——— Patte avant proche (allongée) ———
@@ -150,5 +158,64 @@ export const sphinxlipse: Species = (c) => {
   s += line('M58 116 A22 13.6 0 0 0 102 116', 0.6, pal.ink, ' opacity="0.6"');
 
   for (const [x, y, z] of [[180, 18, 3.2], [24, 120, 2.6], [212, 120, 2.2], [146, 40, 2]] as const) s += sparkle(x, y, z, pal.glow, false);
+  return s;
+};
+
+/**
+ * Décor : désert lunaire en pleine éclipse. Ciel nocturne en plein jour, horizon embrasé tout autour, dunes
+ * gravées, pyramides et obélisques à pointe d'or au loin, et le socle de pierre gravé où repose le sphinx,
+ * visité par deux scarabées d'étoiles.
+ */
+sphinxlipse.scene = (c: DrawCtx, b: Bounds) => {
+  const { pal } = c;
+  const id = `sphinxlipse-${c.stage}-bg`;
+  const dh = 32 + ((((c.hue % 360) + 360) % 360) / 360 - 0.5) * 24;
+  const sk = 250 + ((((c.hue % 360) + 360) % 360) / 360 - 0.5) * 50;
+  const W = b.x1 - b.x0, H = b.y1 - b.y0;
+  let s = `<defs>${grad(`${id}-sky`, [[0, hsl(sk, 35, 9)], [0.45, hsl(sk + 20, 28, 20)], [0.66, hsl(dh - 10, 55, 48)], [0.74, hsl(dh, 60, 62)], [1, hsl(dh, 40, 40)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
+  for (let i = 0; i < 34; i++) {
+    const y = b.y0 + c.r() * 130;
+    s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(y)}" r="${f(0.3 + c.r() * 0.8)}" fill="#FFF6D8" opacity="${f(0.3 + c.r() * 0.5)}"/>`;
+  }
+  // Pyramides et obélisques lointains (pâles, peu contrastés).
+  const hz = 158;
+  const farCol = hsl(dh + 10, 25, 46), farSh = hsl(dh + 200, 20, 30);
+  for (const [x, w, h] of [[150, 46, 34], [188, 30, 22], [124, 22, 14]] as const) {
+    s += `<path d="M${x - w / 2} ${hz} L${x} ${hz - h} L${x + w / 2} ${hz} Z" fill="${farCol}" stroke="#140F24" stroke-width="0.4" opacity="0.9"/>`;
+    s += `<path d="M${x} ${hz - h} L${x + w / 2} ${hz} L${x + w * 0.1} ${hz} Z" fill="${farSh}" opacity="0.45"/>`;
+    s += `<path d="M${x - 2} ${hz - h + 3} L${x} ${hz - h} L${x + 2} ${hz - h + 3} Z" fill="${pal.gold}"/>`;
+  }
+  for (const [x, h] of [[24, 40], [40, 30]] as const) {
+    s += `<path d="M${x - 3} ${hz} L${x - 2} ${hz - h} L${x} ${hz - h - 5} L${x + 2} ${hz - h} L${x + 3} ${hz} Z" fill="${farCol}" stroke="#140F24" stroke-width="0.4"/>`;
+    s += `<path d="M${x - 2} ${hz - h} L${x} ${hz - h - 5} L${x + 2} ${hz - h} Z" fill="${pal.gold}"/>`;
+  }
+  // Dunes : plans successifs, crêtes éclairées par l'anneau de l'éclipse, hachures fines.
+  for (const [y, l, amp, op] of [[hz, 40, 4, 0.9], [172, 34, 7, 0.95], [188, 26, 8, 1]] as const) {
+    const d = `M${b.x0} ${y + 2} C40 ${y - amp} 80 ${y + amp} 120 ${y} C160 ${y - amp} 190 ${y + amp * 0.5} ${b.x1} ${y - 2} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z`;
+    s += `<path d="${d}" fill="${hsl(dh, 32, l)}" stroke="#140F24" stroke-width="0.5"/>`;
+    s += `<path d="${d}" fill="url(#fine)" opacity="${0.25 + (y - hz) * 0.01}"/>`;
+    s += `<path d="M${b.x0} ${y + 2} C40 ${y - amp} 80 ${y + amp} 120 ${y} C160 ${y - amp} 190 ${y + amp * 0.5} ${b.x1} ${y - 2}" fill="none" stroke="#FFE7B8" stroke-width="0.7" opacity="${op * 0.6}"/>`;
+  }
+  // Socle gravé du sphinx.
+  const top = 204;
+  s += `<path d="M${b.x0} ${top} L${b.x1} ${top} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="${hsl(dh + 10, 22, 30)}" stroke="#140F24" stroke-width="0.9"/>`;
+  s += `<path d="M${b.x0} ${top} L${b.x1} ${top} L${b.x1} ${top + 5} L${b.x0} ${top + 5} Z" fill="${hsl(dh, 35, 52)}"/>`;
+  s += `<path d="M${b.x0} ${top + 5} L${b.x1} ${top + 5} L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="url(#xhatch)" opacity="0.45"/>`;
+  s += `<path d="M${b.x0} ${top + 9} H${b.x1} M${b.x0} ${top + 28} H${b.x1}" stroke="${pal.gold}" stroke-width="0.6" opacity="0.6"/>`;
+  // Frise de glyphes célestes entre les deux filets.
+  for (let i = 0; i < 12; i++) {
+    const x = b.x0 + 10 + i * 18, y = top + 18.5;
+    const g = i % 4;
+    s += g === 0 ? `<circle cx="${x}" cy="${y}" r="3.4" fill="none" stroke="${pal.gold}" stroke-width="0.6" opacity="0.7"/><circle cx="${x}" cy="${y}" r="1" fill="${pal.gold}" opacity="0.7"/>`
+      : g === 1 ? `<path d="M${x - 3} ${y + 3} a3.4 3.4 0 1 0 0 -6 a2.6 2.6 0 1 1 0 6 Z" fill="none" stroke="${pal.gold}" stroke-width="0.6" opacity="0.7"/>`
+      : g === 2 ? `<path d="M${x} ${y - 4} L${x + 1} ${y - 1} L${x + 4} ${y} L${x + 1} ${y + 1} L${x} ${y + 4} L${x - 1} ${y + 1} L${x - 4} ${y} L${x - 1} ${y - 1} Z" fill="none" stroke="${pal.gold}" stroke-width="0.6" opacity="0.7"/>`
+      : `<path d="M${x - 3} ${y + 4} V${y - 2} M${x - 3} ${y - 2} Q${x} ${y - 6} ${x + 3} ${y - 2} V${y + 4}" fill="none" stroke="${pal.gold}" stroke-width="0.6" opacity="0.7"/>`;
+  }
+  // Scarabées d'étoiles sur le rebord.
+  for (const [x, k] of [[10, 0.9], [206, 0.8]] as const) {
+    s += `<g transform="translate(${x} ${top - 1}) scale(${k})"><ellipse cx="0" cy="-3" rx="4" ry="3" fill="${hsl(c.hue + 150, 40, 30)}" stroke="#140F24" stroke-width="0.6"/>`
+      + `<path d="M0 -6 V0 M-3 -1 l-2 2 M3 -1 l2 2 M-3.6 -4 l-2 -1 M3.6 -4 l2 -1" stroke="#140F24" stroke-width="0.5"/><circle cx="0" cy="-6.6" r="1.4" fill="#140F24"/><circle cx="-1.5" cy="-3.5" r="0.6" fill="${pal.gold}"/><circle cx="1.6" cy="-2.6" r="0.5" fill="${pal.gold}"/></g>`;
+  }
   return s;
 };

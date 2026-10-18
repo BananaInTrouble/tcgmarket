@@ -1,4 +1,4 @@
-import { constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /**
  * Serpentaire → Nébulisse → Astrocoatl : serpent de poussière d'étoiles. Planche d'herpétologie céleste : corps
@@ -134,6 +134,20 @@ function head(c: DrawCtx, id: string, k: number, o: { tongue?: boolean; crest?: 
   return s;
 }
 
+/** Petit papillon-étoile (proie, compagnon lumineux). */
+function moth(c: DrawCtx, x: number, y: number, rot: number): string {
+  const { pal } = c;
+  let s = `<circle cx="0" cy="0" r="9" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
+  for (const k of [-1, 1]) {
+    s += ink(`M0 0 C${k * 4} -10 ${k * 13} -11 ${k * 12} -3 C${k * 11} 1 ${k * 5} 1 0 0Z`, pal.light, 0.8);
+    s += ink(`M0 0 C${k * 3} 5 ${k * 8} 8 ${k * 8} 3 C${k * 7} 1 ${k * 3} 0 0 0Z`, pal.accent2, 0.7);
+    s += `<circle cx="${k * 7.5}" cy="-5" r="1.6" fill="${pal.gold}"/>`;
+    s += line(`M0 -2 q${k * 2} -6 ${k * 5} -8`, 0.5);
+  }
+  s += `<ellipse cx="0" cy="0" rx="1.2" ry="4" fill="#140F24"/>`;
+  return `<g transform="translate(${x} ${y}) rotate(${rot})">${s}</g>`;
+}
+
 /** Corps en hélice (θ en degrés) suivi d'un cou lisse jusqu'à la tête. */
 function helixBody(loops: { th0: number; th1: number; cx: number; cy0: number; cy1: number; rx0: number; rx1: number; ry: number }, neck: P2[], w: (t: number) => number): { B: Body; front: boolean[] } {
   const { th0, th1, cx, cy0, cy1, rx0, rx1, ry } = loops;
@@ -183,16 +197,24 @@ export const serpentaire: Species = (c) => {
     const { B, front } = helixBody({ th0: 300, th1: 700, cx: 120, cy0: 192, cy1: 186, rx0: 22, rx1: 46, ry: 14 }, [[154, 172], [140, 156], [116, 148], [94, 150]], (t) => 1.5 + 6.5 * Math.pow(Math.min(1, t * 1.6), 0.8) - (t > 0.88 ? (t - 0.88) * 14 : 0));
     let s = ground(120, 200, 56) + drawBody(c, id, B, front);
     s += `<g transform="${placeHead(B)} scale(0.95)">${head(c, id, 1.15, { tongue: true })}</g>`;
-    s += sparkle(66, 124, 2.4, pal.glow, false) + sparkle(170, 140, 2, pal.gold, false);
+    s += moth(c, 66, 128, -18) + sparkle(170, 140, 2, pal.gold, false);
     return `<g transform="translate(111 200) scale(1.4) translate(-118 -186)">${s}</g>`;
   }
   if (stage === 1) {
-    // Sub-adulte dressé en S au-dessus d'une boucle.
-    const { B, front } = helixBody({ th0: 160, th1: 560, cx: 116, cy0: 194, cy1: 186, rx0: 40, rx1: 60, ry: 14 }, [[166, 166], [160, 134], [132, 116], [118, 92], [126, 66], [104, 50], [82, 52]], (t) => 1.4 + 8.6 * Math.pow(Math.min(1, t * 1.8), 0.8) - (t > 0.9 ? (t - 0.9) * 22 : 0));
-    let s = ground(118, 204, 70) + drawBody(c, id, B, front);
-    s += `<g transform="${placeHead(B)} scale(1.15)">${head(c, id, 1.05, { tongue: true })}</g>`;
-    s += constellation([[40, 80], [52, 70], [48, 56]], pal.light);
-    return `<g transform="translate(111 204) scale(1.02) translate(-114 -204)">${s}</g>`;
+    // Sub-adulte qui nage à la surface du marais, sillage et rides autour du corps.
+    const p = sample([[206, 104], [190, 112], [200, 126], [180, 140], [146, 140], [124, 154], [138, 174], [116, 190], [80, 188], [62, 172], [50, 160]], 10);
+    const B: Body = { p, w: p.map((_, i) => { const t = i / (p.length - 1); return 1 + 11.5 * Math.pow(t, 0.7) - (t > 0.9 ? (t - 0.9) * 30 : 0); }), n: normals(p) };
+    let s = '';
+    // Sillage en V derrière la tête et rides concentriques.
+    s += line('M44 168 C60 190 90 206 130 210 M44 166 C70 176 100 176 120 168', 0.8, '#FFF6D8', ' opacity="0.45"');
+    s += drawBody(c, id, B, p.map(() => true));
+    for (let i = 8; i < p.length - 6; i += 14) {
+      const [x, y] = p[i], w = B.w[i];
+      for (const k of [1.6, 2.4]) s += `<path d="M${f(x - w * k * 1.5)} ${f(y + w * 0.3)} A${f(w * k * 1.5)} ${f(w * k * 0.45)} 0 0 0 ${f(x + w * k * 1.5)} ${f(y + w * 0.3)}" fill="none" stroke="#FFF6D8" stroke-width="0.8" opacity="${k > 2 ? 0.35 : 0.65}"/>`;
+    }
+    s += `<g transform="${placeHead(B, -14)} scale(1.55)">${head(c, id, 1.05, { tongue: true })}</g>`;
+    s += moth(c, 30, 110, 10);
+    return `<g transform="translate(111 160) scale(1.06) translate(-118 -150)">${s}</g>`;
   }
   // Adulte : enroulé autour d'une étoile naissante, cou dressé, collerette de plumes.
   const ox = 111, oy = 128;
@@ -205,7 +227,12 @@ export const serpentaire: Species = (c) => {
       return `<line x1="${f(ox + Math.cos(a) * r1)}" y1="${f(oy + Math.sin(a) * r1)}" x2="${f(ox + Math.cos(a) * r2)}" y2="${f(oy + Math.sin(a) * r2)}" stroke="${pal.gold}" stroke-width="0.9"/>`;
     }).join('');
   const { B, front } = helixBody({ th0: 150, th1: 720, cx: ox, cy0: 204, cy1: 156, rx0: 50, rx1: 64, ry: 20 }, [[184, 128], [186, 100], [170, 78], [146, 70], [124, 64], [104, 62]], (t) => 1.6 + 10.4 * Math.pow(Math.min(1, t * 1.5), 0.8) - (t > 0.9 ? (t - 0.9) * 24 : 0));
-  let s = ground(111, 214, 76);
+  // Autel de pierre gravé sous les anneaux.
+  const altar = `M28 206 A83 16 0 0 1 194 206 L194 250 L28 250Z`;
+  let s = ink(altar, pal.deep, 1.4) + clip(`${id}-al`, altar, `<ellipse cx="111" cy="206" rx="83" ry="16" fill="${pal.shade}" opacity="0.6"/><path d="${altar}" fill="url(#xhatch)" opacity="0.5"/>`
+    + `<ellipse cx="111" cy="206" rx="70" ry="12" fill="none" stroke="${pal.gold}" stroke-width="0.8" stroke-dasharray="4 3"/>` + line('M28 222 H194 M60 222 V250 M111 222 V250 M162 222 V250', 0.7, '#140F24'));
+  s += rim('M28 206 A83 16 0 0 1 194 206', pal.glow, 1);
+  s += `<ellipse cx="111" cy="206" rx="64" ry="10" fill="#000" opacity="0.3"/>`;
   s += drawBody(c, id, B, front, star);
   // Anneaux d'or sur le cou.
   for (const k of [0.8, 0.86, 0.92]) {
@@ -215,5 +242,92 @@ export const serpentaire: Species = (c) => {
   s += `<g transform="${placeHead(B, 6)} scale(1.45)">${head(c, id, 1, { tongue: true, crest: true })}</g>`;
   s += constellation([[24, 40], [38, 30], [52, 38], [46, 54]], pal.gold) + sparkle(196, 40, 3, pal.glow, false);
   if (stage >= 3) s += constellation([[170, 200], [186, 186], [200, 196]], pal.gold);
-  return `<g transform="translate(111 214) scale(0.98) translate(-111 -214)">${s}</g>`;
+  return `<g transform="translate(111 216) scale(0.93) translate(-111 -214)">${s}</g>`;
+};
+
+/* ---------- Décors : ruines célestes et marais de nébuleuse ---------- */
+
+const grad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+
+function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, op = 0.85): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (ymax - b.y0), r = 0.3 + c.r() * c.r() * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="#FFF6D8" opacity="${f(op * (0.4 + c.r() * 0.6))}"/>`;
+  }
+  return s;
+}
+
+/** Colonne cannelée (éventuellement brisée), gravée. */
+function column(x: number, y: number, w: number, h: number, fill: string, broken: boolean): string {
+  const top = broken ? `L${f(x + w / 2)} ${f(y - h + 6)} L${f(x + w * 0.2)} ${f(y - h)} L${f(x - w * 0.1)} ${f(y - h + 8)} L${f(x - w / 2)} ${f(y - h + 3)}` : `L${f(x + w / 2)} ${f(y - h)} L${f(x - w / 2)} ${f(y - h)}`;
+  const d = `M${f(x - w / 2)} ${f(y)} L${f(x + w / 2)} ${f(y)} ${top}Z`;
+  let s = `<path d="${d}" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
+  s += `<path d="M${f(x + w * 0.1)} ${f(y)} L${f(x + w / 2)} ${f(y)} L${f(x + w / 2)} ${f(y - h + 6)} L${f(x + w * 0.1)} ${f(y - h + 6)}Z" fill="url(#fine)" opacity="0.8"/>`;
+  for (let k = -1; k <= 1; k++) s += `<path d="M${f(x + k * w * 0.22)} ${f(y - 2)} V${f(y - h + 10)}" stroke="#140F24" stroke-width="0.5" opacity="0.6"/>`;
+  if (!broken) s += `<rect x="${f(x - w * 0.7)}" y="${f(y - h - 6)}" width="${f(w * 1.4)}" height="6" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
+  s += `<rect x="${f(x - w * 0.65)}" y="${f(y - 4)}" width="${f(w * 1.3)}" height="5" fill="${fill}" stroke="#140F24" stroke-width="0.8"/>`;
+  return s;
+}
+
+/** Roseau : tige + feuille + épi. */
+function reed(x: number, y: number, h: number, lean: number, col: string): string {
+  return `<path d="M${f(x)} ${f(y)} Q${f(x + lean * 0.3)} ${f(y - h * 0.6)} ${f(x + lean)} ${f(y - h)}" fill="none" stroke="${col}" stroke-width="1.2"/>`
+    + `<ellipse cx="${f(x + lean * 0.92)}" cy="${f(y - h * 0.88)}" rx="1.6" ry="5" fill="${col}" transform="rotate(${f(lean)} ${f(x + lean * 0.92)} ${f(y - h * 0.88)})"/>`
+    + `<path d="M${f(x)} ${f(y - h * 0.2)} Q${f(x - lean * 0.4 - 6)} ${f(y - h * 0.5)} ${f(x - lean - 10)} ${f(y - h * 0.55)}" fill="none" stroke="${col}" stroke-width="0.9"/>`;
+}
+
+serpentaire.scene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, pal } = c;
+  const id = `serpentaire-${stage}-bg`;
+  const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
+  const G = 160 + (c.hue - 150) * 0.15;
+  let s = '';
+  if (stage === 0) {
+    // Dalles d'un temple en ruine au crépuscule : colonnes brisées, mousse, champignons luisants.
+    s += `<defs>${grad(`${id}-sky`, [[0, hsl(G + 100, 40, 10)], [0.7, hsl(G + 80, 30, 26)], [1, hsl(G + 40, 30, 36)]])}</defs>`;
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 50, 110);
+    s += `<path d="M120 140 V70 A30 30 0 0 1 180 70 V140 H168 V74 A18 18 0 0 0 132 74 V140Z" fill="${hsl(G + 80, 18, 32)}" stroke="#140F24" stroke-width="0.6" opacity="0.8"/>`;
+    s += column(30, 160, 18, 100, hsl(G + 60, 14, 40), true) + column(196, 168, 16, 60, hsl(G + 60, 14, 38), true);
+    const floor = `M${b.x0 - 10} 150 L${b.x1 + 10} 150 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
+    s += `<path d="${floor}" fill="${hsl(G + 50, 16, 30)}"/>`;
+    let tiles = '';
+    for (let k = 0; k < 6; k++) tiles += `M${b.x0 - 10} ${f(150 + k * k * 3 + k * 4)} H${b.x1 + 10} `;
+    for (let k = -6; k <= 6; k++) tiles += `M${f(111 + k * 14)} 150 L${f(111 + k * 46)} ${b.y1 + 10} `;
+    s += clip(`${id}-fl`, floor, `<path d="${tiles}" fill="none" stroke="#140F24" stroke-width="0.7" opacity="0.6"/>` + `<path d="${floor}" fill="url(#fine)" opacity="0.4"/>`
+      + `<ellipse cx="40" cy="214" rx="50" ry="14" fill="${hsl(G, 30, 28)}" opacity="0.9"/><ellipse cx="190" cy="196" rx="34" ry="9" fill="${hsl(G, 30, 28)}" opacity="0.9"/>`);
+    for (const [x, y, k] of [[22, 206, 1], [32, 210, 0.7], [178, 192, 0.8], [200, 196, 1]] as const) {
+      s += `<circle cx="${x}" cy="${y - 6 * k}" r="${8 * k}" fill="${pal.glow}" opacity="0.35" filter="url(#soft)"/>`
+        + `<path d="M${x - 1} ${y} V${f(y - 6 * k)}" stroke="${hsl(G, 20, 80)}" stroke-width="1.4"/>` + ink(`M${f(x - 5 * k)} ${f(y - 6 * k)} Q${x} ${f(y - 12 * k)} ${f(x + 5 * k)} ${f(y - 6 * k)}Z`, pal.glow, 0.7);
+    }
+    return s;
+  }
+  if (stage === 1) {
+    // Marais de nébuleuse la nuit : eau sombre où se reflète la nébuleuse, roseaux, lucioles.
+    s += `<defs>${grad(`${id}-sky`, [[0, hsl(G + 110, 45, 8)], [1, hsl(G + 60, 35, 20)]])}${grad(`${id}-wt`, [[0, hsl(G + 60, 30, 22)], [1, hsl(G + 90, 40, 8)]])}</defs>`;
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>`;
+    s += `<ellipse cx="150" cy="50" rx="90" ry="34" fill="${pal.accent2}" opacity="0.3" filter="url(#soft)"/><ellipse cx="80" cy="70" rx="60" ry="22" fill="${pal.accent}" opacity="0.25" filter="url(#soft)"/>`;
+    s += stars(c, b, 70, 110);
+    s += `<path d="M${b.x0 - 10} 112 Q40 100 70 108 T150 104 T${b.x1 + 10} 108 V118 H${b.x0 - 10}Z" fill="${hsl(G + 70, 20, 16)}"/>`;
+    s += `<path d="M180 112 V70 M180 86 l12 -10 M180 94 l-10 -8" stroke="${hsl(G + 70, 20, 16)}" stroke-width="2.5" fill="none"/>`;
+    s += `<rect x="${b.x0}" y="114" width="${W}" height="${b.y1 - 114}" fill="url(#${id}-wt)"/>`;
+    s += `<ellipse cx="150" cy="150" rx="70" ry="16" fill="${pal.accent2}" opacity="0.2" filter="url(#soft)"/>`;
+    for (let k = 0; k < 10; k++) s += line(`M${f(b.x0 + c.r() * W)} ${f(122 + k * k * 1.2)} h${f(14 + c.r() * 30)}`, 0.6, '#FFF6D8', ' opacity="0.3"');
+    s += `<ellipse cx="111" cy="128" rx="140" ry="8" fill="#FFF6D8" opacity="0.08" filter="url(#soft)"/>`;
+    for (let i = 0; i < 10; i++) s += reed(b.x0 + 4 + c.r() * 30, 236, 60 + c.r() * 40, (c.r() - 0.3) * 14, hsl(G + 70, 25, 10));
+    for (let i = 0; i < 8; i++) s += reed(b.x1 - 30 + c.r() * 30, 236, 50 + c.r() * 50, (c.r() - 0.6) * 14, hsl(G + 70, 25, 10));
+    for (let i = 0; i < 12; i++) s += `<circle cx="${f(b.x0 + c.r() * W)}" cy="${f(80 + c.r() * 120)}" r="1.2" fill="${pal.glow}" filter="url(#glow)"/>`;
+    return s;
+  }
+  // Sanctuaire sous une coupole étoilée : colonnes, arc, constellations gravées.
+  s += `<defs>${grad(`${id}-sky`, [[0, hsl(G + 90, 45, 7)], [1, hsl(G + 70, 35, 22)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 80, 200);
+  s += `<path d="M${b.x0 - 10} ${b.y0 - 10} H${b.x1 + 10} V200 H196 V100 A85 85 0 0 0 26 100 V200 H${b.x0 - 10}Z" fill="${hsl(G + 70, 16, 18)}" stroke="#140F24" stroke-width="0.8"/>`;
+  s += `<path d="M26 100 A85 85 0 0 1 196 100" fill="none" stroke="${pal.gold}" stroke-width="0.8" opacity="0.6"/><path d="M34 100 A77 77 0 0 1 188 100" fill="none" stroke="#140F24" stroke-width="0.6" stroke-dasharray="3 3"/>`;
+  s += constellation([[60, 40], [80, 30], [100, 36], [92, 52]], pal.gold) + constellation([[140, 34], [158, 44], [172, 36]], pal.gold);
+  s += column(16, 214, 20, 150, hsl(G + 60, 14, 30), false) + column(206, 214, 20, 150, hsl(G + 60, 14, 30), false);
+  s += `<path d="M${b.x0 - 10} 200 H${b.x1 + 10} V${b.y1 + 10} H${b.x0 - 10}Z" fill="${hsl(G + 60, 16, 22)}"/>`;
+  s += `<path d="M${b.x0 - 10} 200 H${b.x1 + 10} V${b.y1 + 10} H${b.x0 - 10}Z" fill="url(#fine)" opacity="0.5"/>`;
+  return s;
 };

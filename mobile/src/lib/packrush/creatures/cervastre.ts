@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, fur, gild, ground, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
+import { aura, constellation, eyeA, fur, gild, ground, hsl, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -43,8 +43,16 @@ export function turn(d: string, light: string, shade: string, dx: number, dy: nu
   return shadow('M-40 -40 H300 V320 H-40 Z', shade, 0.9, hatch) + `<path d="${d}" fill="${light}" transform="translate(${dx} ${dy})"/>`;
 }
 
-const hoof = (x: number, y: number) =>
-  `<path d="M${f(x - 2.6)} ${f(y - 6)} L${f(x + 2.8)} ${f(y - 6)} L${f(x + 3.6)} ${f(y)} L${f(x - 4.6)} ${f(y)} Z" fill="#140F24" stroke="#140F24" stroke-width="1" stroke-linejoin="round"/>`;
+/** Sabot orienté selon le dernier segment de la patte (angle en degrés, 0 = vers le bas). */
+const hoof = (x: number, y: number, ang = 0) =>
+  `<path transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})" d="M-2.6 -6 L2.8 -6 L3.6 0 L-4.6 0 Z" fill="#140F24" stroke="#140F24" stroke-width="1" stroke-linejoin="round"/>`;
+
+function hoofAt(pts: Pw[]): string {
+  const e = pts[pts.length - 1], p = pts[pts.length - 2];
+  const dx = e[0] - p[0], dy = e[1] - p[1], l = Math.hypot(dx, dy) || 1;
+  if (e[1] >= 199 && dy / l > 0.85) return hoof(e[0], 205);
+  return hoof(e[0] + (dx / l) * 5.5, e[1] + (dy / l) * 5.5, (Math.atan2(dy, dx) * 180) / Math.PI - 90);
+}
 
 /** Membre fin terminé par un sabot. */
 function leg(id: string, c: DrawCtx, pts: Pw[], fill: string, far: boolean): string {
@@ -52,7 +60,7 @@ function leg(id: string, c: DrawCtx, pts: Pw[], fill: string, far: boolean): str
   const e = pts[pts.length - 1];
   const inner = far ? shadow(d, c.pal.deep, 0.35, 'fine') : turn(d, fill, c.pal.shade, -pts[1][2] * 0.7, -1);
   return part(id, d, fill, inner + line(spl(pts.slice(1, 3).map(([x, y]) => [x + 0.6, y] as Pt)), 0.7, '#140F24', ' opacity="0.5"'), far ? 1.3 : 1.5)
-    + hoof(e[0] + (e[1] < 195 ? 1 : 0), e[1] < 195 ? e[1] + 6 : 205);
+    + hoofAt(pts);
 }
 
 /** Cerf adulte (stades 1 à 3), de profil vers la gauche, tête haute. */
@@ -107,8 +115,20 @@ function stag(c: DrawCtx): string {
   g += antler(st === 1 ? 14 : 26, st === 1 ? 3 : 6, true);
 
   // ---- Pattes du fond ----
-  g += leg(`${id}-lf1`, c, [[96, 144, 7], [93, 164, 4.2], [92, 177, 3.2], [91, 196, 2.6], [90, 200, 2.6]], pal.shade, true);
-  g += leg(`${id}-lf2`, c, [[168, 136, 10], [176, 158, 5.4], [181, 175, 3.3], [177, 195, 2.6], [176, 200, 2.6]], pal.shade, true);
+  // Stade 1 : pas d'exploration ; stades 2-3 : galop (pattes avant lancées, arrière en poussée).
+  const LEGS: Record<string, Pw[]> = st === 1 ? {
+    f1: [[96, 144, 7], [93, 164, 4.2], [92, 177, 3.2], [91, 196, 2.6], [90, 200, 2.6]],
+    f2: [[168, 136, 10], [170, 158, 5.4], [172, 175, 3.3], [164, 195, 2.6], [162, 200, 2.6]],
+    n1: [[84, 140, 9], [80, 160, 4.6], [72, 172, 3.4], [74, 186, 2.8], [76, 191, 2.8]],
+    n2: [[156, 128, 15], [166, 156, 7], [178, 172, 3.7], [180, 194, 2.9], [182, 200, 2.9]],
+  } : {
+    f1: [[96, 144, 7], [96, 162, 4.2], [106, 172, 3.2], [113, 168, 2.6], [116, 166, 2.6]],
+    f2: [[168, 136, 10], [162, 158, 5.4], [148, 168, 3.3], [138, 176, 2.6], [135, 178, 2.6]],
+    n1: [[84, 140, 9], [70, 154, 4.8], [56, 162, 3.5], [44, 170, 2.9], [40, 173, 2.9]],
+    n2: [[156, 128, 15], [172, 150, 7], [188, 162, 3.7], [204, 168, 2.9], [209, 169, 2.9]],
+  };
+  g += leg(`${id}-lf1`, c, LEGS.f1, pal.shade, true);
+  g += leg(`${id}-lf2`, c, LEGS.f2, pal.shade, true);
 
   // ---- Queue ----
   g += part(`${id}-tl`, 'M178 104 C186 101 193 106 193 115 C188 116 182 113 178 110 Z', pal.body, shadow('M186 112 L196 118 L196 104 Z', pal.deep, 0.8, 'fine'), 1.3);
@@ -147,9 +167,8 @@ function stag(c: DrawCtx): string {
   g += rim('M66 55 C76 68 89 88 108 100 C128 96 150 97 168 102', pal.glow, 1.3);
 
   // ---- Pattes avant ----
-  const raised = st >= 2;
-  g += leg(`${id}-ln1`, c, raised ? [[84, 140, 9], [78, 158, 4.8], [68, 170, 3.5], [70, 182, 2.9], [73, 188, 2.8]] : [[84, 140, 9], [81, 163, 4.6], [79, 176, 3.4], [78, 195, 2.8], [77, 200, 2.8]], pal.body, false);
-  g += leg(`${id}-ln2`, c, [[156, 128, 15], [163, 156, 7], [170, 174, 3.7], [166, 195, 2.9], [165, 200, 2.9]], pal.body, false);
+  g += leg(`${id}-ln1`, c, LEGS.n1, pal.body, false);
+  g += leg(`${id}-ln2`, c, LEGS.n2, pal.body, false);
 
   // ---- Bois de l'avant, oreilles, tête ----
   g += part(`${id}-ef`, 'M57 41 C59 31 65 23 73 19 C73 29 69 37 63 43 Z', pal.shade, '', 1.2);
@@ -174,68 +193,268 @@ function stag(c: DrawCtx): string {
   return g;
 }
 
-/** Faon (stade 0) : jambes encore longues et grêles, robe mouchetée d'étoiles, grandes oreilles. */
-function fawn(c: DrawCtx): string {
+/** Faon (stade 0) endormi, enroulé dans la mousse : pattes repliées, tête posée sur le flanc, robe mouchetée. */
+function fawnAsleep(c: DrawCtx): string {
   const { pal } = c;
   const id = 'cervastre-0';
   let g = '';
-  g += leg(`${id}-lf1`, c, [[92, 140, 6], [90, 160, 3.4], [91, 171, 2.6], [92, 194, 2.1], [92, 200, 2.1]], pal.shade, true);
-  g += leg(`${id}-lf2`, c, [[150, 134, 8], [156, 154, 4.4], [162, 170, 2.7], [158, 194, 2.1], [157, 200, 2.1]], pal.shade, true);
-  g += part(`${id}-tl`, 'M160 106 C166 102 172 104 173 110 C169 112 164 111 160 110 Z', pal.body, '', 1.2);
-  const B = 'M98 104 C114 99 136 100 150 104 C162 108 168 120 165 134 C162 144 154 148 144 146 C128 149 110 149 98 145 C88 142 82 136 80 128 C76 116 70 102 62 88 L76 70 C82 84 88 96 98 104 Z';
+  // Queue.
+  g += part(`${id}-tl`, 'M170 166 C177 160 185 162 187 170 C182 173 176 172 171 171 Z', pal.body, `<path d="M176 170 C180 167 184 168 185 170" fill="none" stroke="#FFF6D8" stroke-width="2"/>`, 1.2);
+  // Corps couché.
+  const B = 'M60 199 C52 182 62 162 90 153 C118 145 154 147 171 162 C183 173 184 191 173 201 L68 203 Z';
   let bi = '';
-  bi += shadow('M76 124 C92 142 124 145 146 141 C158 139 166 132 172 122 L172 160 L70 160 Z', pal.shade, 0.85, 'fine');
-  bi += shadow('M166 110 C172 132 162 150 140 150 C152 142 158 128 156 112 Z', pal.deep, 0.5, 'xhatch');
-  bi += `<path d="M62 88 C68 100 74 112 78 124 C80 110 74 98 68 90 Z" fill="${pal.belly}" opacity="0.85"/>`;
-  bi += line('M136 104 C128 114 128 132 136 146', 0.7, '#140F24', ' opacity="0.5"');
-  bi += fur(c, 66, 100, 6, 125, 3, 3) + fur(c, 112, 108, 5, 75, 4, 8);
-  // Mouchetures en rangées le long de l'échine (comme un vrai faon), certaines sont des étoiles.
-  const spots: Pt[] = [[100, 110], [110, 107], [120, 106], [130, 107], [140, 108], [150, 111], [106, 117], [117, 115], [128, 115], [139, 116], [150, 119], [112, 124], [124, 124], [136, 125], [147, 127], [100, 124]];
-  spots.forEach(([x, y], i) => {
-    bi += i % 5 === 2 ? sparkle(x, y, 2.8, '#FFF6D8', false) : `<ellipse cx="${x}" cy="${y}" rx="${f(1.5 + c.r() * 0.7)}" ry="${f(1.2 + c.r() * 0.5)}" fill="#FFF6D8" opacity="0.9"/>`;
-  });
+  bi += shadow('M50 186 C80 196 140 198 190 182 L190 210 L50 210 Z', pal.shade, 0.85, 'fine');
+  bi += shadow('M54 196 C90 203 150 204 190 194 L190 210 L50 210 Z', pal.deep, 0.6, 'xhatch');
+  // Cuisse repliée (volume de la hanche).
+  bi += shadow('M178 170 C186 186 180 200 166 204 C172 192 172 178 164 166 Z', pal.deep, 0.45, 'xhatch');
+  bi += line('M146 156 C164 162 174 178 168 198', 0.9, '#140F24', ' opacity="0.6"');
+  bi += line('M96 156 C90 168 90 182 96 194', 0.7, '#140F24', ' opacity="0.45"');
+  bi += fur(c, 120, 154, 5, 80, 5, 12) + fur(c, 158, 166, 6, 70, 4, 6) + fur(c, 70, 176, 5, 120, 3, 5);
+  // Mouchetures en rangées le long de l'échine, quelques-unes sont des étoiles.
+  const rows: [number, number, number][] = [[84, 160, 0], [92, 167, 1], [102, 176, 2]];
+  for (const [x0, y0, k] of rows) {
+    for (let i = 0; i < 7 - k; i++) {
+      const t = i / (6 - k), x = x0 + t * (80 - k * 6), y = y0 - Math.sin(t * Math.PI) * (10 - k * 2) + t * 4;
+      bi += (i + k) % 4 === 1 ? sparkle(x, y, 2.6, '#FFF6D8', false) : `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(1.5 + c.r() * 0.6)}" ry="${f(1.1 + c.r() * 0.4)}" fill="#FFF6D8" opacity="0.9"/>`;
+    }
+  }
   g += part(`${id}-b`, B, pal.body, bi, 1.6);
-  g += rim('M76 70 C82 84 88 96 98 104 C114 99 136 100 150 104', pal.glow, 1.2);
-  g += leg(`${id}-ln1`, c, [[86, 136, 7], [84, 158, 3.8], [83, 170, 2.8], [82, 194, 2.3], [81, 200, 2.3]], pal.body, false);
-  g += leg(`${id}-ln2`, c, [[142, 126, 11], [148, 152, 5], [152, 170, 2.9], [148, 194, 2.3], [147, 200, 2.3]], pal.body, false);
-  // Oreille de l'arrière.
-  g += part(`${id}-ef`, 'M70 58 C72 44 80 34 92 28 C92 40 86 52 76 60 Z', pal.shade, `<path d="M74 56 C76 46 82 38 89 33 C88 42 84 50 77 56 Z" fill="${pal.deep}"/>`, 1.2);
+  g += rim('M90 153 C118 145 154 147 171 162', pal.glow, 1.3);
+  // Patte arrière repliée : le sabot dépasse devant la cuisse.
+  g += leg(`${id}-lh`, c, [[156, 194, 5], [138, 199, 3.2], [124, 200, 2.4]], pal.body, false).replace(/<path transform[^>]*\/>$/, '')
+    + hoof(119, 201, 90);
+  // Patte avant repliée sous le poitrail.
+  g += leg(`${id}-lf`, c, [[80, 192, 5.2], [64, 197, 3.2], [52, 199, 2.4]], pal.body, false).replace(/<path transform[^>]*\/>$/, '')
+    + hoof(47, 200, 90);
+  // Cou recourbé vers l'arrière.
+  const N = tube([[74, 186, 14], [66, 170, 12], [72, 155, 10], [88, 148, 9]]);
+  g += part(`${id}-n`, N, pal.body, turn(N, pal.body, pal.shade, 3, -4) + `<path d="M58 172 C60 184 66 190 74 194" fill="none" stroke="${pal.belly}" stroke-width="6" opacity="0.8"/>` + fur(c, 62, 172, 5, 160, 3, 5), 1.5);
+  // Tête posée sur le flanc (profil vers la droite), yeux clos.
+  let hd = '';
   const H = 'M82 66 C80 56 72 50 63 51 C55 52 49 58 44 66 C40 72 36 75 34 79 C33 83 36 86 40 86 C43 88 48 88 52 86 C60 83 68 80 74 78 C81 75 84 72 82 66 Z';
   let hi = '';
   hi += shadow('M40 90 C56 84 70 82 84 70 L90 92 L36 96 Z', pal.shade, 0.85, 'fine');
   hi += `<path d="M38 86 C46 86 54 84 62 82 C56 87 46 89 40 89 Z" fill="${pal.belly}"/>`;
   hi += `<path d="M34 79 C33 75 37 72 41 75 C42 79 39 83 35 83 Z" fill="#140F24"/>`;
   hi += line('M40 86 C44 85 47 85 50 86', 0.8);
-  hi += line('M55 66 C51 69 48 71 45 73', 0.9, '#140F24', ' opacity="0.6"');
-  hi += eyeA(59, 64, 5.4, pal.eye, { angle: -18, slit: false, open: 0.55 });
-  hi += sparkle(66, 55, 2.4, pal.gold, false);
-  g += part(`${id}-h`, H, pal.body, hi, 1.6);
-  g += rim('M63 51 C55 52 49 58 44 66 C40 72 36 75 34 79', pal.glow, 1);
-  g += part(`${id}-e`, 'M74 60 C80 48 92 40 106 40 C102 50 92 60 78 66 Z', pal.body,
-    `<path d="M79 60 C86 51 95 46 102 44 C97 52 89 58 81 62 Z" fill="${pal.deep}"/>` + fur(c, 84, 58, 5, 20, 3, 3, pal.light), 1.3);
-  g += sparkle(42, 40, 3, pal.glow, false) + sparkle(178, 76, 2.4, '#FFF6D8', false);
+  // Paupière close et cils.
+  hi += line('M53 64 C56 67 61 67 65 63', 1.3) + line('M55 66 l-1.5 2.4 M58 67 l-0.6 2.6 M61 66.6 l0.4 2.6', 0.7);
+  hi += line('M50 60 C54 57 60 57 66 59', 0.7, '#140F24', ' opacity="0.5"');
+  hi += sparkle(68, 55, 2.2, pal.gold, false);
+  hd += part(`${id}-h`, H, pal.body, hi, 1.5);
+  hd += rim('M63 51 C55 52 49 58 44 66', pal.glow, 1);
+  // Oreille rabattue vers l'arrière, contre le cou.
+  hd += part(`${id}-e`, 'M76 60 C84 52 96 50 108 54 C100 60 90 64 78 66 Z', pal.body,
+    `<path d="M81 60 C88 56 96 55 103 56 C97 59 90 62 82 63 Z" fill="${pal.deep}"/>` + fur(c, 86, 60, 4, 10, 3, 2, pal.light), 1.3);
+  g += `<g transform="rotate(10 98 150) translate(180 84) scale(-1 1)">${hd}</g>`;
+  // Une luciole posée sur l'oreille, une autre qui tourne autour du museau.
+  g += `<circle cx="104" cy="133" r="5" fill="${pal.glow}" opacity="0.6" filter="url(#glow)"/><ellipse cx="104" cy="133" rx="1.6" ry="1.2" fill="#FFF6D8" stroke="#140F24" stroke-width="0.6"/>`;
+  g += `<circle cx="158" cy="146" r="4" fill="${pal.glow}" opacity="0.5" filter="url(#glow)"/><circle cx="158" cy="146" r="1.2" fill="#FFF6D8"/>`;
+  g += line('M158 146 C150 140 146 150 138 146 C132 142 136 136 142 138', 0.6, pal.glow, ' stroke-dasharray="1.5 2.5" opacity="0.8"');
   return g;
 }
 
 /**
  * Cervastre → Cervelune → Astrocerf → Astrocerf éveillé : cerf de bestiaire céleste dont les bois se prolongent en
- * constellations. Faon moucheté d'étoiles, daguet aux bois en velours, grand cerf au port de tête noble, puis
- * forme éveillée aux bois dorés, croissant de lune et marques d'or.
+ * constellations. Faon endormi enroulé dans la mousse, daguet aux bois en velours qui traverse un ruisseau,
+ * grand cerf au galop, puis forme éveillée au galop, bois dorés, croissant de lune et marques d'or.
  */
 export const cervastre: Species = (c) => {
   const st = Math.min(c.stage, 3);
   let s = '';
+  if (st === 0) return `<g transform="translate(116 205) scale(1.18) translate(-116 -205)">${ground(118, 204, 70)}${fawnAsleep(c)}</g>`;
   if (st >= 3) s += aura(100, 70, 80, c.pal.glow) + aura(130, 130, 70, c.pal.accent2);
-  s += ground(124, 205, 78);
-  if (st === 0) return s + `<g transform="translate(100 205) scale(1.12) translate(-100 -205)">${fawn(c)}</g>`;
-  const k = [1, 0.92, 0.88, 0.88][st];
+  s += st === 1 ? ground(130, 205, 76) : ground(128, 206, 66);
+  const k = [1, 0.92, 0.86, 0.86][st];
   let top = '';
   if (st >= 3) {
-    const my = 34, mx = 186;
+    const my = 34, mx = 190;
     top += `<circle cx="${mx}" cy="${my}" r="12" fill="${c.pal.glow}" opacity="0.4" filter="url(#glow)"/>`;
     top += `<path d="M${mx - 3} ${my - 9} a9 9 0 1 0 8 15 a7.2 7.2 0 1 1 -8 -15 Z" fill="${c.pal.gold}" stroke="#140F24" stroke-width="1"/>`;
     for (let i = 0; i < 6; i++) top += sparkle(14 + c.r() * 190, 30 + c.r() * 100, 1.6 + c.r() * 2, i % 2 ? c.pal.glow : '#FFF6D8', false);
     top += speckles(c, 60, 30, 50, 20, 8, c.pal.glow);
   }
+  // Galop : le corps se cabre légèrement et quitte le sol ; traînée d'étoiles soulevée par les sabots.
+  if (st >= 2) {
+    let trail = '';
+    for (let i = 0; i < 18; i++) {
+      const t = c.r();
+      trail += `<circle cx="${f(150 + t * 70)}" cy="${f(196 - t * 18 + (c.r() - 0.5) * 14)}" r="${f(0.6 + c.r() * 1.4)}" fill="${i % 3 ? '#FFF6D8' : c.pal.glow}" opacity="${f(0.9 - t * 0.6)}"/>`;
+    }
+    return s + top + trail + `<g transform="translate(0 -2) rotate(-3 120 150) translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
+  }
   return s + top + `<g transform="translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// Décor : forêt cosmique (clairière moussue la nuit, ruisseau au crépuscule, lisière à l'aube, forêt-cathédrale
+// sous les aurores).
+
+/** Fond plein en dégradé vertical. */
+export function skyGrad(id: string, b: Bounds, stops: [number, string][]): string {
+  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient></defs>`
+    + `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="url(#${id})"/>`;
+}
+export function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, col = '#FFF6D8'): string {
+  let o = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (ymax - b.y0), r = 0.3 + c.r() * c.r() * 1.3;
+    o += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${col}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+  }
+  return o;
+}
+/** Tronc droit et légèrement effilé, écorce au trait. `light` = côté éclairé (-1 gauche, 1 droite). */
+export function trunk(c: DrawCtx, x: number, top: number, bot: number, w: number, fill: string, shade: string, detail: number, light = -1, glowCol = ''): string {
+  const tw = w * 0.82, d = `M${f(x - w)} ${f(bot)} C${f(x - w * 0.8)} ${f(bot - 10)} ${f(x - tw)} ${f(bot - 30)} ${f(x - tw)} ${f(top)} L${f(x + tw)} ${f(top)} C${f(x + tw)} ${f(bot - 30)} ${f(x + w * 0.8)} ${f(bot - 10)} ${f(x + w)} ${f(bot)} Z`;
+  let o = `<path d="${d}" fill="${fill}"/>`;
+  if (detail > 0) {
+    o += `<path d="M${f(x - light * tw * 0.2)} ${f(top)} L${f(x - light * tw)} ${f(top)} L${f(x - light * w)} ${f(bot)} L${f(x - light * w * 0.2)} ${f(bot)} Z" fill="${shade}" opacity="0.8"/>`;
+    o += `<path d="M${f(x - light * tw * 0.2)} ${f(top)} L${f(x - light * tw)} ${f(top)} L${f(x - light * w)} ${f(bot)} L${f(x - light * w * 0.2)} ${f(bot)} Z" fill="url(#fine)" opacity="${f(detail)}"/>`;
+    for (let i = 0; i < w * 0.9; i++) {
+      const xx = x - tw + c.r() * tw * 2, y0 = top + c.r() * (bot - top), len = 8 + c.r() * 22;
+      o += `<path d="M${f(xx)} ${f(y0)} q${f((c.r() - 0.5) * 2)} ${f(len / 2)} 0 ${f(len)}" fill="none" stroke="#140F24" stroke-width="0.5" opacity="${f(0.35 * detail)}"/>`;
+    }
+    if (glowCol) o += `<path d="M${f(x + light * tw * 0.98)} ${f(top)} L${f(x + light * w * 0.96)} ${f(bot - 4)}" stroke="${glowCol}" stroke-width="1" opacity="0.7"/>`;
+    o += `<path d="M${f(x - tw)} ${f(top)} L${f(x - tw)} ${f(bot - 30)} C${f(x - tw)} ${f(bot - 30)} ${f(x - w * 0.8)} ${f(bot - 10)} ${f(x - w)} ${f(bot)} M${f(x + tw)} ${f(top)} L${f(x + tw)} ${f(bot - 30)} C${f(x + tw)} ${f(bot - 30)} ${f(x + w * 0.8)} ${f(bot - 10)} ${f(x + w)} ${f(bot)}" fill="none" stroke="#140F24" stroke-width="${f(0.5 + detail * 0.7)}" opacity="${f(0.4 + detail * 0.4)}"/>`;
+  }
+  return o;
+}
+/** Fougère : rachis courbe et pinnules alternées. */
+export function fern(x: number, y: number, len: number, ang: number, curl: number, col: string, ink = 0.6): string {
+  let d = '', leaf = '';
+  const a0 = (ang * Math.PI) / 180;
+  let px = x, py = y, a = a0;
+  const n = 14;
+  const pts: Pt[] = [[px, py]];
+  for (let i = 1; i <= n; i++) {
+    a += curl / n;
+    px += Math.cos(a) * len / n; py += Math.sin(a) * len / n;
+    pts.push([px, py]);
+    const l = (len * 0.24) * (1 - i / (n + 2));
+    for (const s of [-1, 1]) {
+      const la = a + s * 1.1;
+      leaf += `M${f(px)} ${f(py)} q${f(Math.cos(la - s * 0.4) * l * 0.6)} ${f(Math.sin(la - s * 0.4) * l * 0.6)} ${f(Math.cos(la) * l)} ${f(Math.sin(la) * l)} `;
+    }
+  }
+  d = spl(pts);
+  return `<path d="${leaf}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round"/>`
+    + (ink ? `<path d="${leaf}" fill="none" stroke="#140F24" stroke-width="0.4" opacity="${ink}"/>` : '')
+    + `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.3"/>` + (ink ? `<path d="${d}" fill="none" stroke="#140F24" stroke-width="0.5" opacity="${ink}"/>` : '');
+}
+export function grass(c: DrawCtx, x0: number, x1: number, y: number, h: number, col: string, n: number, op = 0.8): string {
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const x = x0 + c.r() * (x1 - x0), hh = h * (0.5 + c.r() * 0.7), lean = (c.r() - 0.5) * hh * 0.8;
+    d += `M${f(x)} ${f(y + c.r() * 4)} q${f(lean * 0.3)} ${f(-hh * 0.6)} ${f(lean)} ${f(-hh)} `;
+  }
+  return `<path d="${d}" fill="none" stroke="${col}" stroke-width="0.9" stroke-linecap="round" opacity="${op}"/>`;
+}
+export function fireflies(c: DrawCtx, x0: number, y0: number, x1: number, y1: number, n: number, col: string): string {
+  let o = '';
+  for (let i = 0; i < n; i++) {
+    const x = x0 + c.r() * (x1 - x0), y = y0 + c.r() * (y1 - y0);
+    o += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(2.5 + c.r() * 2)}" fill="${col}" opacity="0.35" filter="url(#glow)"/><circle cx="${f(x)}" cy="${f(y)}" r="${f(0.7 + c.r() * 0.6)}" fill="#FFF6D8"/>`;
+  }
+  return o;
+}
+function mushrooms(x: number, y: number, s: number, col: string): string {
+  let o = `<ellipse cx="${f(x)}" cy="${f(y - 6 * s)}" rx="${f(14 * s)}" ry="${f(9 * s)}" fill="${col}" opacity="0.3" filter="url(#soft)"/>`;
+  for (const [dx, h, r] of [[0, 9, 4.2], [6, 6, 3], [-5, 5, 2.4]] as const) {
+    const X = x + dx * s, Y = y, H = h * s, R = r * s;
+    o += `<path d="M${f(X - R * 0.25)} ${f(Y)} L${f(X - R * 0.18)} ${f(Y - H)} L${f(X + R * 0.18)} ${f(Y - H)} L${f(X + R * 0.25)} ${f(Y)} Z" fill="#E8E0CC" stroke="#140F24" stroke-width="0.5"/>`;
+    o += `<path d="M${f(X - R)} ${f(Y - H)} Q${f(X)} ${f(Y - H - R * 1.4)} ${f(X + R)} ${f(Y - H)} Q${f(X)} ${f(Y - H + R * 0.35)} ${f(X - R)} ${f(Y - H)} Z" fill="${col}" stroke="#140F24" stroke-width="0.6"/>`;
+    o += `<path d="M${f(X - R * 0.5)} ${f(Y - H - R * 0.55)} q${f(R * 0.3)} ${f(-R * 0.3)} ${f(R * 0.6)} ${f(-R * 0.3)}" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.8"/>`;
+  }
+  return o;
+}
+
+cervastre.scene = (c: DrawCtx, b: Bounds) => {
+  const st = Math.min(c.stage, 3);
+  const id = `cervastre-${st}-bg`;
+  const h = c.hue;
+  const W = b.x1 - b.x0;
+  let o = '';
+  const rect = (fill: string, y0: number, op = 1, extra = '') => `<rect x="${b.x0}" y="${f(y0)}" width="${W}" height="${f(b.y1 - y0)}" fill="${fill}" opacity="${op}"${extra}/>`;
+  if (st === 0) {
+    // Clairière moussue, nuit profonde ; un rayon de lune tombe entre les troncs sur le faon endormi.
+    o += skyGrad(`${id}-s`, b, [[0, '#0B1426'], [0.55, '#16293A'], [1, '#0E1A1E']]);
+    o += stars(c, b, 40, 90);
+    o += `<circle cx="40" cy="28" r="13" fill="#F4ECD0" opacity="0.9"/><circle cx="40" cy="28" r="26" fill="#F4ECD0" opacity="0.25" filter="url(#soft)"/>`;
+    for (const [x, w] of [[14, 5], [62, 4], [96, 6], [150, 4.5], [182, 5], [208, 4]] as const) o += trunk(c, x, b.y0, 150, w, '#2A4250', '#22384A', 0, -1);
+    o += `<rect x="${b.x0}" y="110" width="${W}" height="50" fill="#5C8A90" opacity="0.18" filter="url(#soft)"/>`;
+    for (const [x, w] of [[30, 11], [128, 9], [196, 13]] as const) o += trunk(c, x, b.y0, 168, w, '#1C2E36', '#132028', 0.5, -1, '#9FC8C0');
+    // Rayon de lune.
+    o += `<path d="M30 20 L70 20 L178 210 L82 210 Z" fill="#F4ECD0" opacity="0.12" filter="url(#soft)"/>`;
+    // Sol de mousse, creux où dort le faon.
+    o += `<path d="M${b.x0} 162 C40 150 90 156 120 158 C160 160 200 150 ${b.x1} 156 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#1F3B30"/>`;
+    o += `<path d="M${b.x0} 162 C40 150 90 156 120 158 C160 160 200 150 ${b.x1} 156 L${b.x1} 170 L${b.x0} 172 Z" fill="url(#fine)" opacity="0.5"/>`;
+    o += `<ellipse cx="116" cy="200" rx="90" ry="22" fill="#2F5A44"/><ellipse cx="116" cy="200" rx="90" ry="22" fill="url(#fine)" opacity="0.4"/>`;
+    o += `<ellipse cx="110" cy="194" rx="70" ry="10" fill="#7FB59A" opacity="0.25" filter="url(#soft)"/>`;
+    for (let i = 0; i < 40; i++) o += `<circle cx="${f(30 + c.r() * 170)}" cy="${f(186 + c.r() * 30)}" r="${f(0.8 + c.r() * 1.2)}" fill="#4F8A66" opacity="0.7"/>`;
+    o += fern(4, 214, 60, -60, 0.9, '#2E6A52') + fern(10, 222, 54, -40, 0.7, '#3A7A5C') + fern(218, 214, 58, -120, -0.9, '#2E6A52') + fern(212, 226, 50, -150, -0.6, '#3A7A5C');
+    o += mushrooms(186, 214, 1.1, hsl(h + 160, 70, 70)) + mushrooms(36, 222, 0.8, hsl(h + 160, 70, 70));
+    o += fireflies(c, 20, 60, 200, 150, 9, '#E8F59A');
+    o += rect('#000', 226, 0.25);
+  } else if (st === 1) {
+    // Ruisseau à la lisière, au crépuscule : ciel violet et braise, reflets d'étoiles dans l'eau.
+    o += skyGrad(`${id}-s`, b, [[0, '#1E1638'], [0.42, '#4A2E5A'], [0.6, '#C2716A'], [0.68, '#E6A777']]);
+    o += stars(c, b, 34, 80);
+    // Collines boisées lointaines.
+    o += `<path d="M${b.x0} 140 C30 126 50 132 70 124 C96 114 120 128 146 120 C170 112 196 126 ${b.x1} 118 L${b.x1} 160 L${b.x0} 160 Z" fill="#6A4A6E" opacity="0.85"/>`;
+    let pines = '';
+    for (let x = b.x0; x < b.x1; x += 5 + c.r() * 5) { const y = 128 + Math.sin(x / 19) * 5 + c.r() * 4, hh = 8 + c.r() * 10; pines += `M${f(x - 3)} ${f(y + 6)} L${f(x)} ${f(y - hh)} L${f(x + 3)} ${f(y + 6)} Z `; }
+    o += `<path d="${pines}" fill="#4E3558"/>`;
+    o += `<rect x="${b.x0}" y="128" width="${W}" height="24" fill="#E6A777" opacity="0.25" filter="url(#soft)"/>`;
+    for (const [x, w] of [[18, 8], [46, 5], [176, 6], [204, 10]] as const) o += trunk(c, x, b.y0, 160, w, '#3A2846', '#2A1C36', 0.5, 1, '#F0B48A');
+    // Berges et ruisseau.
+    o += `<path d="M${b.x0} 156 C60 150 160 150 ${b.x1} 154 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#2C2A3A"/>`;
+    const water = `M100 152 C120 156 150 160 160 170 C176 186 200 196 ${b.x1} 200 L${b.x1} ${b.y1} L${b.x0} ${b.y1} L${b.x0} 206 C40 204 70 192 80 176 C88 164 92 156 100 152 Z`;
+    o += `<defs><linearGradient id="${id}-w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6A777"/><stop offset="0.5" stop-color="#5A4070"/><stop offset="1" stop-color="#1E1838"/></linearGradient></defs>`;
+    o += `<path d="${water}" fill="url(#${id}-w)" stroke="#140F24" stroke-width="0.8"/>`;
+    for (let i = 0; i < 14; i++) { const y = 160 + i * 5.5, x = 100 - i * 2 + c.r() * 30, l = 6 + i * 2.5; o += `<path d="M${f(x)} ${f(y)} h${f(l)}" stroke="#FFF6D8" stroke-width="0.6" opacity="${f(0.25 + c.r() * 0.3)}"/>`; }
+    o += stars(c, { x0: 60, y0: 180, x1: 200, y1: 236 }, 14, 236);
+    o += `<ellipse cx="80" cy="204" rx="14" ry="3" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.6"/><ellipse cx="80" cy="204" rx="22" ry="5" fill="none" stroke="#FFF6D8" stroke-width="0.4" opacity="0.4"/>`;
+    o += `<ellipse cx="172" cy="205" rx="12" ry="2.6" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.6"/>`;
+    o += grass(c, b.x0, 90, 158, 10, '#4A3C56', 30) + grass(c, 150, b.x1, 160, 10, '#4A3C56', 26);
+    o += fern(b.x0 - 2, 196, 50, -50, 0.8, '#3E4A4A') + fern(b.x1 + 2, 186, 46, -130, -0.8, '#3E4A4A');
+    o += fireflies(c, 30, 70, 200, 140, 5, '#FFD99A');
+  } else if (st === 2) {
+    // Lisière à l'aube : soleil levant derrière la forêt lointaine, prairie couverte de rosée.
+    o += skyGrad(`${id}-s`, b, [[0, '#26345A'], [0.35, '#6C6E96'], [0.58, '#E7B48C'], [0.66, '#F6DDB0']]);
+    o += stars(c, b, 18, 50);
+    o += `<circle cx="168" cy="148" r="30" fill="#FFF0C8" opacity="0.7" filter="url(#soft)"/><circle cx="168" cy="150" r="11" fill="#FFF4D8"/>`;
+    for (let i = 0; i < 9; i++) { const a = (-160 + i * 18) * Math.PI / 180; o += `<path d="M168 150 L${f(168 + Math.cos(a) * 160)} ${f(150 + Math.sin(a) * 160)}" stroke="#FFF0C8" stroke-width="5" opacity="0.08"/>`; }
+    let far = '', mid = '';
+    for (let x = b.x0; x < b.x1 + 6; x += 4 + c.r() * 4) { const y = 146 + Math.sin(x / 23) * 4, hh = 10 + c.r() * 14; far += `M${f(x - 3.5)} ${f(y + 8)} L${f(x)} ${f(y - hh)} L${f(x + 3.5)} ${f(y + 8)} Z `; }
+    for (let x = b.x0; x < b.x1 + 6; x += 6 + c.r() * 6) { const y = 158 + Math.sin(x / 31) * 3, hh = 14 + c.r() * 16; mid += `M${f(x - 5)} ${f(y + 8)} L${f(x)} ${f(y - hh)} L${f(x + 5)} ${f(y + 8)} Z `; }
+    o += `<path d="${far}" fill="#8C7C9A" opacity="0.9"/>` + `<rect x="${b.x0}" y="146" width="${W}" height="16" fill="#F6DDB0" opacity="0.35" filter="url(#soft)"/>`;
+    o += `<path d="${mid}" fill="#5A5274"/>`;
+    o += `<path d="M${b.x0} 166 C60 160 150 162 ${b.x1} 164 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#4C5A5C"/>`;
+    o += `<path d="M${b.x0} 166 C60 160 150 162 ${b.x1} 164 L${b.x1} 180 L${b.x0} 180 Z" fill="#E7B48C" opacity="0.25"/>`;
+    o += `<path d="M${b.x0} 196 C60 192 150 192 ${b.x1} 196 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#33403F"/><path d="M${b.x0} 196 C60 192 150 192 ${b.x1} 196 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="url(#fine)" opacity="0.4"/>`;
+    o += grass(c, b.x0, b.x1, 170, 7, '#6E7A70', 50, 0.7) + grass(c, b.x0, b.x1, 200, 12, '#26302E', 60, 0.9);
+    // Grands pins de premier plan qui encadrent la scène.
+    o += trunk(c, b.x0 + 4, b.y0, 236, 9, '#232436', '#171828', 0.7, 1, '#F6C690') + trunk(c, b.x1 - 6, b.y0, 236, 11, '#232436', '#171828', 0.7, -1, '#F6C690');
+    for (let i = 0; i < 16; i++) o += `<circle cx="${f(20 + c.r() * 190)}" cy="${f(196 + c.r() * 30)}" r="${f(0.6 + c.r())}" fill="#FFF6D8" opacity="0.7"/>`;
+  } else {
+    // Forêt-cathédrale sous les aurores : troncs géants veinés d'or, graines de lumière en suspension.
+    o += skyGrad(`${id}-s`, b, [[0, '#0A0C22'], [0.6, '#1A1C40'], [1, '#141530']]);
+    o += stars(c, b, 60, 150);
+    const au = (y: number, col: string, op: number) => `<path d="M${b.x0 - 20} ${y} C40 ${y - 40} 90 ${y + 30} 140 ${y - 10} C180 ${y - 40} 210 ${y + 10} ${b.x1 + 20} ${y - 20}" fill="none" stroke="${col}" stroke-width="22" opacity="${op}" filter="url(#soft)"/>`;
+    o += au(60, hsl(h + 120, 80, 60), 0.5) + au(84, hsl(h + 200, 80, 66), 0.4) + au(40, hsl(h + 60, 80, 70), 0.3);
+    for (const [x, w] of [[40, 6], [84, 4], [146, 5], [186, 6]] as const) o += trunk(c, x, b.y0, 160, w, '#2A2C56', '#22244A', 0, 1);
+    o += `<rect x="${b.x0}" y="120" width="${W}" height="50" fill="${hsl(h + 200, 60, 60)}" opacity="0.18" filter="url(#soft)"/>`;
+    for (const [x, w, lt] of [[b.x0 + 8, 16, 1], [b.x1 - 10, 18, -1]] as const) {
+      o += trunk(c, x, b.y0, 236, w, '#1B1A36', '#121128', 0.8, lt, '#E9C25B');
+      o += `<path d="M${f(x - w * 0.3)} ${b.y0} C${f(x + w * 0.4)} 60 ${f(x - w * 0.5)} 120 ${f(x + w * 0.2)} 230" fill="none" stroke="#E9C25B" stroke-width="0.9" opacity="0.8"/>`;
+    }
+    o += `<path d="M${b.x0} 180 C60 172 160 172 ${b.x1} 180 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#1C1E3A"/>`;
+    o += `<path d="M30 236 C70 210 120 196 ${b.x1} 186" fill="none" stroke="#E9C25B" stroke-width="8" opacity="0.2" filter="url(#soft)"/>`;
+    o += grass(c, b.x0, b.x1, 186, 10, '#3A3C6A', 50);
+    o += fern(b.x0 + 4, 230, 50, -60, 0.9, '#2C3C66') + fern(b.x1 - 4, 232, 50, -120, -0.9, '#2C3C66');
+    for (let i = 0; i < 4; i++) { const x = 30 + c.r() * 160, y = 10 + c.r() * 60; o += `<path d="M${f(x)} ${f(y)} l-22 10" stroke="#FFF6D8" stroke-width="0.9" opacity="0.7"/>`; }
+    o += fireflies(c, 20, 40, 200, 200, 14, '#E9C25B');
+  }
+  if (b.y1 > 240) o += rect('#0B0A18', 236, 0.5);
+  return o;
 };
