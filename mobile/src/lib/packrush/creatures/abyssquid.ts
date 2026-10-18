@@ -8,19 +8,19 @@ import { along, band, f, frames, spline, tube, type Pt } from './legendkit.ts';
 export const abyssquid: Species = (c) => {
   const { pal } = c;
   const id = `abyssquid-${c.stage}`;
-  const BH: Pt = [114, 160];
+  const BH: Pt = [113, 166];
 
   // Bras : ligne médiane, largeur à la base, devant/derrière le trou noir, massue (tentacule).
   type Arm = { pts: Pt[]; w: number; front: boolean; club?: boolean };
   const arms: Arm[] = [
-    { pts: [[94, 120], [66, 120], [40, 130], [22, 150], [22, 172], [34, 180], [44, 172]], w: 5.5, front: false },
-    { pts: [[106, 120], [136, 116], [166, 122], [188, 140], [196, 162], [188, 178], [176, 174]], w: 5.5, front: false },
-    { pts: [[104, 124], [120, 136], [134, 152], [140, 176], [134, 198], [140, 214], [154, 218]], w: 5, front: false },
-    { pts: [[106, 118], [146, 104], [182, 96], [204, 76], [204, 54], [194, 44]], w: 3, front: false, club: true },
-    { pts: [[95, 124], [76, 136], [62, 156], [60, 180], [72, 198], [90, 202], [98, 194]], w: 6, front: true },
-    { pts: [[99, 126], [92, 148], [88, 170], [92, 194], [86, 212], [70, 220]], w: 5.5, front: true },
-    { pts: [[103, 125], [126, 128], [152, 138], [168, 158], [166, 182], [150, 194], [140, 188]], w: 5.5, front: true },
-    { pts: [[96, 126], [62, 146], [36, 182], [46, 214], [90, 228], [140, 226], [172, 212], [190, 196]], w: 3, front: true, club: true },
+    { pts: [[94, 120], [64, 118], [42, 128], [30, 146], [32, 162], [40, 166]], w: 5, front: false },
+    { pts: [[108, 118], [142, 114], [168, 124], [184, 140], [186, 158], [180, 164]], w: 5, front: false },
+    { pts: [[98, 121], [76, 126], [60, 142], [58, 160], [66, 174]], w: 5.4, front: false },
+    { pts: [[106, 121], [132, 126], [150, 142], [156, 160], [150, 174]], w: 5.4, front: false },
+    { pts: [[106, 119], [146, 104], [180, 92], [202, 70], [200, 48], [190, 40]], w: 2.8, front: false, club: true },
+    { pts: [[96, 124], [80, 136], [74, 154], [78, 172], [88, 184], [98, 186]], w: 5.8, front: true },
+    { pts: [[107, 124], [124, 134], [136, 150], [140, 168], [134, 184], [124, 190]], w: 5.8, front: true },
+    { pts: [[99, 125], [62, 150], [42, 184], [58, 214], [106, 226], [156, 216], [184, 198], [196, 176]], w: 3, front: true, club: true },
   ];
   const drawArm = (a: Arm) => {
     const path = spline(a.pts, 9);
@@ -62,8 +62,9 @@ export const abyssquid: Species = (c) => {
   let sq = '';
   const mantle = 'M-15 2 C-19 -24 -16 -52 -10 -72 C-7 -82 -3 -90 0 -98 C3 -90 7 -82 10 -72 C16 -52 19 -24 15 2 C6 5 -6 5 -15 2 Z';
   for (const sg of [-1, 1]) {
-    const fin = `M${sg * 8} -56 C${sg * 22} -60 ${sg * 34} -70 ${sg * 38} -82 C${sg * 26} -86 ${sg * 12} -92 ${sg * 2} -97 Z`;
-    sq += ink(fin, sg < 0 ? pal.body : pal.shade, 1.3);
+    const fin = `M${sg * 9} -50 C${sg * 24} -56 ${sg * 36} -68 ${sg * 40} -80 C${sg * 30} -88 ${sg * 14} -94 ${sg * 2} -97 Z`;
+    sq += ink(fin, sg < 0 ? pal.light : pal.shade, 1.3);
+    if (sg < 0) sq += shadow(`M-9 -50 C-24 -56 -36 -68 -40 -80 C-30 -72 -20 -62 -8 -58 Z`, pal.shade, 0.6, 'fine');
     for (let k = 1; k < 6; k++) sq += line(`M${sg * (4 + k)} ${-60 - k * 6.5} L${sg * (12 + k * 5)} ${-62 - k * 4}`, 0.5, pal.ink, ' opacity="0.45"');
   }
   sq += ink(mantle, pal.body, 1.7);
@@ -86,25 +87,26 @@ export const abyssquid: Species = (c) => {
     sq += eyeA(sg * 11, 14, 6, pal.eye, { angle: sg * -8, slit: false, open: 0.62 });
   }
   sq += line('M-6 6 C-2 9 2 9 6 6', 0.7, pal.ink, ' opacity="0.6"');
-  const squid = `<g transform="translate(106 96) rotate(22)">${sq}</g>`;
+  const squid = `<g transform="translate(102 98) rotate(20) scale(0.9)">${sq}</g>`;
 
-  let s = `<defs><clipPath id="${id}-back"><rect x="0" y="0" width="222" height="${BH[1]}"/></clipPath>`
-    + `<clipPath id="${id}-front"><rect x="0" y="${BH[1]}" width="222" height="100"/></clipPath></defs>`;
+  const rt = `transform="rotate(-9 ${BH[0]} ${BH[1]})"`;
+  let s = `<defs><clipPath id="${id}-back"><rect x="-60" y="-100" width="340" height="${BH[1] + 100}" ${rt}/></clipPath>`
+    + `<clipPath id="${id}-front"><rect x="-60" y="${BH[1]}" width="340" height="140" ${rt}/></clipPath></defs>`;
   s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="46" fill="${pal.accent2}" opacity="0.25" filter="url(#soft)"/>`;
   s += disk('back');
   for (const a of arms.filter((a) => !a.front)) s += drawArm(a);
   // Trou noir : horizon, anneau de photons, arc lentillé au-dessus.
-  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="21" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
-  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="27" ry="24" fill="none" stroke="#FFF6D8" stroke-width="3" opacity="0.5" filter="url(#glow)"/>`;
-  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="27" ry="24" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
-  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="18" fill="#05030A" stroke="#FFF6D8" stroke-width="1.6"/>`;
-  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="18" fill="none" stroke="${pal.ink}" stroke-width="0.6"/>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="20" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
+  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="25" ry="23" fill="none" stroke="#FFF6D8" stroke-width="3" opacity="0.5" filter="url(#glow)"/>`;
+  s += `<ellipse cx="${BH[0]}" cy="${BH[1] - 2}" rx="25" ry="23" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="17" fill="#05030A" stroke="#FFF6D8" stroke-width="1.6"/>`;
+  s += `<circle cx="${BH[0]}" cy="${BH[1]}" r="17" fill="none" stroke="${pal.ink}" stroke-width="0.6"/>`;
   s += disk('front');
   for (const a of arms.filter((a) => a.front)) s += drawArm(a);
   s += squid;
   // Poussière d'étoiles aspirée et éclats.
   s += speckles(c, BH[0], BH[1], 70, 22, 14, '#FFF6D8');
-  const tip = along(spline(arms[3].pts, 9), 1).p;
+  const tip = along(spline(arms[4].pts, 9), 1).p;
   s += sparkle(tip[0], tip[1], 3, pal.gold, false);
   for (const [x, y, z] of [[30, 40, 3.4], [48, 92, 2.4], [190, 228, 2.6], [16, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
   return s;

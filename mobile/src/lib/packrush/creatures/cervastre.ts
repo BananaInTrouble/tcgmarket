@@ -81,7 +81,7 @@ function stag(c: DrawCtx): string {
       ];
     }
     let o = '';
-    const fill = st >= 3 ? pal.light : far ? pal.shade : pal.belly;
+    const fill = st >= 3 ? (far ? pal.accent2 : pal.glow) : far ? pal.shade : pal.belly;
     beams.forEach((b, i) => {
       const d = tube(b);
       o += part(`${id}-a${far ? 'f' : 'n'}${i}`, d, fill, turn(d, fill, far ? pal.deep : pal.shade, -1.6, -0.6), far ? 1.1 : 1.3);
@@ -100,11 +100,11 @@ function stag(c: DrawCtx): string {
   };
   if (st >= 2) {
     const col = st >= 3 ? pal.gold : '#FFF6D8';
-    g += constellation([[112, -16], [132, -12], [146, -22], [162, -10], [178, -18]], col);
+    g += constellation([[138, -8], [152, -2], [164, -12], [180, -4], [194, -12]], col);
     g += constellation([[37, 28], [24, 20], [16, 4]], col);
-    if (st >= 3) g += constellation([[74, -10], [62, -20], [46, -16], [34, -26]], col) + constellation([[178, -18], [190, -4], [198, -20]], col);
+    if (st >= 3) g += constellation([[74, -10], [62, -20], [46, -16], [34, -10]], col) + constellation([[194, -12], [202, 4], [208, -6]], col) + `<ellipse cx="80" cy="6" rx="52" ry="30" fill="${pal.glow}" opacity="0.45" filter="url(#soft)"/>`;
   }
-  g += antler(17, 3, true);
+  g += antler(st === 1 ? 14 : 26, st === 1 ? 3 : 6, true);
 
   // ---- Pattes du fond ----
   g += leg(`${id}-lf1`, c, [[96, 144, 7], [93, 164, 4.2], [92, 177, 3.2], [91, 196, 2.6], [90, 200, 2.6]], pal.shade, true);

@@ -47,6 +47,55 @@ function nebula(c: DrawCtx, id: string, d: string, blobs: [number, number, numbe
   return s + `</g>`;
 }
 
+/** Stade 0 : renardeau assis, duvet encore épais, museau court, grandes oreilles ; queue enroulée devant les pattes. */
+function kit(c: DrawCtx): string {
+  const { pal } = c;
+  const id = 'lumikit-0';
+  let g = ground(112, 205, 70);
+  // Oreille lointaine.
+  g += ink('M86 84 C80 68 80 52 86 40 C96 48 104 62 106 78 Z', pal.deep, 1.5);
+  // Corps duveteux (bord en mèches).
+  const back: Chain = [126, 100, 148, 112, 164, 140, 164, 168, 164, 186, 156, 200, 140, 205];
+  const chest: Chain = [92, 205, 86, 186, 80, 160, 82, 140, 84, 128, 90, 120, 100, 116];
+  const body = `M126 100${tufts(back, 8, 3, 1, 0.3)} L92 205${tufts(chest, 7, 2.6, 1, -0.3)} Z`;
+  g += ink(body, pal.body, 1.8);
+  g += shadow('M164 168 C164 186 156 200 140 205 L128 205 C140 196 148 182 148 164 C148 146 142 128 134 116 C150 124 162 144 164 168 Z', pal.shade, 0.85, 'fine');
+  g += shadow('M92 205 C100 192 112 186 124 186 C120 194 122 200 126 205 Z', pal.shade, 0.75, 'xhatch');
+  g += line('M124 198 C116 180 122 160 140 156 C152 154 160 164 162 176', 1.1);
+  g += fur(c, 146, 140, 7, 70, 4, 8) + fur(c, 140, 176, 6, 80, 3, 6) + fur(c, 118, 130, 6, 90, 3, 6);
+  g += rim('M128 102 C148 112 162 138 164 164', pal.light, 1);
+  // Plastron.
+  g += ink('M100 116 C90 120 84 128 82 140 C80 154 84 166 92 174 C96 164 100 156 104 150 L100 144 L106 138 L101 132 L107 126 L102 120 Z', pal.belly, 1);
+  g += fur(c, 92, 150, 7, 95, 4, 5, pal.shade);
+  // Pattes avant courtes.
+  g += ink('M104 164 L104 200 C101 201 100 203 100 205 L112 205 C112 201 111 198 111 194 L113 164 Z', pal.deep, 1.2);
+  g += ink('M86 160 C88 174 89 190 88 199 C84 200 81 202 81 205 L96 205 C97 202 96 199 96 196 C96 184 98 172 100 162 Z', pal.body, 1.4);
+  g += ink('M88.4 184 C89 192 88.6 196 88 199 C84 200 81 202 81 205 L96 205 C97 202 96 199 96 196 C96 192 96.4 188 96.8 184 C94 182.6 91 182.6 88.4 184 Z', pal.shade, 1.1);
+  // Tête : crâne rond mais museau réel, joues duveteuses.
+  const head = 'M58 104 C64 100 70 96 76 92 C82 82 92 76 104 75 C118 74 130 82 132 96 C134 104 132 110 128 114 L132 120 L122 119 L124 125 L113 121 L106 124 L102 119 C92 120 82 118 74 114 C68 112 62 110 58 108 C55 107 55 105 58 104 Z';
+  g += ink(head, pal.body, 1.8);
+  g += shadow('M132 96 C134 104 132 110 128 114 L132 120 L122 119 C126 110 128 100 124 90 C120 82 112 76 104 75 C118 74 130 82 132 96 Z', pal.shade, 0.75, 'fine');
+  g += ink('M59 107 C66 108 74 107 82 105 C94 102 106 106 114 114 L122 119 L114 119 L116 123 L106 120 L102 119 C92 120 82 118 74 114 C68 112 63 110 59 107 Z', pal.belly, 1);
+  // Oreille proche, grande.
+  g += ink('M108 80 C110 64 118 50 132 40 C138 56 136 74 128 92 Z', pal.body, 1.6);
+  g += ink('M112 80 C114 66 120 54 130 47 C133 60 131 72 126 84 Z', pal.deep, 0);
+  g += fur(c, 120, 78, 9, -75, 4, 6, pal.light, 0.8);
+  g += ink('M53 103 C55 100 61 100 62 103 C61 107 56 108 54 106 Z', pal.ink, 0);
+  g += line('M60 108 C64 110 68 110 72 109', 0.9);
+  g += eyeA(84, 92, 6.2, pal.eye, { angle: -10, slit: false, open: 0.5 });
+  g += line('M80 98 C78 102 74 106 70 108', 0.8, pal.ink);
+  g += fur(c, 106, 92, 6, 150, 4, 8, pal.shade) + fur(c, 126, 112, 6, 110, 3, 6);
+  g += rim('M58 104 C64 100 70 96 76 92 C82 82 92 76 104 75', pal.glow, 1.2);
+  g += sparkle(100, 82, 3, pal.gold, false);
+  // Queue enroulée devant, nébuleuse naissante.
+  const top: Chain = [158, 194, 140, 186, 110, 190, 84, 194, 70, 196, 56, 192, 48, 186];
+  const tail = `M158 194${tufts(top, 7, 2.6, 1, 0.8)} C40 192 42 204 58 208 C88 214 136 212 162 204 Z`;
+  g += nebula(c, `${id}-t`, tail, [[70, 200, 22, 8, pal.accent, 0.6], [124, 200, 22, 7, pal.accent2, 0.5], [52, 194, 10, 9, '#FFF6D8', 0.9]], [104, 200, 50, 7, 12]);
+  g += ink(tail, 'none', 1.6) + rim('M150 192 C130 188 104 190 84 194 C70 196 58 192 50 188', pal.glow, 0.9);
+  g += glowDot(52, 196, 6, '#FFF6D8') + sparkle(51, 195, 3.5, '#FFF6D8', false);
+  return g;
+}
+
 function adult(c: DrawCtx): string {
   const { pal, stage } = c;
   const id = `lumikit-${stage}`;
@@ -129,5 +178,5 @@ function adult(c: DrawCtx): string {
 }
 
 export const lumikit: Species = (c) => {
-  return `<g transform="translate(116 205) scale(0.95) translate(-116 -205)">${adult(c)}</g>`;
+  return `<g transform="translate(116 205) scale(0.95) translate(-116 -205)">${c.stage === 0 ? kit(c) : adult(c)}</g>`;
 };

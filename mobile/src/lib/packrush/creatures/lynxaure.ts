@@ -147,7 +147,7 @@ function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ru
   const tail = cr([[176, 102], [190, 94], [202, 92], [206, 100], [198, 108], [184, 112]], true);
   s += ink(tail, pal.body, 1.5) + clip(`${id}-tl`, tail, `<rect x="196" y="85" width="20" height="30" fill="${pal.ink}"/>` + fur(c, 188, 104, 7, 10, 4, 6, pal.ink, 0.6));
   // Corps : poitrail profond, ventre rentré, croupe plus haute.
-  const body = cr([[88, 94], [118, 104], [146, 100], [170, 96], [184, 104], [192, 122], [188, 142], [176, 150], [156, 146], [132, 150], [108, 160], [84, 158], [68, 140], [62, 118], [68, 100]], true);
+  const body = cr([[90, 92], [118, 102], [146, 100], [170, 96], [184, 104], [192, 122], [188, 142], [176, 150], [156, 146], [132, 150], [108, 160], [84, 158], [68, 140], [62, 116], [66, 96], [76, 86]], true);
   s += ink(body, pal.body, 1.8);
   s += clip(`${id}-bd`, body,
     shadow(cr([[60, 146], [100, 148], [140, 140], [190, 132], [200, 170], [60, 170]], true), pal.shade, 0.85, 'fine')
@@ -158,10 +158,11 @@ function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ru
     + fur(c, 150, 102, 6, -80, 6, 26, pal.ink, 0.5));
   // Pattes proches (larges pattes « raquettes »).
   const hind = cr([[146, 112], [170, 104], [190, 118], [194, 140], [186, 158], [180, 172], [184, 184], [185, 198], [184, 205], [160, 205, 1], [160, 199], [167, 192], [168, 176], [162, 160], [150, 148], [142, 130]], true);
-  s += ink(hind, pal.body, 1.7);
+  s += ink(hind, pal.body, 1.1);
   s += clip(`${id}-hl`, hind, shadow(cr([[150, 150], [170, 160], [194, 150], [194, 210], [170, 210]], true), pal.shade, 0.85, 'fine')
     + shadow(cr([[176, 106], [200, 118], [196, 160], [186, 150], [184, 126]], true), pal.shade, 0.7, 'fine')
     + spots(c, 166, 132, 16, 16, 9, pal.ink, 0.5) + fur(c, 160, 150, 7, 120, 4, 10, pal.ink, 0.6));
+  s += line(cr([[170, 104], [190, 118], [194, 140], [186, 158], [180, 172], [184, 184], [185, 198], [184, 205]]), 1.7);
   s += line('M150 146 C160 140 172 140 184 150', 0.9, pal.ink, ' opacity="0.6"');
   const fore = cr([[72, 118], [96, 120], [98, 140], [92, 160], [88, 180], [89, 196], [92, 205], [64, 205, 1], [64, 199], [72, 193], [74, 176], [74, 154], [70, 136]], true);
   s += ink(fore, pal.body, 1.7);
@@ -175,7 +176,7 @@ function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ru
     s += gild('M170 112 l3 -3 l3 3 l-3 3 Z', 0.9);
   }
   // Tête (pivot à la nuque).
-  s += `<g transform="translate(-14 8) rotate(${o.headRot} 92 80)">${head(c, id, o.tuft, o.ruff, o.young)}</g>`;
+  s += `<g transform="translate(-14 2) rotate(${o.headRot} 92 80)">${head(c, id, o.tuft, o.ruff, o.young)}</g>`;
   return s;
 }
 
@@ -229,18 +230,17 @@ export const lynxaure: Species = (c) => {
   // Adulte majestueux : posé sur un éperon rocheux, poitrail levé, grande crinière d'aurore en rideaux.
   const cols: [string, string, string] = [pal.accent, pal.accent2, pal.glow];
   let g = '';
-  g += curtain(c, `${id}-a1`, [[80, 92], [100, 70], [128, 58], [158, 50], [186, 34], [212, 8]], 70, cols);
-  g += curtain(c, `${id}-a2`, [[92, 102], [122, 88], [152, 82], [182, 72], [210, 50], [224, 30]], 52, [pal.glow, pal.accent, pal.accent2], 0.9);
-  g += curtain(c, `${id}-a3`, [[110, 108], [140, 100], [168, 98], [196, 90], [222, 74]], 34, [pal.accent2, pal.glow, pal.accent], 0.7);
+  g += curtain(c, `${id}-a1`, [[80, 88], [104, 84], [132, 78], [160, 66], [184, 44], [202, 14]], 62, cols);
+  g += curtain(c, `${id}-a2`, [[90, 98], [118, 96], [146, 90], [174, 78], [198, 58], [214, 36]], 46, [pal.glow, pal.accent, pal.accent2], 0.9);
+  g += curtain(c, `${id}-a3`, [[108, 104], [136, 102], [164, 96], [190, 86], [212, 70]], 30, [pal.accent2, pal.glow, pal.accent], 0.7);
   // Éperon rocheux gravé, plus haut à l'avant.
   const rock = cr([[22, 240], [30, 206], [50, 190, 1], [92, 186], [128, 196], [168, 202], [200, 204], [214, 212, 1], [222, 240]], true);
-  let lynx = standing(c, id, { headRot: -12, tuft: 16, ruff: 1, gold: true, young: 0 });
-  lynx += sparkle(55, 4, 3.2, pal.gold, false);
-  g += `<g transform="rotate(-7 176 205)">${lynx}</g>`;
   g += ink(rock, pal.deep, 1.6) + clip(`${id}-rk`, rock, shadow(cr([[110, 200], [224, 200], [224, 244], [90, 244]], true), pal.ink, 0.5, 'xhatch')
     + shadow(cr([[22, 220], [60, 214], [90, 230], [60, 244], [20, 244]], true), pal.ink, 0.35, 'fine')
     + line('M58 196 L70 212 L66 236 M118 198 L126 214 L150 220 M176 206 L186 226', 0.9, pal.ink, ' opacity="0.85"')
     + rim('M34 204 C42 196 52 190 92 186 C110 188 120 192 128 196', pal.light, 1.1));
+  const lynx = standing(c, id, { headRot: -12, tuft: 16, ruff: 1, gold: true, young: 0 });
+  g += `<g transform="rotate(-7 176 205)">${lynx}</g>`;
   if (stage >= 3) g += constellation([[18, 30], [34, 18], [48, 30], [42, 46]], pal.gold);
-  return `<g transform="translate(111 206) scale(0.98) translate(-122 -206)">${g}</g>`;
+  return `<g transform="translate(111 206) scale(0.94) translate(-112 -206)">${g}</g>`;
 };
