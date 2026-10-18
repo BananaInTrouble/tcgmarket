@@ -1,5 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, hsl, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { fern, fireflies, grass, part, skyGrad, spl, stars, tube } from './cervastre.ts';
+import { aura, hsl, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, constellation, eyeA, fern, fireflies, gild, gloss, grass, ground, line, noInk, part, rim, setLook, shadow, skyGrad, spl, stars, tube } from './cervastre.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -9,7 +9,7 @@ type Pt = [number, number];
  * Jeune à coquille translucide et peu de tours, puis coquille-galaxie aux stries d'or, enfin coquille-temple
  * (arcature dorée Art nouveau, anneau d'orbite, traîne de poussière d'étoiles).
  */
-export const spirago: Species = (c) => {
+function drawSpir(c: DrawCtx): string {
   const { pal, stage } = c;
   const st = Math.min(stage, 2);
   const id = `spirago-${st}`;
@@ -181,6 +181,12 @@ export const spirago: Species = (c) => {
   // Stade 1 : il gravit la pente d'un rocher moussu (le décor suit la même pente).
   const rot = st === 1 ? ' rotate(10)' : '';
   return `<g transform="translate(116 205)${rot} scale(${S}) translate(-116 -205)">${g}</g>`;
+}
+
+export const spirago: Species = (c) => {
+  const st = Math.min(c.stage, 2);
+  setLook(`spirago-${st}`, c.pal, ['#9FF5D8', '#FF9AD8', '#FFC8E8'][st]);
+  return noInk(drawSpir(c));
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -203,7 +209,8 @@ function dragonfly(x: number, y: number, s: number, ang: number, col: string): s
     + `<path d="M0 -3 L0 22" stroke="#140F24" stroke-width="1.6" stroke-linecap="round"/><path d="M0 -3 L0 22" stroke="${col}" stroke-width="0.8"/><circle cx="0" cy="-4" r="1.8" fill="#140F24"/></g>`;
 }
 
-spirago.scene = (c: DrawCtx, b: Bounds) => {
+spirago.scene = (c: DrawCtx, b: Bounds) => noInk(spirScene(c, b), '#05030C');
+function spirScene(c: DrawCtx, b: Bounds): string {
   const st = Math.min(c.stage, 2);
   const id = `spirago-${st}-bg`;
   const h = c.hue;
@@ -295,4 +302,5 @@ spirago.scene = (c: DrawCtx, b: Bounds) => {
   }
   if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
   return o;
-};
+}
+

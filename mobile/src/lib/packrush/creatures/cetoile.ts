@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, eyeGlow, gloss, hsl, softShadow, sparkle as sparkleS, strands, vol, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -62,6 +62,46 @@ function at(fr: Fr, t: number, o = 0): P {
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
 
+/* ---------- Rendu « 3D » (V4) : les anciens outils d'encre sont redéfinis localement en volumes et lumières ---------- */
+const R4 = { id: 'x', k: 0, rimC: '#8FE8E0', light: [0.32, 0.22] as [number, number], hi: '' };
+const begin = (id: string, rimC: string, light: [number, number] = [0.32, 0.22]) => { R4.id = id; R4.k = 0; R4.rimC = rimC; R4.light = light; };
+const uid = () => `${R4.id}-v${R4.k++}`;
+/** Éclaircit / assombrit une couleur hsla (ou la laisse telle quelle). */
+function tone(col: string, dl: number, ds = 0): string {
+  const m = /hsla?\(([-\d.]+),([\d.]+)%,([\d.]+)%(?:,([\d.]+))?\)/.exec(col);
+  if (!m) return dl > 0 ? '#FFF6E6' : '#07040F';
+  return hsl(+m[1], Math.max(0, Math.min(100, +m[2] + ds)), Math.max(2, Math.min(97, +m[3] + dl)));
+}
+const INKS = ['#140F24', '#1A1230'];
+/** Volume modelé (remplace l'aplat cerné). Un remplissage `none` ne dessine plus rien (plus de contours). */
+const ink = (d: string, fillC: string, _w = 1, extra = '') => {
+  if (fillC === 'none') return '';
+  if (/opacity/.test(extra)) return `<path d="${d}" fill="${fillC}"${extra}/>`;
+  return vol(uid(), d, fillC, { light: R4.light, hi: tone(fillC, 26, 10), lo: tone(fillC, -30, 18), rim: R4.rimC, ao: 0.5 });
+};
+/** Trait : les traits d'encre deviennent des plis sombres très doux ; les traits colorés deviennent des filets de lumière. */
+const line = (d: string, w = 1, color = '#140F24', extra = '') => INKS.includes(color)
+  ? `<path d="${d}" fill="none" stroke="#07040F" stroke-width="${f(w * 0.9)}" stroke-linecap="round" opacity="0.28"${extra.replace(/opacity="[\d.]+"/, '')}/>`
+  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`;
+/** Ombre interne douce (plus de hachures). */
+const shadow = (d: string, color: string, op = 0.8, _h = '') => `<path d="${d}" fill="${tone(color, -6, 10)}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`;
+const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, _col = '', w = 0.8) => strands(c, x, y, len, angle, count, spread * 2, R4.hi || '#FFF6E6', w);
+const eyeA = (x: number, y: number, w: number, iris: string, o: { angle?: number; slit?: boolean; open?: number } = {}) => eyeGlow(`${R4.id}-e${R4.k++}`, x, y, w * 1.05, iris, o);
+const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
+const rim = (d: string, color: string, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`;
+const gild = (d: string, w = 1.1) => `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 2.6)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF1C4" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const sparkle = (x: number, y: number, s: number, color = '#FFF6D8', _st = false) => bloom(x, y, s * 1.6, color, 0.6) + sparkleS(x, y, s * 0.9, '#FFFFFF', false);
+const aura = (x: number, y: number, r: number, color: string) => bloom(x, y, r * 0.8, color, 0.3);
+function constellation(pts: P[], color = '#FFF6D8'): string {
+  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.75"/>`
+    + pts.map(([x, y], i) => bloom(x, y, 3.2, color, 0.8) + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.3}" fill="#FFFFFF"/>`).join('');
+}
+/** Retire les cernes restants (traits d'encre littéraux, hachures) d'un fragment SVG. */
+const deink = (s: string) => s
+  .replace(/stroke="#140F24"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/stroke="#1A1230"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/fill="url\(#(fine|xhatch|hatch)\)"/g, 'fill="none"');
+
 /* ---------- Décor : petits outils ---------- */
 const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
 /** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
@@ -93,6 +133,8 @@ export const cetoile: Species = (c) => {
   const { pal, stage } = c;
   const st = Math.min(stage, 3);
   const id = `cetoile-${st}`;
+  begin(id, ['#9FF2FF', '#FFD89A', '#9FC8FF', '#FFB8F0'][st], ([[0.5, 0.05], [0.3, 0.1], [0.4, 0.15], [0.4, 0.2]] as [number, number][])[st]);
+  R4.hi = tone(pal.body, 30, 6);
   const S = [0.88, 0.95, 1, 1][st];
   const fat = [1.12, 1.04, 1, 1][st];
   const pecK = [0.7, 0.85, 1, 1.05][st];
@@ -199,6 +241,7 @@ export const cetoile: Species = (c) => {
   const [bx, by] = at(fr, 0.2, -W(0.2) + 1.5);
   g += line(`M${f(bx - 3)} ${f(by)} q3 1.5 6 0`, 0.9);
   g += rim(curve(fr, nW, 0.02, 0.7), pal.glow, 1.3);
+  { const [gx, gy] = at(fr, 0.12, -W(0.12) * 0.55); g += gloss(gx, gy, 12, 3.5, -14, 0.35); }
   g += `<path d="${body}" fill="none" stroke="#140F24" stroke-width="1.8"/>`;
   // Souffle d'étoiles (éveil) ou petit souffle de brume.
   if (st >= 2) {
@@ -231,7 +274,7 @@ export const cetoile: Species = (c) => {
     for (let k = 0; k < 12; k++) { const a = Math.PI * (0.15 + 0.7 * (k / 11)), r = 26 + (k % 3) * 6; sp += `<circle cx="${f(157 - Math.cos(a) * r)}" cy="${f(60 - Math.sin(a) * r * 0.6)}" r="${f(0.8 + (k % 3) * 0.5)}" fill="${pal.light}" stroke="#140F24" stroke-width="0.4"/>`; }
     out += sp;
   }
-  return out;
+  return deink(out);
 };
 
 /* ---------- Décor : océan d'étoiles (0 près de sa mère sous la surface, 1 saut au crépuscule, 2 chant dans l'abysse, 3 vol au-dessus d'une planète-océan) ---------- */
@@ -251,6 +294,7 @@ const cetoileScene = (c: DrawCtx, b: Bounds): string => {
   const { pal, stage, hue } = c;
   const st = Math.min(stage, 3);
   const id = `cetoile-${st}-bg`;
+  begin(id, '#9FF2FF');
   const W2 = b.x1 - b.x0;
   let s = '';
   if (st === 0) {
@@ -304,6 +348,6 @@ const cetoileScene = (c: DrawCtx, b: Bounds): string => {
     // Comète.
     s += `<path d="M210 12 L150 40" stroke="#FFF6D8" stroke-width="1.5" opacity="0.5" filter="url(#soft)"/>` + sparkle(206, 14, 3, '#FFF6D8', false);
   }
-  return s;
+  return deink(s);
 };
 cetoile.scene = cetoileScene;

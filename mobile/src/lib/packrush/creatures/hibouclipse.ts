@@ -1,4 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { begin, unink, aura, constellation, eyeA, gild, ground, ink, line, rim, shadow, sparkle } from './lumen.ts';
 
 /**
  * Hibouclipse → Éclipsule → Grand-Umbrel → Umbrelion : grand-duc des éclipses. Planche d'ornithologie céleste :
@@ -42,7 +43,7 @@ function barring(c: DrawCtx, x0: number, y0: number, x1: number, y1: number): st
     const x = x0 + 4 + c.r() * (x1 - x0 - 8), y = y0 + c.r() * (y1 - y0 - 12);
     st += `M${f(x)} ${f(y)} q${f((c.r() - 0.5) * 2)} 5 0 ${f(7 + c.r() * 5)} `;
   }
-  return `<path d="${s}" fill="none" stroke="#140F24" stroke-width="0.55" opacity="0.5"/><path d="${st}" fill="none" stroke="#140F24" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/>`;
+  return `<path d="${s}" fill="none" stroke="${c.pal.shade}" stroke-width="0.7" opacity="0.55"/><path d="${st}" fill="none" stroke="${c.pal.deep}" stroke-width="1.6" stroke-linecap="round" opacity="0.6" filter="url(#b2)"/>`;
 }
 
 /** Œil d'éclipse : œil en amande, pupille ronde ceinte d'une couronne d'or. */
@@ -80,7 +81,7 @@ function owlHead(c: DrawCtx, o: { tuft: number; open: number; glow: boolean; dow
   const outer = o.down ? fluff(CX, 68, 42, 36, 30, 0.07, -Math.PI / 2) : 'M111 32 C136 32 156 44 156 66 C156 88 138 104 111 104 C84 104 66 88 66 66 C66 44 86 32 111 32 Z';
   let s = ink(outer, pal.body, 1.8);
   s += `<clipPath id="hibouclipse-${c.stage}-hd"><path d="${outer}"/></clipPath><g clip-path="url(#hibouclipse-${c.stage}-hd)">`
-    + scales(64, 34, 160, 52, 6, 4, pal.deep, 0.5)
+    + scales(64, 34, 160, 52, 6, 4, pal.light, 0.35)
     + shadow('M130 30 C150 36 162 54 160 74 C158 94 140 108 111 108 L111 104 C138 100 152 84 150 64 C148 48 140 38 130 30 Z', pal.shade, 0.8, 'fine')
     + `</g>`;
   s += mirror(headHalf(c, o));
@@ -110,7 +111,7 @@ function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean; wi
   const wing = 'M76 96 C58 114 54 156 62 186 C66 202 76 214 86 222 C84 200 84 168 90 140 C93 120 90 104 76 96 Z';
   let w = ink(wing, pal.body, 1.6);
   w += `<clipPath id="${id}-w"><path d="${wing}"/></clipPath><g clip-path="url(#${id}-w)">`
-    + scales(52, 98, 96, 150, 7, 5, '#140F24', 0.55)
+    + scales(52, 98, 96, 150, 7, 5, pal.light, 0.45)
     + Array.from({ length: 10 }, (_, i) => `<circle cx="${f(60 + (i * 7) % 28)}" cy="${f(110 + i * 4.4)}" r="1.4" fill="${pal.belly}" opacity="0.8"/>`).join('')
     // Rémiges : longues plumes aux barres claires.
     + [0, 1, 2, 3].map((k) => ink(`M${64 + k * 6} 146 C${62 + k * 6} 176 ${70 + k * 5} 204 ${84 + k * 2} 224 C${78 + k * 5} 200 ${72 + k * 6} 172 ${72 + k * 6} 146 Z`, k % 2 ? pal.shade : pal.body, 0.8)).join('')
@@ -120,7 +121,7 @@ function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean; wi
   if (o.gold) w += gild('M66 120 C62 140 62 166 68 188', 1);
   w += rim('M74 98 C58 116 54 154 62 184', pal.glow, 1.1);
   if (o.wings === false) {
-    s += `<clipPath id="${id}-bd"><path d="${body}"/></clipPath><g clip-path="url(#${id}-bd)">${scales(56, 96, 92, 200, 7, 5, '#140F24', 0.5)}${scales(130, 96, 166, 200, 7, 5, '#140F24', 0.5)}`
+    s += `<clipPath id="${id}-bd"><path d="${body}"/></clipPath><g clip-path="url(#${id}-bd)">${scales(56, 96, 92, 200, 7, 5, pal.light, 0.35)}${scales(130, 96, 166, 200, 7, 5, pal.light, 0.35)}`
       + shadow('M150 96 C166 120 168 160 156 184 C148 198 132 206 120 208 L140 208 L170 208 L170 96 Z', pal.shade, 0.8, 'fine') + `</g>`;
     s += rim('M72 96 C58 114 56 150 64 176', pal.glow, 1.1);
   }
@@ -160,14 +161,14 @@ function spreadWing(c: DrawCtx): string {
   // Bras de l'aile et couvertures.
   const arm = 'M100 96 C84 76 62 62 40 56 C30 56 24 64 30 72 C44 80 56 96 62 114 C72 116 86 116 100 112 Z';
   s += ink(arm, pal.body, 1.6);
-  s += `<clipPath id="hibouclipse-3-a"><path d="${arm}"/></clipPath><g clip-path="url(#hibouclipse-3-a)">${scales(24, 58, 104, 118, 7, 5, '#140F24', 0.55)}`
+  s += `<clipPath id="hibouclipse-3-a"><path d="${arm}"/></clipPath><g clip-path="url(#hibouclipse-3-a)">${scales(24, 58, 104, 118, 7, 5, pal.light, 0.45)}`
     + shadow('M30 72 C44 80 56 96 62 114 C72 116 86 116 100 112 L100 104 C86 108 72 106 64 100 C56 88 44 76 30 72 Z', pal.shade, 0.7, 'fine') + `</g>`;
   s += gild('M98 98 C84 80 62 66 40 60', 1.3) + rim('M100 94 C84 74 62 60 40 54', pal.glow, 1.2);
   s += constellation([[36, 110], [52, 124], [46, 146], [62, 158]], pal.gold);
   return s;
 }
 
-export const hibouclipse: Species = (c: DrawCtx) => {
+const draw = (c: DrawCtx): string => {
   const { pal, stage } = c;
   if (stage <= 0) {
     // Poussin en duvet tapi au creux de l'arbre (le bord du creux passe devant).
@@ -206,7 +207,7 @@ export const hibouclipse: Species = (c: DrawCtx) => {
 
 /* ---------- Décor : forêt des éclipses et ruines célestes ---------- */
 
-hibouclipse.scene = (c: DrawCtx, b: Bounds): string => {
+const sceneRaw = (c: DrawCtx, b: Bounds): string => {
   const { stage, hue } = c;
   const id = `hibouclipse-${stage}-bg`;
   const W = b.x1 - b.x0, H = b.y1 - b.y0;
@@ -268,4 +269,15 @@ hibouclipse.scene = (c: DrawCtx, b: Bounds): string => {
     }
   }
   return s;
+};
+
+/** Lumière de contour de chaque stade, accordée à la source de lumière du décor. */
+const RIMS = ['#C8FF9A', '#FFB0D8', '#B8DCFF', '#FFD27A'];
+export const hibouclipse: Species = (c: DrawCtx) => {
+  begin(`hibouclipse-${c.stage}`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(draw(c));
+};
+hibouclipse.scene = (c: DrawCtx, b: Bounds) => {
+  begin(`hibouclipse-${c.stage}-bg`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(sceneRaw(c, b));
 };

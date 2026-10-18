@@ -1,5 +1,5 @@
-import { aura, constellation, eyeA, gild, ground, hsl, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { part, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
+import { aura, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, constellation, eyeA, gild, gloss, ground, line, noInk, part, rim, setLook, shadow, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -197,7 +197,7 @@ function dragon(c: DrawCtx, P: Pose, st: number, extraFront = ''): string {
  * Drakomet → Wyvernova → Comethéon : dragon des comètes. Nouveau-né sortant d'un œuf-météorite, jeune wyverne
  * perchée sur un astéroïde, puis grand dragon cabré aux ailes-ciel nocturne, dont la queue s'achève en comète.
  */
-export const drakomet: Species = (c) => {
+function drawDrak(c: DrawCtx): string {
   const { pal } = c;
   const st = Math.min(c.stage, 2);
   let s = '';
@@ -280,6 +280,12 @@ export const drakomet: Species = (c) => {
   s += limb(c, 'drakomet-0-lp', [[88, 142, 4], [78, 136, 3.2], [72, 134, 2.8]], pal.body, false);
   s += sparkle(40, 80, 3, pal.glow, false) + sparkle(182, 70, 2.4, '#FFF6D8', false) + speckles(c, 112, 112, 60, 20, 5, pal.glow);
   return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${s}</g>`;
+}
+
+export const drakomet: Species = (c) => {
+  const st = Math.min(c.stage, 2);
+  setLook(`drakomet-${st}`, c.pal, ['#FFA060', '#7CE8FF', '#FFC4A0'][st]);
+  return noInk(drawDrak(c));
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -299,7 +305,8 @@ function asteroid(c: DrawCtx, x: number, y: number, r: number, fill: string, det
   return o;
 }
 
-drakomet.scene = (c: DrawCtx, b: Bounds) => {
+drakomet.scene = (c: DrawCtx, b: Bounds) => noInk(drakScene(c, b), '#05030C');
+function drakScene(c: DrawCtx, b: Bounds): string {
   const st = Math.min(c.stage, 2);
   const id = `drakomet-${st}-bg`;
   const h = c.hue;
@@ -367,4 +374,5 @@ drakomet.scene = (c: DrawCtx, b: Bounds) => {
   }
   if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
   return o;
-};
+}
+

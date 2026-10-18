@@ -1,4 +1,5 @@
-import { constellation, eyeA, fur, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, gloss, hsl, softShadow, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { kit } from './mythkit.ts';
 
 type Pt = [number, number];
 const f = (v: number) => v.toFixed(1);
@@ -32,6 +33,7 @@ function arm(cx: number, cy: number, r0: number, r1: number, t0: number, turns: 
  */
 export const aeonis: Species = (c: DrawCtx) => {
   const { pal } = c;
+  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4';
   const skin = pal.light, skinShade = pal.body, stone = hsl(c.hue + 190, 14, 60);
@@ -78,8 +80,8 @@ export const aeonis: Species = (c: DrawCtx) => {
   hd += ink(headP, skin, 1.5);
   hd += shadow('M4 14 C14 15 24 14 30 11 C24 9 14 8 4 6 C2 8 2 12 4 14 Z', skinShade, 0.8, 'fine');
   // Écailles céphaliques gravées (préfrontales, frontale, pariétales, post-orbitales).
-  hd += `<path d="M28 -15 L36 -11 L33 -6 L26 -8 Z M18 -16 L28 -15 L26 -8 L18 -9 Z M8 -14 L18 -16 L18 -9 L10 -6 Z M1 -9 L8 -14 L10 -6 L3 -1 Z M10 -6 L18 -9 L19 -3 L12 1 Z M3 -1 L12 1 L10 7 L1 5 Z M12 1 L19 -3 L21 3 L15 7 Z" fill="${pal.body}" stroke="${INK}" stroke-width="0.7" stroke-linejoin="round" opacity="0.9"/>`;
-  hd += `<path d="M26 -8 L33 -6 L38 -2 L36 2 L30 0 Z" fill="${pal.body}" stroke="${INK}" stroke-width="0.6" opacity="0.7"/>`;
+  hd += `<path d="M28 -15 L36 -11 L33 -6 L26 -8 Z M18 -16 L28 -15 L26 -8 L18 -9 Z M8 -14 L18 -16 L18 -9 L10 -6 Z M1 -9 L8 -14 L10 -6 L3 -1 Z M10 -6 L18 -9 L19 -3 L12 1 Z M3 -1 L12 1 L10 7 L1 5 Z M12 1 L19 -3 L21 3 L15 7 Z" fill="${pal.body}" opacity="0.9"/>`;
+  hd += `<path d="M26 -8 L33 -6 L38 -2 L36 2 L30 0 Z" fill="${pal.body}" opacity="0.7"/>`;
   hd += ink('M41 -3 C42 2 40 6 37 8 C36 11 33 12 30 11 L29 7 C33 6 37 3 41 -3 Z', pal.deep, 0.9);
   hd += line('M29 7 C22 8 14 8 8 7', 1, INK) + line('M30 11 C24 12 16 12 8 11', 0.6, INK, ' opacity="0.6"');
   hd += `<path d="M20 -5 C22 -9 30 -9 32 -4 C30 0 22 0 20 -5 Z" fill="${pal.deep}" opacity="0.6"/>`;
@@ -100,7 +102,7 @@ export const aeonis: Species = (c: DrawCtx) => {
     + [[30, 60], [60, 96], [96, 132], [132, 166], [166, 196]].map(([x0, x1], i) => {
       const cx = (x0 + x1) / 2, cy = 160 - (i === 2 ? 4 : 0);
       return ink(`M${x0} 176 C${x0 - 2} 160 ${x0 + 4} 146 ${x0 + 8} 140 L${x1 - 6} 138 C${x1} 146 ${x1 + 2} 160 ${x1} 176 Z`, i % 2 ? pal.shade : pal.body, 0.9)
-        + `<ellipse cx="${cx}" cy="${cy}" rx="${(x1 - x0) / 2 - 6}" ry="11" fill="none" stroke="${INK}" stroke-width="0.6" opacity="0.5"/>`
+        + `<ellipse cx="${cx}" cy="${cy}" rx="${(x1 - x0) / 2 - 6}" ry="11" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.5"/>`
         + `<ellipse cx="${cx}" cy="${cy}" rx="${(x1 - x0) / 2 - 11}" ry="6" fill="none" stroke="${pal.gold}" stroke-width="0.7" opacity="0.8"/>`;
     }).join('')
     // Bord marginal.
@@ -116,7 +118,7 @@ export const aeonis: Species = (c: DrawCtx) => {
   // Montagnes (gauche, droite, puis massif central).
   const mountain = (d: string, shade: string, snow: string, light: string) =>
     ink(d, stone, 1.3) + shadow(shade, pal.deep, 0.55, 'fine') + ink(snow, CREAM, 0.9) + rim(light, pal.glow, 0.9);
-  s += `<path d="M44 132 L70 92 L80 100 L94 70 L104 84 L120 60 L134 82 L146 76 L170 120 Z" fill="${hsl(c.hue + 190, 18, 74)}" stroke="${INK}" stroke-width="0.7" opacity="0.55"/>`;
+  s += `<path d="M44 132 L70 92 L80 100 L94 70 L104 84 L120 60 L134 82 L146 76 L170 120 Z" fill="${hsl(c.hue + 190, 18, 74)}" opacity="0.55"/>`;
   s += mountain('M34 146 L50 112 L58 118 L68 98 L80 120 L88 116 L100 138 Z', 'M68 98 L80 120 L88 116 L100 138 L70 142 C74 128 72 112 68 98 Z',
     'M60 108 L68 98 L74 110 L69 108 L65 113 Z', 'M34 146 L50 112 L58 118 L68 98');
   s += mountain('M124 136 L140 100 L148 108 L160 84 L174 116 L180 112 L190 146 Z', 'M160 84 L174 116 L180 112 L190 146 L162 142 C168 124 166 100 160 84 Z',
@@ -131,7 +133,7 @@ export const aeonis: Species = (c: DrawCtx) => {
   for (const [x0, x1, y0] of [[30, 64, 146], [92, 130, 138], [150, 186, 146]] as const) {
     for (let x = x0; x < x1; x += 4.2) {
       const y = y0 - Math.sin(((x - x0) / (x1 - x0)) * Math.PI) * 4 + c.r() * 2, h = 5 + c.r() * 3;
-      s += `<path d="M${f(x - 1.8)} ${f(y)} L${f(x)} ${f(y - h)} L${f(x + 1.8)} ${f(y)} Z" fill="${hsl(c.hue + 90, 30, 22)}" stroke="${INK}" stroke-width="0.4"/>`;
+      s += `<path d="M${f(x - 1.8)} ${f(y)} L${f(x)} ${f(y - h)} L${f(x + 1.8)} ${f(y)} Z" fill="${hsl(c.hue + 90, 30, 22)}"/>`;
     }
   }
   // Cascades qui tombent du bord de la carapace et se dissolvent en étoiles.
@@ -163,7 +165,7 @@ export const aeonis: Species = (c: DrawCtx) => {
     }).join('')
     + Array.from({ length: 10 }, (_, i) => {
       const t = i / 10, x = 170 - t * 64, y = 180 + t * 58;
-      return `<path d="M${f(x)} ${f(y)} l-4 3 l2 4 l5 -1 Z" fill="${pal.body}" stroke="${INK}" stroke-width="0.5" opacity="0.8"/>`;
+      return `<path d="M${f(x)} ${f(y)} l-4 3 l2 4 l5 -1 Z" fill="${pal.body}" opacity="0.8"/>`;
     }).join('')
     + `</g>` + ink(flip, 'none', 1.6);
   s += rim('M158 168 C174 172 180 184 172 198 C158 220 132 236 102 246', pal.glow, 1);
@@ -179,6 +181,7 @@ export const aeonis: Species = (c: DrawCtx) => {
 /** Décor : océan d'étoiles profond, nébuleuses en voiles, galaxies lointaines et bébés tortues qui escortent le monde. */
 aeonis.scene = (c: DrawCtx, b: Bounds) => {
   const { pal } = c;
+  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'aeonis-4-bg');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'aeonis-4-bg';
   const W = b.x1 - b.x0, H = b.y1 - b.y0;
@@ -201,15 +204,15 @@ aeonis.scene = (c: DrawCtx, b: Bounds) => {
       + `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * 0.3}" fill="none" stroke="${CREAM}" stroke-width="0.5"/><circle cx="${x}" cy="${y}" r="1.5" fill="${CREAM}"/></g>`;
   }
   // Petite planète océane au loin.
-  s += `<circle cx="196" cy="232" r="11" fill="${hsl(c.hue + 170, 30, 42)}" stroke="${INK}" stroke-width="0.8" opacity="0.8"/>`
+  s += `<circle cx="196" cy="232" r="11" fill="${hsl(c.hue + 170, 30, 42)}" opacity="0.8"/>`
     + shadow('M196 221 A11 11 0 0 1 196 243 C204 238 204 226 196 221 Z', hsl(c.hue + 170, 40, 20), 0.6, 'fine');
   // Bébés tortues qui escortent (silhouettes gravées, plus petites et moins contrastées).
   const baby = (x: number, y: number, k: number, rot: number) =>
     `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${k})" opacity="0.75">`
-    + `<path d="M-8 -2 L-14 -8 L-10 -1 Z M6 -2 L12 -9 L8 -1 Z M-8 3 L-13 8 L-6 4 Z M6 3 L11 8 L5 4 Z" fill="${pal.light}" stroke="${INK}" stroke-width="0.6"/>`
-    + `<ellipse cx="13" cy="0" rx="3.2" ry="2.4" fill="${pal.light}" stroke="${INK}" stroke-width="0.6"/>`
-    + `<ellipse cx="0" cy="0" rx="10" ry="6.5" fill="${pal.body}" stroke="${INK}" stroke-width="0.8"/>`
-    + `<path d="M-4 -6 L-4 6 M4 -6 L4 6 M-10 0 H10" stroke="${INK}" stroke-width="0.5" opacity="0.6"/></g>`;
+    + `<path d="M-8 -2 L-14 -8 L-10 -1 Z M6 -2 L12 -9 L8 -1 Z M-8 3 L-13 8 L-6 4 Z M6 3 L11 8 L5 4 Z" fill="${pal.light}"/>`
+    + `<ellipse cx="13" cy="0" rx="3.2" ry="2.4" fill="${pal.light}"/>`
+    + `<ellipse cx="0" cy="0" rx="10" ry="6.5" fill="${pal.body}"/>`
+    + `<path d="M-4 -6 L-4 6 M4 -6 L4 6 M-10 0 H10" opacity="0.6"/></g>`;
   s += baby(46, 262, 0.9, -18) + baby(20, 236, 0.65, -10) + baby(168, 274, 0.7, -24);
   s += line('M60 268 c10 2 18 0 24 -4 M180 278 c6 1 12 0 16 -3', 0.6, CREAM, ' opacity="0.4"');
   // Lueur basse : le monde se reflète dans le vide.

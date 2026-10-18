@@ -1,4 +1,5 @@
-import { constellation, eyeA, gild, hsl, ink, line, rim, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, gild, ink, line, rim, sparkle, setKit } from './v4kit.ts';
 
 /**
  * Météorin → Cristallos → Astrolithe : golem de météorite et de cristal. Planche de « minéralogie vivante » :
@@ -30,16 +31,17 @@ function rock(c: DrawCtx, id: string, q: P2[], fill: string, o: { pits?: number;
   const k = size * (o.depth ?? 0.28);
   const lit = poly(q.map(([x, y]) => [x - k, y - k] as P2));
   const top = poly(q.map(([x, y]) => [cx + (x - cx) * 0.55 - k * 0.9, cy + (y - cy) * 0.55 - k * 0.9] as P2));
-  let g = `<path d="${d}" fill="${pal.shade}"/><path d="${d}" fill="url(#xhatch)" opacity="0.7"/>`;
-  g += `<path d="${lit}" fill="${fill}"/><path d="${lit}" fill="url(#fine)" opacity="0.35"/>`;
-  g += `<path d="${top}" fill="${pal.light}" opacity="0.28"/>`;
+  let g = `<path d="${d}" fill="${pal.deep}"/>`;
+  g += `<path d="${lit}" fill="${fill}" opacity="0.55" filter="url(#b2)"/>`;
+  g += ink(d, fill, 1.6, ' opacity="0.8"', { light: [0.28, 0.22], ao: 0.7 });
+  g += `<path d="${top}" fill="${pal.light}" opacity="0.22" filter="url(#b2)"/>`;
   for (let i = 0; i < (o.pits ?? 2); i++) {
     const px = cx + jit(i, q.length) * size * 1.1, py = cy + jit(i + 7, q.length) * size * 1.1, r = size * (0.08 + Math.abs(jit(i, 3)) * 0.12);
     g += `<ellipse cx="${f(px)}" cy="${f(py)}" rx="${f(r)}" ry="${f(r * 0.75)}" fill="${pal.deep}" opacity="0.6"/>`
-      + `<path d="M${f(px - r)} ${f(py)} A${f(r)} ${f(r * 0.75)} 0 0 1 ${f(px + r)} ${f(py)}" fill="none" stroke="#140F24" stroke-width="0.6"/>`
+      + `<path d="M${f(px - r)} ${f(py)} A${f(r)} ${f(r * 0.75)} 0 0 1 ${f(px + r)} ${f(py)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6"/>`
       + `<path d="M${f(px - r * 0.8)} ${f(py + r * 0.3)} A${f(r)} ${f(r * 0.75)} 0 0 0 ${f(px + r * 0.8)} ${f(py + r * 0.3)}" fill="none" stroke="${pal.light}" stroke-width="0.6" opacity="0.7"/>`;
   }
-  let s = clip(id, d, g) + `<path d="${d}" fill="none" stroke="#140F24" stroke-width="1.6" stroke-linejoin="round"/>`;
+  let s = clip(id, d, g) + `<path d="${d}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="1.6" stroke-linejoin="round"/>`;
   // Arêtes tournées vers la lumière (haut-gauche).
   let rl = '';
   for (let i = 0; i < q.length; i++) {
@@ -80,9 +82,9 @@ function crystal(c: DrawCtx, x: number, y: number, ang: number, len: number, w: 
   let s = `<path d="${out}" fill="${col}"/>`;
   s += `<path d="M0 ${-h} L${f(L * 0.78)} ${-h} L${L} 0 L0 ${f(-h * 0.15)}Z" fill="#FFFFFF" opacity="0.38"/>`;
   s += `<path d="M0 ${f(h * 0.25)} L${L} 0 L${f(L * 0.78)} ${h} L0 ${h}Z" fill="${c.pal.deep}" opacity="0.45"/>`;
-  s += `<path d="M0 ${f(h * 0.25)} L${L} 0" stroke="#140F24" stroke-width="0.6" opacity="0.7"/>`;
+  s += `<path d="M0 ${f(h * 0.25)} L${L} 0" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="0.7"/>`;
   s += `<path d="M${f(L * 0.2)} ${f(-h * 0.5)} L${f(L * 0.6)} ${f(-h * 0.5)}" stroke="#FFFFFF" stroke-width="0.8" opacity="0.8"/>`;
-  s += `<path d="${out}" fill="none" stroke="#140F24" stroke-width="1.1" stroke-linejoin="round"/>`;
+  s += `<path d="${out}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="1.1" stroke-linejoin="round"/>`;
   return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})">${s}</g>`;
 }
 
@@ -168,7 +170,7 @@ function golem(c: DrawCtx, id: string, P: Pose, extra: { hand0?: string } = {}):
   const [hx, hy] = P.head, H = P.hs;
   const hq: P2[] = [[-16, -12], [-4, -20], [12, -16], [18, -2], [12, 12], [-6, 14], [-18, 4]].map(([x, y]) => [hx + x * H, hy + y * H] as P2);
   s += rock(c, `${id}-hd`, hq, col, { pits: 1 });
-  s += `<path d="M${f(hx - 16 * H)} ${f(hy - 3 * H)} L${f(hx + 16 * H)} ${f(hy - 5 * H)} L${f(hx + 14 * H)} ${f(hy + 2 * H)} L${f(hx - 15 * H)} ${f(hy + 4 * H)}Z" fill="${pal.deep}" stroke="#140F24" stroke-width="1"/>`;
+  s += `<path d="M${f(hx - 16 * H)} ${f(hy - 3 * H)} L${f(hx + 16 * H)} ${f(hy - 5 * H)} L${f(hx + 14 * H)} ${f(hy + 2 * H)} L${f(hx - 15 * H)} ${f(hy + 4 * H)}Z" fill="${pal.deep}" stroke="#05030C" stroke-opacity="0.3" stroke-width="1"/>`;
   for (const ex of [-8, 7]) {
     s += `<circle cx="${f(hx + ex * H)}" cy="${f(hy)}" r="${f(5 * H)}" fill="${pal.eye}" opacity="0.55" filter="url(#soft)"/>`;
     s += eyeA(hx + ex * H, hy + 0.5 * H, 4 * H, pal.eye, { angle: ex < 0 ? 6 : -6, slit: false, open: 0.38 });
@@ -180,6 +182,7 @@ function golem(c: DrawCtx, id: string, P: Pose, extra: { hand0?: string } = {}):
 export const meteorgolem: Species = (c) => {
   const { pal, stage } = c;
   const id = `meteorgolem-${stage}`;
+  setKit(id, c.pal, (['#9FD0FF', c.pal.accent2, '#FFD9A0'])[Math.min(2, stage)]);
   if (stage === 0) {
     // Météorin, tout juste tombé : recroquevillé au fond de son cratère, encore fumant, il ouvre un œil.
     let s = `<ellipse cx="112" cy="194" rx="60" ry="12" fill="#000" opacity="0.4"/>`;
@@ -192,13 +195,13 @@ export const meteorgolem: Species = (c) => {
     // Petite tête rentrée, un œil entrouvert, une main posée sur le bord.
     const hq: P2[] = [[56, 160], [66, 146], [86, 142], [100, 152], [100, 172], [86, 182], [64, 180]];
     s += rock(c, `${id}-hd`, hq, pal.body, { pits: 1, depth: 0.2 });
-    s += `<path d="M58 158 L68 152 L98 154 L96 160 L66 161Z" fill="${pal.deep}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += `<path d="M58 158 L68 152 L98 154 L96 160 L66 161Z" fill="${pal.deep}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.9"/>`;
     s += `<circle cx="72" cy="166" r="7" fill="${pal.eye}" opacity="0.6" filter="url(#soft)"/>` + eyeA(72, 166.5, 4.8, pal.eye, { slit: false, open: 0.42, angle: 4 });
     s += line('M84 166 q5 3 10 0', 1.3) + line('M62 174 l8 1 M76 176 l6 -1', 0.7, '#140F24', ' opacity="0.7"');
     s += rock(c, `${id}-hn`, blob(58, 186, 10, 8, 6, 9), pal.body, { pits: 0 });
     // Lèvre avant du cratère (couvre le bas du corps).
     const lip = `M10 236 L14 196 C40 184 70 194 112 196 C150 198 180 186 212 194 L214 236Z`;
-    s += `<path d="${lip}" fill="${hsl(235 + (c.hue - 200) * 0.1 + 10, 12, 24)}" stroke="#140F24" stroke-width="1.4"/>` + clip(`${id}-lp`, lip, `<path d="${lip}" fill="url(#xhatch)" opacity="0.45"/>`
+    s += `<path d="${lip}" fill="${hsl(235 + (c.hue - 200) * 0.1 + 10, 12, 24)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="1.4"/>` + clip(`${id}-lp`, lip, `<path d="${lip}" fill="url(#xhatch)" opacity="0.45"/>`
       + line('M30 200 l10 16 l-6 18 M180 200 l-8 18 l10 16 M100 204 l6 14', 0.8, '#140F24'));
     s += rim('M14 196 C40 184 70 194 112 196 C150 198 180 186 212 194', pal.glow, 1.3);
     for (let i = 0; i < 7; i++) s += `<circle cx="${f(40 + i * 24 + c.r() * 8)}" cy="${f(194 + c.r() * 6)}" r="${f(1 + c.r())}" fill="${pal.glow}" filter="url(#glow)"/>`;
@@ -249,12 +252,13 @@ function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, op = 0.85): strin
 
 /** Rocher lointain, peu contrasté (perspective atmosphérique). */
 function farRock(q: P2[], fill: string, op = 1): string {
-  return `<path d="${poly(q)}" fill="${fill}" stroke="#140F24" stroke-width="0.6" opacity="${op}"/><path d="${poly(q)}" fill="url(#fine)" opacity="${f(0.35 * op)}"/>`;
+  return `<path d="${poly(q)}" fill="${fill}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6" opacity="${op}"/><path d="${poly(q)}" fill="url(#fine)" opacity="${f(0.35 * op)}"/>`;
 }
 
 meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
   const { stage, pal } = c;
   const id = `meteorgolem-${stage}-bg`;
+  setKit(id, c.pal, (['#9FD0FF', c.pal.accent2, '#FFD9A0'])[Math.min(2, stage)]);
   const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
   const S = 235 + (c.hue - 200) * 0.1;
   let s = '';
@@ -263,16 +267,16 @@ meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
     s += `<defs>${grad(`${id}-sky`, [[0, hsl(S, 45, 6)], [1, hsl(S, 30, 18)]])}</defs>`;
     s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 80, 130);
     s += `<circle cx="168" cy="52" r="30" fill="${hsl(S - 30, 40, 50)}" opacity="0.25" filter="url(#soft)"/>`;
-    s += `<circle cx="168" cy="52" r="22" fill="${hsl(S - 30, 35, 42)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<circle cx="168" cy="52" r="22" fill="${hsl(S - 30, 35, 42)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
     s += clip(`${id}-pl`, 'M146 52 a22 22 0 1 0 44 0 a22 22 0 1 0 -44 0', `<path d="M146 46 q12 -6 22 2 t22 -2 M150 60 q14 4 26 -4" fill="none" stroke="#FFF6D8" stroke-width="2" opacity="0.4"/><circle cx="160" cy="62" r="24" fill="${hsl(S, 45, 8)}" opacity="0.6"/>`);
     s += `<path d="M10 20 L96 120" stroke="${pal.glow}" stroke-width="3" opacity="0.35" filter="url(#glow)"/><path d="M10 20 L96 120" stroke="#FFF6D8" stroke-width="0.8" opacity="0.7"/>`;
     s += farRock([[b.x0 - 10, 150], [20, 132], [44, 130], [60, 146], [100, 148], [120, 136], [150, 134], [170, 148], [b.x1 + 10, 146], [b.x1 + 10, 170], [b.x0 - 10, 170]], hsl(S, 12, 34), 0.9);
     const plain = `M${b.x0 - 10} 158 C60 150 160 152 ${b.x1 + 10} 158 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
     s += `<path d="${plain}" fill="${hsl(S + 10, 10, 30)}"/>`;
-    s += `<ellipse cx="112" cy="190" rx="100" ry="30" fill="${hsl(S + 10, 14, 16)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<ellipse cx="112" cy="190" rx="100" ry="30" fill="${hsl(S + 10, 14, 16)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/>`;
     s += `<ellipse cx="112" cy="190" rx="100" ry="30" fill="url(#xhatch)" opacity="0.4"/>`;
     s += `<ellipse cx="112" cy="196" rx="60" ry="14" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
-    for (const [x, y, r] of [[30, 172, 8], [190, 166, 6], [170, 220, 9]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 0.35)}" fill="${hsl(S + 10, 12, 20)}" stroke="#140F24" stroke-width="0.6"/>`;
+    for (const [x, y, r] of [[30, 172, 8], [190, 166, 6], [170, 220, 9]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 0.35)}" fill="${hsl(S + 10, 12, 20)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.6"/>`;
     return s;
   }
   if (stage === 1) {
@@ -285,7 +289,7 @@ meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
     s += farRock([[b.x1 + 10, 30], [196, 70], [204, 140], [196, 200], [b.x1 + 10, 214]], hsl(S + 20, 16, 16));
     for (const [x, y, a, k] of [[30, 120, -40, 0.8], [200, 140, -140, 1], [180, 60, 120, 0.6], [60, 44, 80, 0.5], [120, 36, 95, 0.5]] as const) s += `<g opacity="0.75">${cluster(c, x, y, a, [26, 18, 16, 12].map((v) => v * k), pal.accent2, pal.accent)}</g>`;
     const floor = `M${b.x0 - 10} 196 C50 190 170 192 ${b.x1 + 10} 198 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
-    s += `<path d="${floor}" fill="${hsl(S + 20, 14, 20)}" stroke="#140F24" stroke-width="0.8"/><path d="${floor}" fill="url(#fine)" opacity="0.5"/>`;
+    s += `<path d="${floor}" fill="${hsl(S + 20, 14, 20)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/><path d="${floor}" fill="url(#fine)" opacity="0.5"/>`;
     s += `<ellipse cx="60" cy="214" rx="50" ry="8" fill="${pal.accent2}" opacity="0.18"/>`;
     for (const [x, k] of [[190, 0.7], [16, 0.5]] as const) s += cluster(c, x, 210, -90, [20, 14, 12].map((v) => v * k), pal.accent, pal.accent2);
     return s;
@@ -295,7 +299,7 @@ meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
   s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>`;
   s += `<ellipse cx="60" cy="70" rx="90" ry="40" fill="${pal.accent}" opacity="0.2" filter="url(#soft)"/><ellipse cx="180" cy="150" rx="70" ry="50" fill="${pal.accent2}" opacity="0.16" filter="url(#soft)"/>`;
   s += stars(c, b, 90, b.y1);
-  s += `<circle cx="178" cy="40" r="20" fill="${hsl(S + 140, 25, 40)}" stroke="#140F24" stroke-width="0.8"/><circle cx="184" cy="46" r="20" fill="${hsl(S, 40, 10)}" opacity="0.5"/>`;
+  s += `<circle cx="178" cy="40" r="20" fill="${hsl(S + 140, 25, 40)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.8"/><circle cx="184" cy="46" r="20" fill="${hsl(S, 40, 10)}" opacity="0.5"/>`;
   s += `<ellipse cx="178" cy="40" rx="36" ry="7" fill="none" stroke="${hsl(S + 140, 25, 70)}" stroke-width="1.4" transform="rotate(-18 178 40)" opacity="0.8"/>`;
   for (let i = 0; i < 12; i++) {
     const x = b.x0 + c.r() * W, y = b.y0 + 20 + c.r() * 160, r = 3 + c.r() * 9;
@@ -303,7 +307,7 @@ meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
     s += farRock(blob(x, y, r, r * 0.8, 7, i), hsl(S + 10, 12, 22 + r), 0.85);
   }
   const ast: P2[] = [[b.x0 - 10, 216], [20, 204], [60, 200], [100, 206], [150, 202], [190, 206], [b.x1 + 10, 212], [b.x1 + 10, b.y1 + 10], [b.x0 - 10, b.y1 + 10]];
-  s += `<path d="${poly(ast)}" fill="${hsl(S + 10, 12, 22)}" stroke="#140F24" stroke-width="1"/>`;
+  s += `<path d="${poly(ast)}" fill="${hsl(S + 10, 12, 22)}" stroke="#05030C" stroke-opacity="0.3" stroke-width="1"/>`;
   s += clip(`${id}-as`, poly(ast), `<path d="${poly(ast)}" fill="url(#xhatch)" opacity="0.5"/>` + `<ellipse cx="50" cy="222" rx="16" ry="4" fill="${hsl(S, 20, 12)}"/><ellipse cx="170" cy="226" rx="20" ry="5" fill="${hsl(S, 20, 12)}"/>`);
   s += rim(`M${b.x0 - 10} 216 L20 204 L60 200 L100 206 L150 202 L190 206 L${b.x1 + 10} 212`, pal.glow, 1);
   return s;

@@ -1,5 +1,5 @@
-import { constellation, eyeA, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { band, f, grad, spline, starfish, tube, type Pt } from './legendkit.ts';
+import { bloom, gloss, hsl, softShadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, grad, lum, soften, spline, starfish, tube, type Pt } from './legendkit.ts';
 
 /**
  * Nébularaie : raie manta géante vue de dessus, en virage lent. Ses nageoires pectorales sont des fenêtres sur une
@@ -8,6 +8,7 @@ import { band, f, grad, spline, starfish, tube, type Pt } from './legendkit.ts';
 export const nebularaie: Species = (c) => {
   const { pal } = c;
   const id = `nebularaie-${c.stage}`;
+  const { ink, body, line, shadow, rim, gild, eyeA, constellation } = lum(id, c);
   // Moitié gauche, miroir pour la droite (x → 222 - x).
   const Lp = (x: number, y: number) => `${f(x)} ${f(y)}`;
   const Rp = (x: number, y: number) => `${f(222 - x)} ${f(y)}`;
@@ -37,7 +38,7 @@ export const nebularaie: Species = (c) => {
   s += `<circle cx="179" cy="230" r="7" fill="${pal.glow}" opacity="0.6" filter="url(#soft)"/>` + sparkle(179, 230, 4, '#FFF6D8', false);
 
   // Ailes : nébuleuse intérieure (clip).
-  let neb = `<path d="${outline}" fill="${pal.deep}"/>`;
+  let neb = body(outline, pal.shade, { light: [0.5, 0.1], hi: pal.body, rim: pal.accent2, ao: 0.8 });
   for (const [x, y, rx, ry, col, op] of [
     [44, 104, 34, 14, pal.accent, 0.75], [178, 104, 34, 14, pal.accent2, 0.7],
     [70, 124, 26, 12, pal.accent2, 0.6], [152, 124, 26, 12, pal.accent, 0.6],
@@ -73,7 +74,7 @@ export const nebularaie: Species = (c) => {
   s += gild(`M142 72 C158 76 172 84 182 92 c6 5 4 12 -2 10 c-4 -2 -2 -6 1 -5`, 0.8);
 
   // Torse en relief.
-  s += `<path d="${torso}" fill="${pal.body}"/>`;
+  s += body(torso, pal.body, { light: [0.3, 0.15], rim: pal.accent2 });
   s += shadow(`M120 150 C126 130 132 104 131 84 C130 70 122 64 116 64 C124 74 126 96 122 118 C119 134 115 152 111 169 C114 166 117 160 120 150 Z`, pal.shade, 0.85, 'fine');
   s += `<path d="M96 74 C94 90 96 112 102 134" fill="none" stroke="${pal.light}" stroke-width="5" opacity="0.35" stroke-linecap="round"/>`;
   s += line(`M91 84 C90 104 96 130 102 150 C105 160 108 166 111 169`, 0.8, pal.ink, ' opacity="0.55"');
@@ -99,16 +100,16 @@ export const nebularaie: Species = (c) => {
   }
   // Bouche (bord frontal), yeux sur les côtés de la tête.
   s += line(`M94 66 C104 70 118 70 128 66`, 1.1);
-  s += eyeA(87, 72, 4, pal.eye, { angle: 60, open: 0.55, slit: false }) + eyeA(135, 72, 4, pal.eye, { angle: 120, open: 0.55, slit: false });
+  s += eyeA(87, 72, 4.6, pal.eye, { angle: 60, open: 0.55, slit: false }) + eyeA(135, 72, 4.6, pal.eye, { angle: 120, open: 0.55, slit: false });
   // Diadème : petite étoile au front.
-  s += sparkle(111, 74, 3.2, pal.gold, false);
+  s += sparkle(111, 74, 3.2, pal.gold, false) + bloom(111, 74, 6, pal.gold, 0.6);
+  s += gloss(104, 84, 5, 12, -10, 0.35) + gloss(60, 74, 16, 3, -28, 0.3) + gloss(162, 74, 14, 2.5, 28, 0.2);
   // Contour final (plus épais à l'extérieur) + lumière de bord.
-  s += `<path d="${outline}" fill="none" stroke="${pal.ink}" stroke-width="1.8" stroke-linejoin="round"/>`;
   s += rim(`M84 62 C64 64 40 74 24 88 C16 95 9 104 4 114`, pal.glow, 1.2);
   s += rim(`M138 62 C152 64 168 70 180 76`, pal.glow, 0.9);
   // Étoiles détachées dans le sillage.
   for (const [x, y, z] of [[30, 150, 3], [196, 150, 2.6], [150, 196, 2.2], [52, 46, 2.6]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return `<g transform="translate(111 116) rotate(-6) scale(1 1.04) translate(-111 -116)">${s}</g>`;
+  return soften(`<g transform="translate(111 116) rotate(-6) scale(1 1.04) translate(-111 -116)">${s}</g>`, pal.deep);
 };
 
 /**
@@ -175,5 +176,5 @@ nebularaie.scene = (c: DrawCtx, b: Bounds) => {
   s += `<path d="M56 206 C50 196 48 186 52 178 C56 186 58 192 60 198 C60 188 64 180 70 176 C70 186 66 196 64 206 Z" fill="${hsl(oh + 40, 30, 20)}" stroke="#140F24" stroke-width="0.6"/>`;
   s += `<path d="M150 210 C152 202 162 198 172 200 C180 202 182 208 180 212 Z" fill="${hsl(oh + 20, 20, 12)}" stroke="#140F24" stroke-width="0.6"/>`;
   s += `<path d="M150 210 C152 202 162 198 172 200 C180 202 182 208 180 212 Z" fill="url(#xhatch)"/>`;
-  return s;
+  return soften(s, pal.deep);
 };

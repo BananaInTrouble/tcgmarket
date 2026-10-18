@@ -1,5 +1,5 @@
-import { constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { band, f, feather, grad, P, spline, tube, type Pt } from './legendkit.ts';
+import { bloom, gloss, hsl, softShadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { band, f, feather, grad, lum, P, soften, spline, tube, type Pt } from './legendkit.ts';
 
 /**
  * Sphinxlipse : sphinx ailé couché de profil, tête de lionne de face coiffée d'un némès rayé d'or, ailes en
@@ -8,6 +8,8 @@ import { band, f, feather, grad, P, spline, tube, type Pt } from './legendkit.ts
 export const sphinxlipse: Species = (c) => {
   const { pal } = c;
   const id = `sphinxlipse-${c.stage}`;
+  const { ink, body: vbody, line, shadow, rim, gild, fur, eyeA, constellation } = lum(`${id}-l`, c, [0.3, 0.1], '#FFE2B0');
+  const ground = (x: number, y: number, rx: number) => softShadow(`M${x - rx} ${y} a${rx} ${rx * 0.14} 0 1 0 ${rx * 2} 0 a${rx} ${rx * 0.14} 0 1 0 ${-rx * 2} 0 Z`, 0.6, 'b4');
   const EC: Pt = [80, 46];
   let s = '';
 
@@ -158,7 +160,7 @@ export const sphinxlipse: Species = (c) => {
   s += line('M58 116 A22 13.6 0 0 0 102 116', 0.6, pal.ink, ' opacity="0.6"');
 
   for (const [x, y, z] of [[180, 18, 3.2], [24, 120, 2.6], [212, 120, 2.2], [146, 40, 2]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return s;
+  return soften(s, pal.deep);
 };
 
 /**
@@ -217,5 +219,5 @@ sphinxlipse.scene = (c: DrawCtx, b: Bounds) => {
     s += `<g transform="translate(${x} ${top - 1}) scale(${k})"><ellipse cx="0" cy="-3" rx="4" ry="3" fill="${hsl(c.hue + 150, 40, 30)}" stroke="#140F24" stroke-width="0.6"/>`
       + `<path d="M0 -6 V0 M-3 -1 l-2 2 M3 -1 l2 2 M-3.6 -4 l-2 -1 M3.6 -4 l2 -1" stroke="#140F24" stroke-width="0.5"/><circle cx="0" cy="-6.6" r="1.4" fill="#140F24"/><circle cx="-1.5" cy="-3.5" r="0.6" fill="${pal.gold}"/><circle cx="1.6" cy="-2.6" r="0.5" fill="${pal.gold}"/></g>`;
   }
-  return s;
+  return soften(s, pal.deep);
 };

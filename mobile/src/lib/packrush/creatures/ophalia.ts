@@ -1,4 +1,5 @@
-import { constellation, eyeA, fur, gild, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, gloss, hsl, softShadow, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { kit } from './mythkit.ts';
 
 type Pt = [number, number];
 const f = (v: number) => v.toFixed(1);
@@ -34,6 +35,7 @@ function tube(pts: Pt[], w: number[]): { d: string; L: Pt[]; R: Pt[] } {
  */
 export const ophalia: Species = (c: DrawCtx) => {
   const { pal } = c;
+  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'ophalia-4';
   let s = '';
@@ -81,7 +83,7 @@ export const ophalia: Species = (c: DrawCtx) => {
         const l: Pt = [t.L[i][0] + (t.L[i + 1][0] - t.L[i][0]) * u, t.L[i][1] + (t.L[i + 1][1] - t.L[i][1]) * u];
         const r: Pt = [t.R[i][0] + (t.R[i + 1][0] - t.R[i][0]) * u, t.R[i][1] + (t.R[i + 1][1] - t.R[i][1]) * u];
         const m: Pt = [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2];
-        o += `<path d="M${P(l)} Q${P([m[0] + (seg[i + 1][0] - seg[i][0]) * 0.12, m[1] + (seg[i + 1][1] - seg[i][1]) * 0.12])} ${P(r)}" fill="none" stroke="${INK}" stroke-width="0.5" opacity="0.35"/>`;
+        o += `<path d="M${P(l)} Q${P([m[0] + (seg[i + 1][0] - seg[i][0]) * 0.12, m[1] + (seg[i + 1][1] - seg[i][1]) * 0.12])} ${P(r)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.5" opacity="0.35"/>`;
       }
     }
     return o;
@@ -134,7 +136,7 @@ export const ophalia: Species = (c: DrawCtx) => {
   hd += ink(skull, pal.belly, 1.5);
   hd += `<path d="M0 -10 C10 -16 22 -16 32 -12 C40 -9 48 -5 54 -1 C44 -2 34 -2 24 -1 C14 0 6 2 -1 3 Z" fill="${pal.shade}"/>`;
   hd += shadow('M0 -10 C10 -16 22 -16 32 -12 C22 -10 12 -6 1 -2 Z', pal.deep, 0.6, 'fine') + speckles(c, 20, -8, 12, 3, 6, pal.gold);
-  hd += `<path d="M8 -12 L15 -14 L18 -9 L11 -7 Z M18 -14 L25 -14 L26 -9 L19 -9 Z M38 -8 L44 -6 L43 -3 L37 -4 Z M2 -7 L8 -12 L11 -7 L5 -3 Z" fill="${pal.deep}" stroke="${INK}" stroke-width="0.5" opacity="0.85"/>`;
+  hd += `<path d="M8 -12 L15 -14 L18 -9 L11 -7 Z M18 -14 L25 -14 L26 -9 L19 -9 Z M38 -8 L44 -6 L43 -3 L37 -4 Z M2 -7 L8 -12 L11 -7 L5 -3 Z" fill="${pal.deep}" opacity="0.85"/>`;
   hd += line('M52 0 C44 1 34 2 26 3', 0.7, INK, ' opacity="0.6"');
   hd += ink(skull, 'none', 1.5);
   hd += ink('M24 -13 C26 -18 30 -22 36 -23 C34 -19 33 -15 34 -11 Z', pal.light, 1);
@@ -152,6 +154,7 @@ export const ophalia: Species = (c: DrawCtx) => {
 /** Décor : le cœur d'un système solaire gravé comme un astrolabe (orbites d'or, planètes, éruptions), oiseaux-soleil. */
 ophalia.scene = (c: DrawCtx, b: Bounds) => {
   const { pal } = c;
+  const { V, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4-bg');
   const CREAM = '#FFF6D8', INK = '#140F24';
   const id = 'ophalia-4-bg';
   const W = b.x1 - b.x0, H = b.y1 - b.y0;
@@ -173,7 +176,7 @@ ophalia.scene = (c: DrawCtx, b: Bounds) => {
     const a = (i / 36) * Math.PI * 2, r1 = 108, r2 = i % 3 ? 112 : 118;
     s += `<line x1="${f(SX + Math.cos(a) * r1)}" y1="${f(SY + Math.sin(a) * r1)}" x2="${f(SX + Math.cos(a) * r2)}" y2="${f(SY + Math.sin(a) * r2)}" stroke="${pal.gold}" stroke-width="0.6" opacity="0.4"/>`;
   }
-  const planet = (x: number, y: number, r: number, h: number) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${hsl(h, 30, 55)}" stroke="${INK}" stroke-width="0.7"/>`
+  const planet = (x: number, y: number, r: number, h: number) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${hsl(h, 30, 55)}"/>`
     + shadow(`M${x} ${y - r} A${r} ${r} 0 0 1 ${x} ${y + r} C${x + r * 0.7} ${y + r * 0.5} ${x + r * 0.7} ${y - r * 0.5} ${x} ${y - r} Z`, hsl(h, 30, 25), 0.6, 'fine');
   s += planet(24, 168, 6, c.hue + 180) + planet(214, 30, 8, c.hue + 120) + planet(36, 220, 4, c.hue + 60) + planet(196, 262, 5, c.hue + 220);
   // Le soleil : couronne, rayons gravés, granulation, protubérances.
@@ -182,7 +185,7 @@ ophalia.scene = (c: DrawCtx, b: Bounds) => {
     const a = (i / 32) * Math.PI * 2, r2 = SR + (i % 2 ? 10 : 20) + c.r() * 6;
     s += `<path d="M${f(SX + Math.cos(a - 0.05) * SR)} ${f(SY + Math.sin(a - 0.05) * SR)} L${f(SX + Math.cos(a) * r2)} ${f(SY + Math.sin(a) * r2)} L${f(SX + Math.cos(a + 0.05) * SR)} ${f(SY + Math.sin(a + 0.05) * SR)} Z" fill="${hsl(42, 95, 70)}" opacity="0.75"/>`;
   }
-  s += `<circle cx="${SX}" cy="${SY}" r="${SR}" fill="url(#${id}-s)" stroke="${INK}" stroke-width="1.4"/>`;
+  s += `<circle cx="${SX}" cy="${SY}" r="${SR}" fill="url(#${id}-s)"/>`;
   s += `<circle cx="${SX}" cy="${SY}" r="${SR - 7}" fill="none" stroke="${hsl(30, 85, 58)}" stroke-width="0.8" opacity="0.6"/>`;
   for (let i = 0; i < 26; i++) {
     const a = c.r() * Math.PI * 2, d = Math.sqrt(c.r()) * (SR - 6);
@@ -192,7 +195,7 @@ ophalia.scene = (c: DrawCtx, b: Bounds) => {
   s += line(`M${SX - 36} ${SY - 50} C${SX - 50} ${SY - 70} ${SX - 20} ${SY - 78} ${SX - 14} ${SY - 50}`, 2.2, hsl(40, 100, 72), ' opacity="0.8"');
   s += line(`M${SX + 44} ${SY + 22} C${SX + 70} ${SY + 20} ${SX + 70} ${SY + 46} ${SX + 40} ${SY + 32}`, 1.8, hsl(40, 100, 72), ' opacity="0.7"');
   // Oiseaux-soleil en vol sur les orbites (petites créatures secondaires).
-  const bird = (x: number, y: number, k: number, r: number) => `<path transform="translate(${x} ${y}) rotate(${r}) scale(${k})" d="M0 0 C-4 -6 -10 -7 -14 -4 C-9 -4 -5 -2 -2 1 L-8 4 L0 3 C4 3 8 1 10 -1 L13 -1 L10 1 C6 4 2 5 0 5 C4 -2 10 -6 16 -6 C10 -3 6 -1 0 0 Z" fill="${hsl(c.hue + 30, 70, 70)}" stroke="${INK}" stroke-width="0.6" opacity="0.85"/>`;
+  const bird = (x: number, y: number, k: number, r: number) => `<path transform="translate(${x} ${y}) rotate(${r}) scale(${k})" d="M0 0 C-4 -6 -10 -7 -14 -4 C-9 -4 -5 -2 -2 1 L-8 4 L0 3 C4 3 8 1 10 -1 L13 -1 L10 1 C6 4 2 5 0 5 C4 -2 10 -6 16 -6 C10 -3 6 -1 0 0 Z" fill="${hsl(c.hue + 30, 70, 70)}" opacity="0.85"/>`;
   s += bird(30, 10, 0.9, -8) + bird(200, 214, 0.8, 12) + bird(46, 194, 0.6, -20) + bird(186, 6, 0.65, 6);
   s += `<ellipse cx="${SX}" cy="282" rx="130" ry="26" fill="${hsl(c.hue + 240, 50, 5)}" opacity="0.5" filter="url(#soft)"/>`;
   return s;

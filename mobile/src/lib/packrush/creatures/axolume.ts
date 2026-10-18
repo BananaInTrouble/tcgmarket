@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, eyeGlow, gloss, hsl, softShadow, sparkle as sparkleS, strands, vol, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -62,6 +62,46 @@ function at(fr: Fr, t: number, o = 0): P {
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
 
+/* ---------- Rendu « 3D » (V4) : les anciens outils d'encre sont redéfinis localement en volumes et lumières ---------- */
+const R4 = { id: 'x', k: 0, rimC: '#8FE8E0', light: [0.32, 0.22] as [number, number], hi: '' };
+const begin = (id: string, rimC: string, light: [number, number] = [0.32, 0.22]) => { R4.id = id; R4.k = 0; R4.rimC = rimC; R4.light = light; };
+const uid = () => `${R4.id}-v${R4.k++}`;
+/** Éclaircit / assombrit une couleur hsla (ou la laisse telle quelle). */
+function tone(col: string, dl: number, ds = 0): string {
+  const m = /hsla?\(([-\d.]+),([\d.]+)%,([\d.]+)%(?:,([\d.]+))?\)/.exec(col);
+  if (!m) return dl > 0 ? '#FFF6E6' : '#07040F';
+  return hsl(+m[1], Math.max(0, Math.min(100, +m[2] + ds)), Math.max(2, Math.min(97, +m[3] + dl)));
+}
+const INKS = ['#140F24', '#1A1230'];
+/** Volume modelé (remplace l'aplat cerné). Un remplissage `none` ne dessine plus rien (plus de contours). */
+const ink = (d: string, fillC: string, _w = 1, extra = '') => {
+  if (fillC === 'none') return '';
+  if (/opacity/.test(extra)) return `<path d="${d}" fill="${fillC}"${extra}/>`;
+  return vol(uid(), d, fillC, { light: R4.light, hi: tone(fillC, 26, 10), lo: tone(fillC, -30, 18), rim: R4.rimC, ao: 0.5 });
+};
+/** Trait : les traits d'encre deviennent des plis sombres très doux ; les traits colorés deviennent des filets de lumière. */
+const line = (d: string, w = 1, color = '#140F24', extra = '') => INKS.includes(color)
+  ? `<path d="${d}" fill="none" stroke="#07040F" stroke-width="${f(w * 0.9)}" stroke-linecap="round" opacity="0.28"${extra.replace(/opacity="[\d.]+"/, '')}/>`
+  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`;
+/** Ombre interne douce (plus de hachures). */
+const shadow = (d: string, color: string, op = 0.8, _h = '') => `<path d="${d}" fill="${tone(color, -6, 10)}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`;
+const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, _col = '', w = 0.8) => strands(c, x, y, len, angle, count, spread * 2, R4.hi || '#FFF6E6', w);
+const eyeA = (x: number, y: number, w: number, iris: string, o: { angle?: number; slit?: boolean; open?: number } = {}) => eyeGlow(`${R4.id}-e${R4.k++}`, x, y, w * 1.05, iris, o);
+const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
+const rim = (d: string, color: string, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`;
+const gild = (d: string, w = 1.1) => `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 2.6)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF1C4" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const sparkle = (x: number, y: number, s: number, color = '#FFF6D8', _st = false) => bloom(x, y, s * 1.6, color, 0.6) + sparkleS(x, y, s * 0.9, '#FFFFFF', false);
+const aura = (x: number, y: number, r: number, color: string) => bloom(x, y, r * 0.8, color, 0.3);
+function constellation(pts: P[], color = '#FFF6D8'): string {
+  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.75"/>`
+    + pts.map(([x, y], i) => bloom(x, y, 3.2, color, 0.8) + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.3}" fill="#FFFFFF"/>`).join('');
+}
+/** Retire les cernes restants (traits d'encre littéraux, hachures) d'un fragment SVG. */
+const deink = (s: string) => s
+  .replace(/stroke="#140F24"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/stroke="#1A1230"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/fill="url\(#(fine|xhatch|hatch)\)"/g, 'fill="none"');
+
 /* ---------- Décor : petits outils ---------- */
 const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
 /** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
@@ -99,13 +139,16 @@ function crystal(L: number, w: number, fill: string, light: string, deep: string
     + `<path d="M${f(L * 0.22)} ${f(w)} L${f(L * 0.8)} ${f(w * 0.75)} L${f(L)} 0 L${f(L * 0.3)} ${f(w * 0.2)} Z" fill="${deep}" opacity="0.55"/>`
     + `<path d="M0 0 L${f(L)} 0 M${f(L * 0.22)} ${f(-w)} L${f(L * 0.3)} ${f(w * 0.2)} L${f(L * 0.22)} ${f(w)} M${f(L * 0.8)} ${f(-w * 0.75)} L${f(L * 0.8)} ${f(w * 0.75)}" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.6"/>`
     + `<path d="${d}" fill="none" stroke="#140F24" stroke-width="1" stroke-linejoin="round"/>`
-    + `<path d="M${f(L * 0.3)} ${f(-w * 0.55)} L${f(L * 0.72)} ${f(-w * 0.5)}" stroke="#fff" stroke-width="0.8" opacity="0.8"/>`;
+    + `<path d="M${f(L * 0.3)} ${f(-w * 0.55)} L${f(L * 0.72)} ${f(-w * 0.5)}" stroke="#fff" stroke-width="0.8" opacity="0.8"/>`
+    + gloss(L * 0.5, -w * 0.4, L * 0.2, w * 0.22, 0, 0.75);
 }
 
 export const axolume: Species = (c) => {
   const { pal, stage } = c;
   const st = Math.min(stage, 2);
   const id = `axolume-${st}`;
+  begin(id, ['#9FF2FF', '#FFD89A', '#9FE8FF'][st], ([[0.6, 0.1], [0.75, 0.15], [0.4, 0.15]] as [number, number][])[st]);
+  R4.hi = tone(pal.body, 30, 6);
   // Larve (0) : corps fin, crête continue, membres naissants ; 1 : sub-adulte ; 2 : adulte aux branchies de cristal.
   const S = [0.95, 0.98, 1][st];
   const bodyK = [0.82, 0.92, 1][st];
@@ -131,10 +174,10 @@ export const axolume: Species = (c) => {
   for (let k = 0; k <= 26; k++) {
     const t = 0.24 + (k / 26) * 0.76;
     const [x0, y0] = at(fr, t, -W(t)), [x1, y1] = at(fr, Math.min(1, t + 0.03), -W(t) - finTop(t) - 2);
-    g += line(`M${f(x0)} ${f(y0)} L${f(x1)} ${f(y1)}`, 0.55, pal.deep, ' opacity="0.55"');
+    g += line(`M${f(x0)} ${f(y0)} L${f(x1)} ${f(y1)}`, 0.6, pal.glow, ' opacity="0.3"');
     if (t > 0.52) {
       const [a0, b0] = at(fr, t, W(t)), [a1, b1] = at(fr, Math.min(1, t + 0.03), W(t) + finBot(t) + 2);
-      g += line(`M${f(a0)} ${f(b0)} L${f(a1)} ${f(b1)}`, 0.55, pal.deep, ' opacity="0.55"');
+      g += line(`M${f(a0)} ${f(b0)} L${f(a1)} ${f(b1)}`, 0.6, pal.glow, ' opacity="0.3"');
     }
   }
   g += `<path d="${strip(fr, (t) => -W(t) - finTop(t) * 0.55, (t) => -W(t) - finTop(t) - 2, 0.5, 1)}" fill="${pal.accent}" opacity="0.35"/>`;
@@ -161,7 +204,7 @@ export const axolume: Species = (c) => {
   const gillL = [26, 40, 50][st];
   const gill = (x: number, y: number, ang: number, len: number, far: boolean) => {
     const env = tube([[0, 0], [len * 0.5, -len * 0.07], [len, -len * 0.02]], [[0, 2], [0.25, 3.6], [0.75, 3.4], [1, 1.6]]);
-    const fc = far ? pal.shade : pal.accent;
+    const fc = far ? tone(pal.accent, -12, 6) : tone(pal.accent, 16, 14);
     let s = '';
     // Fimbriae : franges fines et serrées des deux côtés de la tige (plume).
     for (let k = 1; k < 16; k++) {
@@ -170,7 +213,7 @@ export const axolume: Species = (c) => {
       for (const sg of [-1, 1]) s += `<path d="M${f(x0)} ${f(y0)} q${f(fl * 0.2)} ${f(sg * fl * 0.6)} ${f(fl * 0.75)} ${f(sg * fl)}" stroke="${fc}" stroke-width="1.5" fill="none" stroke-linecap="round"/>`
         + `<path d="M${f(x0)} ${f(y0)} q${f(fl * 0.2)} ${f(sg * fl * 0.6)} ${f(fl * 0.75)} ${f(sg * fl)}" stroke="#140F24" stroke-width="0.45" fill="none" opacity="0.55"/>`;
     }
-    s += `<path d="${env}" fill="${far ? pal.deep : pal.accent}"/>`;
+    s += `<path d="${env}" fill="${far ? tone(pal.accent, -18) : tone(pal.accent, 24, 10)}" opacity="0.9"/>` + (far ? '' : `<path d="${env}" fill="none" stroke="${tone(pal.accent, 30, 20)}" stroke-width="4" opacity="0.5" filter="url(#b2)"/>`);
     s += `<path d="${env}" fill="none" stroke="#140F24" stroke-width="0.9"/>`;
     s += line(`M0 0 Q${f(len * 0.5)} ${f(-len * 0.08)} ${f(len)} ${f(-len * 0.02)}`, 1.3, far ? pal.ink : pal.deep);
     if (st >= 1) {
@@ -258,7 +301,7 @@ export const axolume: Species = (c) => {
 
   // 0 : la larve nage vers la surface ; 1 : le jeune, tête basse, guette sa proie ; 2 : l'adulte se dresse sur la corniche.
   const pose = ['translate(-8 -30) rotate(12 111 150)', 'rotate(3 60 200)', ''][st];
-  return `<g transform="${pose}"><g transform="translate(105 204) scale(${S}) translate(-111 -204)">${g}</g></g>`;
+  return deink(`<g transform="${pose}"><g transform="translate(105 204) scale(${S}) translate(-111 -204)">${g}</g></g>`);
 };
 
 /* ---------- Décor : étang de nébuleuse (0 herbier la nuit, 1 lit du lac à l'aube, 2 grotte de cristal) ---------- */
@@ -284,6 +327,7 @@ const axolumeScene = (c: DrawCtx, b: Bounds): string => {
   const { pal, stage, hue } = c;
   const st = Math.min(stage, 2);
   const id = `axolume-${st}-bg`;
+  begin(id, '#9FF2FF');
   const W2 = b.x1 - b.x0;
   let s = '';
   if (st === 0) {
@@ -335,6 +379,6 @@ const axolumeScene = (c: DrawCtx, b: Bounds): string => {
     s += `<path d="M30 201 C70 197 150 197 196 201" fill="none" stroke="${pal.accent2}" stroke-width="1" opacity="0.6"/>`;
     s += crystalCluster(8, 226, 0.75, pal.accent2, pal.light, pal.deep) + crystalCluster(214, 230, 0.6, pal.accent2, pal.light, pal.deep);
   }
-  return s;
+  return deink(s);
 };
 axolume.scene = axolumeScene;

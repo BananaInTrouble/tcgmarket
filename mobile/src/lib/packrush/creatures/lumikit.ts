@@ -1,4 +1,5 @@
-import { aura, constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { hsl, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { begin, unink, aura, constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle } from './lumen.ts';
 
 /**
  * Lumikit → Lunaréon → Selenvulpe → Astravulpe : renard des comètes dont la queue est une nébuleuse (pointe = tête
@@ -225,7 +226,7 @@ function adult(c: DrawCtx): string {
   return g;
 }
 
-export const lumikit: Species = (c: DrawCtx) => {
+const draw = (c: DrawCtx): string => {
   const k = [1.08, 0.97, 0.95, 0.95, 0.95][c.stage] ?? 0.95;
   return `<g transform="translate(114 205) scale(${k}) translate(-114 -205)">${c.stage === 0 ? sleeper(c) : c.stage === 1 ? young(c) : adult(c)}</g>`;
 };
@@ -244,7 +245,7 @@ function cometSky(c: DrawCtx, b: Bounds, id: string, top: string, bot: string, s
   return s;
 }
 
-lumikit.scene = (c: DrawCtx, b: Bounds): string => {
+const sceneRaw = (c: DrawCtx, b: Bounds): string => {
   const { stage, hue } = c;
   const id = `lumikit-${stage}-bg`;
   const W = b.x1 - b.x0, sh = 215 + ((((hue * 1.7) % 70) + 70) % 70);
@@ -298,4 +299,15 @@ lumikit.scene = (c: DrawCtx, b: Bounds): string => {
     for (let i = 0; i < 24; i++) s += `<circle cx="${f1(b.x0 + c.r() * W)}" cy="${f1(b.y0 + c.r() * 200)}" r="${f1(0.6 + c.r() * 1)}" fill="#FFFFFF" opacity="0.7"/>`;
   }
   return s;
+};
+
+/** Lumière de contour de chaque stade, accordée à la source de lumière du décor. */
+const RIMS = ['#7FE8E0', '#FFC27A', '#9FD8FF', '#8FFFD0'];
+export const lumikit: Species = (c: DrawCtx) => {
+  begin(`lumikit-${c.stage}`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(draw(c));
+};
+lumikit.scene = (c: DrawCtx, b: Bounds) => {
+  begin(`lumikit-${c.stage}-bg`, RIMS[Math.min(c.stage, RIMS.length - 1)], c.pal.light);
+  return unink(sceneRaw(c, b));
 };

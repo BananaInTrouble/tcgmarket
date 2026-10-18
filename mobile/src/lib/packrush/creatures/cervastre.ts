@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, fur, gild, ground, hsl, line, rim, shadow, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { aura, bloom, eyeGlow, gloss, hsl, softShadow, sparkle, speckles, strands, vol, type Bounds, type DrawCtx, type Palette, type Species } from './style.ts';
 
 const f = (v: number) => +v.toFixed(1);
 type Pt = [number, number];
@@ -33,19 +33,64 @@ export function tube(ps: Pw[]): string {
   return spl(L) + ` Q${f(e[0] + te[0] * e[2] * 1.4)} ${f(e[1] + te[1] * e[2] * 1.4)} ${f(Rr[0][0])} ${f(Rr[0][1])}` + cr(Rr)
     + ` Q${f(s0[0] - ts[0] * s0[2] * 1.4)} ${f(s0[1] - ts[1] * s0[2] * 1.4)} ${f(L[0][0])} ${f(L[0][1])} Z`;
 }
-/** Partie détourée : aplat, détails internes découpés à la forme, puis contour d'encre. */
-export function part(id: string, d: string, fill: string, inner: string, w = 1.6): string {
-  return `<defs><clipPath id="${id}"><path d="${d}"/></clipPath></defs><path d="${d}" fill="${fill}"/>`
-    + `<g clip-path="url(#${id})">${inner}</g><path d="${d}" fill="none" stroke="#140F24" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"/>`;
+// ---------------------------------------------------------------------------------------------------------------
+// Rendu V4 (« 3D » lumineux, sans traits d'encre) : outils partagés par cervastre, spirago et drakomet. Chaque espèce
+// fixe d'abord son éclairage avec `setLook` (préfixe d'ids, palette, couleur de la lumière de contour).
+
+export const LOOK = { pre: 'x', hi: '#FFFFFF', lo: '#05030C', base: '', shade: '', deep: '', rim: '#9FE8FF', light: [0.32, 0.22] as [number, number], n: 0 };
+export function setLook(pre: string, pal: Palette, rimCol: string, light: [number, number] = [0.32, 0.22]): void {
+  Object.assign(LOOK, { pre, hi: pal.light, lo: pal.deep, base: pal.body, shade: pal.shade, deep: pal.deep, rim: rimCol, light, n: 0 });
 }
-/** Ombre propre d'un volume cylindrique : tout est ombré sauf la forme décalée vers la lumière (en haut à gauche). */
-export function turn(d: string, light: string, shade: string, dx: number, dy: number, hatch = 'fine'): string {
-  return shadow('M-40 -40 H300 V320 H-40 Z', shade, 0.9, hatch) + `<path d="${d}" fill="${light}" transform="translate(${dx} ${dy})"/>`;
+/** Partie du corps modelée en volume ; `inner` est découpé dans la forme (taches, marques, brins). */
+export function part(id: string, d: string, fill: string, inner: string, _w = 1.6): string {
+  const far = fill === LOOK.shade || fill === LOOK.deep;
+  return vol(id, d, fill, { hi: far ? LOOK.base : LOOK.hi, lo: LOOK.lo, rim: LOOK.rim, light: LOOK.light, ao: far ? 0.75 : 0.5 })
+    + (inner ? `<g clip-path="url(#${id}-c)">${inner}</g>` : '');
 }
+/** (V3) Ombre propre d'un cylindre : en V4, le volume s'en charge. */
+export function turn(_d: string, _light: string, _shade: string, _dx: number, _dy: number, _hatch = 'fine'): string {
+  return '';
+}
+/** Ombre interne douce (sans hachures). */
+export const shadow = (d: string, color: string, opacity = 0.9, _hatch = 'fine') =>
+  `<path d="${d}" fill="${color}" opacity="${f(opacity * 0.7)}" filter="url(#b4)"/>`;
+const INK = ['#140F24', '#1A1230'];
+/** Trait : les traits d'encre deviennent de légers plis sombres, les traits colorés deviennent lumineux. */
+export const line = (d: string, w = 1.8, color = '#140F24', extra = '') => INK.includes(color)
+  ? `<path d="${d}" fill="none" stroke="${LOOK.lo}" stroke-width="${f(w * 1.2)}" stroke-linecap="round" opacity="0.3"/>`
+  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.35" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.8)}" stroke-linecap="round"${extra}/>`;
+/** Pelage : brins clairs en lumière. */
+export const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, color = '', w = 0.9) =>
+  strands(c, x, y, len, angle, count, spread * 2, color && !INK.includes(color) ? color : LOOK.hi, w * 0.7);
+/** Lumière de contour lumineuse. */
+export const rim = (d: string, color: string, w = 1.6) =>
+  `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 3)}" stroke-linecap="round" opacity="0.45" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.7)}" stroke-linecap="round" opacity="0.9"/>`;
+/** Filet d'or lumineux. */
+export const gild = (d: string, w = 1.2) =>
+  `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 3)}" stroke-linecap="round" opacity="0.45" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF0C0" stroke-width="${f(w * 0.8)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+/** Constellation lumineuse : fil clair, étoiles avec halo. */
+export function constellation(pts: [number, number][], color = '#FFF6D8'): string {
+  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.65"/>`
+    + pts.map(([x, y], i) => `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 3 : 4.2}" fill="${color}" opacity="0.35" filter="url(#b2)"/><circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 1 : 1.5}" fill="#FFFFFF"/>`).join('');
+}
+/** Œil incandescent. */
+export const eyeA = (x: number, y: number, w: number, iris: string, opts: { angle?: number; slit?: boolean; open?: number } = {}) =>
+  eyeGlow(`${LOOK.pre}-eye${LOOK.n++}`, x, y, w * 1.05, iris, opts);
+/** Ombre portée au sol, douce. */
+export const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
+/** Supprime les derniers traits d'encre (contours, hachures) d'un dessin. */
+export function noInk(s: string, lo = LOOK.lo): string {
+  return s
+    .replace(/<path[^>]*fill="url\(#(fine|xhatch|hatch)\)"[^>]*\/>/g, '')
+    .replace(/<rect[^>]*fill="url\(#(fine|xhatch|hatch)\)"[^>]*\/>/g, '')
+    .replace(/ fill="none" stroke="#(140F24|1A1230)"/g, ` fill="none" stroke="${lo}" stroke-opacity="0.3"`)
+    .replace(/ stroke="#(140F24|1A1230)"( stroke-width="[^"]*")?/g, '');
+}
+export { bloom, gloss, softShadow };
 
 /** Sabot orienté selon le dernier segment de la patte (angle en degrés, 0 = vers le bas). */
 const hoof = (x: number, y: number, ang = 0) =>
-  `<path transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})" d="M-2.6 -6 L2.8 -6 L3.6 0 L-4.6 0 Z" fill="#140F24" stroke="#140F24" stroke-width="1" stroke-linejoin="round"/>`;
+  `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})"><path d="M-2.6 -6 L2.8 -6 L3.6 0 L-4.6 0 Z" fill="#0E0A16"/><ellipse cx="-0.6" cy="-4.4" rx="1.6" ry="0.8" fill="${LOOK.hi}" opacity="0.5"/></g>`;
 
 function hoofAt(pts: Pw[]): string {
   const e = pts[pts.length - 1], p = pts[pts.length - 2];
@@ -259,7 +304,7 @@ function fawnAsleep(c: DrawCtx): string {
  * constellations. Faon endormi enroulé dans la mousse, daguet aux bois en velours qui traverse un ruisseau,
  * grand cerf au galop, puis forme éveillée au galop, bois dorés, croissant de lune et marques d'or.
  */
-export const cervastre: Species = (c) => {
+function drawCerv(c: DrawCtx): string {
   const st = Math.min(c.stage, 3);
   let s = '';
   if (st === 0) return `<g transform="translate(116 205) scale(1.18) translate(-116 -205)">${ground(118, 204, 70)}${fawnAsleep(c)}</g>`;
@@ -284,6 +329,12 @@ export const cervastre: Species = (c) => {
     return s + top + trail + `<g transform="translate(0 -2) rotate(-3 120 150) translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
   }
   return s + top + `<g transform="translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
+}
+
+export const cervastre: Species = (c) => {
+  const st = Math.min(c.stage, 3);
+  setLook(`cervastre-${st}`, c.pal, ['#CFE4FF', '#FFB48A', '#FFD49A', '#7CF5D0'][st], st === 2 ? [0.62, 0.2] : [0.32, 0.2]);
+  return noInk(drawCerv(c));
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -368,7 +419,8 @@ function mushrooms(x: number, y: number, s: number, col: string): string {
   return o;
 }
 
-cervastre.scene = (c: DrawCtx, b: Bounds) => {
+cervastre.scene = (c: DrawCtx, b: Bounds) => noInk(cervScene(c, b), '#05030C');
+function cervScene(c: DrawCtx, b: Bounds): string {
   const st = Math.min(c.stage, 3);
   const id = `cervastre-${st}-bg`;
   const h = c.hue;
@@ -457,4 +509,5 @@ cervastre.scene = (c: DrawCtx, b: Bounds) => {
   }
   if (b.y1 > 240) o += rect('#0B0A18', 236, 0.5);
   return o;
-};
+}
+

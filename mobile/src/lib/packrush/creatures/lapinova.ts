@@ -1,4 +1,4 @@
-import { aura, constellation, eyeA, fur, gild, ground, hsl, ink, line, rim, shadow, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
+import { bloom, eyeGlow, gloss, hsl, softShadow, sparkle as sparkleS, strands, vol, type Bounds, type DrawCtx, type Species } from './style.ts';
 
 /* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
 type P = [number, number];
@@ -61,6 +61,46 @@ function at(fr: Fr, t: number, o = 0): P {
 }
 const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
 const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
+
+/* ---------- Rendu « 3D » (V4) : les anciens outils d'encre sont redéfinis localement en volumes et lumières ---------- */
+const R4 = { id: 'x', k: 0, rimC: '#8FE8E0', light: [0.32, 0.22] as [number, number], hi: '' };
+const begin = (id: string, rimC: string, light: [number, number] = [0.32, 0.22]) => { R4.id = id; R4.k = 0; R4.rimC = rimC; R4.light = light; };
+const uid = () => `${R4.id}-v${R4.k++}`;
+/** Éclaircit / assombrit une couleur hsla (ou la laisse telle quelle). */
+function tone(col: string, dl: number, ds = 0): string {
+  const m = /hsla?\(([-\d.]+),([\d.]+)%,([\d.]+)%(?:,([\d.]+))?\)/.exec(col);
+  if (!m) return dl > 0 ? '#FFF6E6' : '#07040F';
+  return hsl(+m[1], Math.max(0, Math.min(100, +m[2] + ds)), Math.max(2, Math.min(97, +m[3] + dl)));
+}
+const INKS = ['#140F24', '#1A1230'];
+/** Volume modelé (remplace l'aplat cerné). Un remplissage `none` ne dessine plus rien (plus de contours). */
+const ink = (d: string, fillC: string, _w = 1, extra = '') => {
+  if (fillC === 'none') return '';
+  if (/opacity/.test(extra)) return `<path d="${d}" fill="${fillC}"${extra}/>`;
+  return vol(uid(), d, fillC, { light: R4.light, hi: tone(fillC, 26, 10), lo: tone(fillC, -30, 18), rim: R4.rimC, ao: 0.5 });
+};
+/** Trait : les traits d'encre deviennent des plis sombres très doux ; les traits colorés deviennent des filets de lumière. */
+const line = (d: string, w = 1, color = '#140F24', extra = '') => INKS.includes(color)
+  ? `<path d="${d}" fill="none" stroke="#07040F" stroke-width="${f(w * 0.9)}" stroke-linecap="round" opacity="0.28"${extra.replace(/opacity="[\d.]+"/, '')}/>`
+  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`;
+/** Ombre interne douce (plus de hachures). */
+const shadow = (d: string, color: string, op = 0.8, _h = '') => `<path d="${d}" fill="${tone(color, -6, 10)}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`;
+const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, _col = '', w = 0.8) => strands(c, x, y, len, angle, count, spread * 2, R4.hi || '#FFF6E6', w);
+const eyeA = (x: number, y: number, w: number, iris: string, o: { angle?: number; slit?: boolean; open?: number } = {}) => eyeGlow(`${R4.id}-e${R4.k++}`, x, y, w * 1.05, iris, o);
+const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
+const rim = (d: string, color: string, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`;
+const gild = (d: string, w = 1.1) => `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 2.6)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF1C4" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+const sparkle = (x: number, y: number, s: number, color = '#FFF6D8', _st = false) => bloom(x, y, s * 1.6, color, 0.6) + sparkleS(x, y, s * 0.9, '#FFFFFF', false);
+const aura = (x: number, y: number, r: number, color: string) => bloom(x, y, r * 0.8, color, 0.3);
+function constellation(pts: P[], color = '#FFF6D8'): string {
+  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.75"/>`
+    + pts.map(([x, y], i) => bloom(x, y, 3.2, color, 0.8) + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.3}" fill="#FFFFFF"/>`).join('');
+}
+/** Retire les cernes restants (traits d'encre littéraux, hachures) d'un fragment SVG. */
+const deink = (s: string) => s
+  .replace(/stroke="#140F24"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/stroke="#1A1230"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
+  .replace(/fill="url\(#(fine|xhatch|hatch)\)"/g, 'fill="none"');
 
 /* ---------- Décor : petits outils ---------- */
 const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
@@ -155,6 +195,8 @@ export const lapinova: Species = (c) => {
   const { pal, stage } = c;
   const st = Math.min(stage, 2);
   const id = `lapinova-${st}`;
+  begin(id, ['#DDE6FF', '#FFB8C8', '#FFF1C8'][st], ([[0.7, 0.15], [0.3, 0.2], [0.6, 0.3]] as [number, number][])[st]);
+  R4.hi = tone(pal.body, 30, 6);
   const p = POSES[st];
   const S = [1.16, 1, 0.94][st];
   let g = '';
@@ -253,7 +295,7 @@ export const lapinova: Species = (c) => {
   } else {
     g += sparkle(60, 100, 2.2, pal.glow, false) + sparkle(170, 120, 2.6, pal.glow, false);
   }
-  return `<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${g}</g>`;
+  return deink(`<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${g}</g>`);
 };
 
 /* ---------- Décor : prairies lunaires (0 gîte d'herbes d'argent la nuit, 1 crête au crépuscule, 2 cercle de pierres sous la pleine lune) ---------- */
@@ -278,6 +320,7 @@ const lapinovaScene = (c: DrawCtx, b: Bounds): string => {
   const { pal, stage, hue } = c;
   const st = Math.min(stage, 2);
   const id = `lapinova-${st}-bg`;
+  begin(id, '#DDE6FF');
   let s = '';
   if (st === 0) {
     s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 10, 40, 9)], [0.7, hsl(hue, 34, 20)], [1, hsl(hue - 10, 30, 24)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
@@ -331,6 +374,6 @@ const lapinovaScene = (c: DrawCtx, b: Bounds): string => {
     s += `<path d="M84 207 L92 198 L160 198 L168 207 Z" fill="${hsl(hue + 10, 12, 34)}" stroke="#140F24" stroke-width="0.8"/>`;
     s += grassBand(c, b, 214, 30, 14, hsl(hue + 20, 16, 30), true);
   }
-  return s;
+  return deink(s);
 };
 lapinova.scene = lapinovaScene;
