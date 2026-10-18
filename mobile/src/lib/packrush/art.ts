@@ -87,7 +87,12 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
   const creature = draw({ r: rng(seed * 7 + 1), hue, pal: paletteAdult(hue), stage });
   const win = full ? { x: 10, y: 10, w: W - 20, h: H - 20 } : { x: 14, y: 14, w: W - 28, h: 236 };
   const dy = full ? 30 : 0;
-  const art = `<g clip-path="url(#win)"><g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`
+  const ctx = { r: rng(seed * 13 + 5), hue, pal: paletteAdult(hue), stage };
+  const bounds = full ? { x0: -4, y0: -4 - dy, x1: 226, y1: 326 - dy } : { x0: 0, y0: 0, x1: 222, y1: 236 };
+  const backdrop = draw.scene
+    ? `<g transform="translate(14 ${14 + dy})">${draw.scene(ctx, bounds)}</g>`
+    : `<g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`;
+  const art = `<g clip-path="url(#win)">${backdrop}`
     + `<g transform="translate(14 ${14 + dy})"><g filter="url(#wobble)"${owned ? '' : ' style="filter:url(#wobble) url(#ghost)"'}>${creature}</g></g>`
     + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" filter="url(#grain)"/>`
     + (owned && (card.rarity === 'SR' || full) ? `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.4"/>` : '')

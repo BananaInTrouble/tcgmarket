@@ -1,149 +1,239 @@
-import { aura, eye, ground, ink, line, shadow, shine, sparkle, type Species } from './style.ts';
+import { aura, constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, type Species } from './style.ts';
 
-const f = (v: number) => v.toFixed(1);
-
-/** Petit cratère lunaire (tache sur le pelage). */
-const crater = (x: number, y: number, r: number, fill: string) =>
-  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(r)}" ry="${f(r * 0.82)}" fill="${fill}" stroke="#1A1230" stroke-width="1.2" opacity="0.95"/>`
-  + `<path d="M${f(x - r * 0.65)} ${f(y + r * 0.2)} Q${f(x)} ${f(y + r * 0.9)} ${f(x + r * 0.65)} ${f(y + r * 0.2)}" fill="none" stroke="#FFF6D8" stroke-width="1.3" stroke-linecap="round" opacity="0.8"/>`;
-
-/** Oreille-antenne : de (bx,by) vers (tx,ty), largeur w, courbure bend ; pointe étoilée. */
-function ear(bx: number, by: number, tx: number, ty: number, w: number, bend: number, body: string, inner: string, glow: string, star: number): string {
-  const dx = tx - bx, dy = ty - by, L = Math.hypot(dx, dy);
-  const nx = -dy / L, ny = dx / L; // normale
-  const mx = bx + dx * 0.5 + nx * bend * 2, my = by + dy * 0.5 + ny * bend * 2;
-  // Ligne médiane (quadratique) + profil de largeur : forme de feuille effilée.
-  const N = 16;
-  const at = (t: number, k: number) => {
-    const u = 1 - t;
-    const x = u * u * bx + 2 * u * t * mx + t * t * tx, y = u * u * by + 2 * u * t * my + t * t * ty;
-    const gx = 2 * u * (mx - bx) + 2 * t * (tx - mx), gy = 2 * u * (my - by) + 2 * t * (ty - my), g = Math.hypot(gx, gy) || 1;
-    const wd = w * k * (0.85 + Math.sin(Math.PI * Math.min(1, t * 1.1)) * 0.55) * (1 - t * 0.75);
-    return [x - (gy / g) * wd, y + (gx / g) * wd, x + (gy / g) * wd, y - (gx / g) * wd];
-  };
-  const shape = (k: number, t0: number, t1: number) => {
-    const a: string[] = [], b: string[] = [];
-    for (let i = 0; i <= N; i++) {
-      const t = t0 + ((t1 - t0) * i) / N;
-      const [x1, y1, x2, y2] = at(t, k);
-      a.push(`${f(x1)} ${f(y1)}`); b.unshift(`${f(x2)} ${f(y2)}`);
+/* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
+type P = [number, number];
+const f = (v: number) => +v.toFixed(1);
+function cr(pts: P[], seg: number): P[] {
+  const out: P[] = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    for (let k = 0; k < seg; k++) {
+      const t = k / seg, t2 = t * t, t3 = t2 * t;
+      const q = (j: 0 | 1) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
+      out.push([q(0), q(1)]);
     }
-    return `M${a.join(' L')} L${b.join(' L')} Z`;
-  };
-  const sx = tx + (dx / L) * star * 0.4, sy = ty + (dy / L) * star * 0.4;
-  return ink(shape(1, 0, 1), body, 2.4) + ink(shape(0.5, 0.1, 0.86), inner, 1.4)
-    + `<circle cx="${f(sx)}" cy="${f(sy)}" r="${f(star * 0.9)}" fill="${glow}" opacity="0.6" filter="url(#glow)"/>`
-    + sparkle(sx, sy, star, glow);
+  }
+  out.push(pts[pts.length - 1]);
+  return out;
 }
+function smooth(pts: P[], closed = false): string {
+  const N = pts.length;
+  const g = (i: number) => (closed ? pts[(i + N) % N] : pts[Math.max(0, Math.min(N - 1, i))]);
+  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 0; i < (closed ? N : N - 1); i++) {
+    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
+    d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d + (closed ? ' Z' : '');
+}
+interface Fr { m: P[]; nr: P[] }
+function frame(spine: P[], seg = 8): Fr {
+  const m = cr(spine, seg);
+  const nr = m.map((_, i) => {
+    const a = m[Math.max(0, i - 1)], b = m[Math.min(m.length - 1, i + 1)];
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
+    return [-dy / L, dx / L] as P;
+  });
+  return { m, nr };
+}
+const tab = (t: [number, number][]) => (x: number) => {
+  if (x <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, va] = t[i - 1], [b, vb] = t[i]; return va + ((x - a) / (b - a)) * (vb - va); }
+  return t[t.length - 1][1];
+};
+type Fn = (t: number) => number;
+function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): P[] {
+  const N = fr.m.length - 1, out: P[] = [];
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    if (t < t0 - 1e-6 || t > t1 + 1e-6) continue;
+    const o = fn(t);
+    out.push([fr.m[i][0] + fr.nr[i][0] * o, fr.m[i][1] + fr.nr[i][1] * o]);
+  }
+  return out;
+}
+const strip = (fr: Fr, a: Fn, b: Fn, t0 = 0, t1 = 1) => smooth([...side(fr, a, t0, t1), ...side(fr, b, t0, t1).reverse()], true);
+const outline = (fr: Fr, w: Fn, t0 = 0, t1 = 1) => strip(fr, w, (t) => -w(t), t0, t1);
+const curve = (fr: Fr, fn: Fn, t0 = 0, t1 = 1) => smooth(side(fr, fn, t0, t1));
+function at(fr: Fr, t: number, o = 0): P {
+  const i = Math.round(t * (fr.m.length - 1));
+  return [fr.m[i][0] + fr.nr[i][0] * o, fr.m[i][1] + fr.nr[i][1] * o];
+}
+const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
+const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
 
-/** Lapinova → Lunalièvre → Sélénalto : lièvre lunaire aux taches de cratères et oreilles-antennes étoilées. */
+/* ---------- Lièvre lunaire ---------- */
+const cl = (pts: P[]) => smooth(pts, true);
+const op = (pts: P[]) => smooth(pts);
+const mv = (pts: P[], dx: number, dy: number): P[] => pts.map(([x, y]) => [x + dx, y + dy]);
+
+interface Pose {
+  body: P[]; belly: P[]; haunch: P[]; shadeB: P[];
+  head: P[]; jaw: P[]; eye: P; eyeAng: number; nose: P; earN: P[]; earF: P[];
+  foreN: P[]; foreF: P[]; foot: P[]; footF?: P[]; tail: P;
+}
+const POSES: Pose[] = [
+  // 0 : levraut tapi au gîte, oreilles couchées.
+  {
+    body: [[86, 148], [108, 140], [136, 142], [160, 154], [176, 174], [176, 194], [162, 203], [104, 204], [82, 198], [74, 182], [76, 162]],
+    belly: [[76, 166], [74, 182], [82, 198], [96, 202], [92, 186], [88, 170]],
+    haunch: [[122, 202], [126, 182], [142, 166], [164, 166], [174, 182]],
+    shadeB: [[176, 174], [176, 194], [162, 203], [124, 204], [146, 194], [160, 180], [164, 160]],
+    head: [[92, 150], [86, 136], [72, 128], [56, 130], [44, 140], [38, 150], [40, 158], [50, 166], [66, 170], [84, 166]],
+    jaw: [[40, 158], [50, 166], [66, 170], [84, 166], [70, 162], [54, 160]],
+    eye: [66, 144], eyeAng: -4, nose: [40, 149],
+    earN: [[74, 134], [94, 124], [122, 120], [146, 124], [150, 129], [128, 134], [98, 138], [82, 142]],
+    earF: [[80, 130], [100, 116], [126, 108], [146, 108], [148, 113], [126, 120], [100, 130]],
+    foreN: [[80, 176], [76, 192], [68, 203]],
+    foreF: [[90, 180], [88, 194], [84, 203]],
+    foot: [[168, 196], [150, 200], [128, 202], [112, 203], [108, 206], [130, 207], [160, 207], [174, 203]],
+    tail: [178, 176],
+  },
+  // 1 : sub-adulte assis, aux aguets.
+  {
+    body: [[98, 96], [118, 100], [142, 114], [164, 136], [178, 160], [182, 182], [174, 198], [156, 203], [120, 203], [100, 200], [92, 184], [88, 160], [86, 136], [88, 114]],
+    belly: [[88, 114], [86, 136], [88, 160], [92, 184], [100, 199], [100, 172], [97, 142], [98, 118]],
+    haunch: [[116, 200], [120, 176], [138, 152], [162, 150], [178, 168]],
+    shadeB: [[164, 136], [178, 160], [182, 182], [174, 198], [156, 203], [130, 203], [154, 192], [164, 172], [162, 150]],
+    head: [[102, 82], [98, 68], [86, 60], [72, 60], [60, 66], [50, 76], [46, 84], [48, 92], [56, 98], [72, 102], [88, 104], [102, 96]],
+    jaw: [[48, 92], [56, 98], [72, 102], [88, 104], [74, 96], [60, 94]],
+    eye: [76, 76], eyeAng: -8, nose: [47, 82],
+    earN: [[84, 64], [86, 42], [92, 18], [100, 4], [106, 8], [106, 30], [100, 54], [96, 66]],
+    earF: [[92, 64], [100, 40], [112, 18], [122, 8], [125, 14], [118, 38], [106, 62]],
+    foreN: [[92, 140], [90, 170], [88, 196], [84, 203]],
+    foreF: [[104, 146], [104, 176], [103, 203]],
+    foot: [[172, 196], [150, 200], [122, 201], [104, 202], [100, 206], [122, 207], [160, 207], [178, 203]],
+    tail: [184, 174],
+  },
+  // 2 : adulte dressé sur ses pattes arrière, tourné vers la lune.
+  {
+    body: [[106, 68], [124, 80], [138, 102], [148, 128], [160, 154], [168, 178], [166, 196], [150, 204], [118, 204], [104, 196], [104, 178], [98, 160], [90, 140], [86, 118], [87, 96], [93, 78]],
+    belly: [[94, 80], [90, 96], [90, 118], [94, 140], [102, 160], [108, 178], [112, 160], [106, 138], [102, 112], [100, 90]],
+    haunch: [[114, 202], [116, 180], [128, 158], [150, 152], [164, 174]],
+    shadeB: [[134, 104], [144, 130], [156, 156], [164, 178], [162, 196], [148, 204], [136, 204], [152, 188], [154, 166], [142, 140], [132, 116]],
+    head: [[110, 62], [106, 48], [94, 40], [80, 38], [66, 42], [54, 50], [48, 56], [48, 62], [54, 68], [68, 72], [84, 76], [100, 76]],
+    jaw: [[48, 62], [54, 68], [68, 72], [84, 76], [70, 68], [56, 64]],
+    eye: [80, 52], eyeAng: -14, nose: [48, 56],
+    earN: [[94, 42], [104, 24], [118, 8], [132, -2], [136, 2], [128, 20], [114, 40], [106, 48]],
+    earF: [[100, 42], [114, 26], [132, 14], [148, 8], [150, 13], [136, 26], [114, 46]],
+    foreN: [[98, 106], [86, 116], [78, 124], [76, 134]],
+    foreF: [[108, 112], [98, 122], [92, 130], [90, 140]],
+    foot: [[166, 196], [146, 200], [118, 201], [96, 202], [92, 206], [116, 207], [154, 207], [172, 203]],
+    footF: [[130, 198], [110, 200], [84, 202], [80, 205], [104, 206], [132, 204]],
+    tail: [166, 172],
+  },
+];
+
+/** Lapinova → Lunalièvre → Sélénalto : lièvre lunaire. Levraut tapi, jeune assis aux aguets, adulte dressé vers la lune. */
 export const lapinova: Species = (c) => {
   const { pal, stage } = c;
-  const st = Math.min(stage, 3);
-  let s = '';
+  const st = Math.min(stage, 2);
+  const id = `lapinova-${st}`;
+  const p = POSES[st];
+  const S = [1.16, 1, 0.94][st];
+  let g = '';
 
-  if (st <= 1) {
-    // ---- Assis, de face ----
-    const cx = 111, gy = 204;
-    const hr = st === 0 ? 40 : 33;
-    const bodyH = st === 0 ? 56 : 76;
-    const bw = st === 0 ? 36 : 34;
-    const hy = gy - bodyH - hr * 0.45;
-    s += ground(cx, gy + 2, 66);
-    // Queue pompon (derrière, à droite).
-    s += ink(`M${f(cx + bw - 2)} ${f(gy - 22)} c10 -12 28 -4 22 10 c4 10 -12 16 -20 8 Z`, pal.belly, 2.2);
-    // Corps.
-    const body = `M${f(cx - bw)} ${f(gy)} C${f(cx - bw - 10)} ${f(gy - bodyH * 0.6)} ${f(cx - bw * 0.5)} ${f(gy - bodyH)} ${f(cx)} ${f(gy - bodyH - 2)} C${f(cx + bw * 0.5)} ${f(gy - bodyH)} ${f(cx + bw + 10)} ${f(gy - bodyH * 0.6)} ${f(cx + bw)} ${f(gy)} Z`;
-    s += ink(body, pal.body, 2.6);
-    s += shadow(`M${f(cx + bw * 0.4)} ${f(gy - bodyH * 0.92)} C${f(cx + bw + 8)} ${f(gy - bodyH * 0.6)} ${f(cx + bw + 6)} ${f(gy - bodyH * 0.2)} ${f(cx + bw)} ${f(gy)} L${f(cx + bw * 0.5)} ${f(gy)} C${f(cx + bw * 0.8)} ${f(gy - bodyH * 0.3)} ${f(cx + bw * 0.8)} ${f(gy - bodyH * 0.6)} ${f(cx + bw * 0.4)} ${f(gy - bodyH * 0.92)} Z`, pal.shade, 0.65);
-    s += ink(`M${f(cx - 16)} ${f(gy - 4)} C${f(cx - 20)} ${f(gy - bodyH * 0.55)} ${f(cx - 10)} ${f(gy - bodyH * 0.86)} ${f(cx)} ${f(gy - bodyH * 0.88)} C${f(cx + 10)} ${f(gy - bodyH * 0.86)} ${f(cx + 20)} ${f(gy - bodyH * 0.55)} ${f(cx + 16)} ${f(gy - 4)} Z`, pal.belly, 1.6);
-    s += crater(cx - bw * 0.72, gy - bodyH * 0.42, 5, pal.light) + crater(cx + bw * 0.62, gy - bodyH * 0.52, 4, pal.light);
-    if (st === 1) s += crater(cx - bw * 0.5, gy - bodyH * 0.18, 3.4, pal.light);
-    // Grands pieds arrière + pattes avant.
-    for (const dir of [-1, 1]) {
-      s += ink(`M${f(cx + dir * 8)} ${f(gy + 2)} C${f(cx + dir * 8)} ${f(gy - 10)} ${f(cx + dir * 40)} ${f(gy - 10)} ${f(cx + dir * 42)} ${f(gy - 1)} C${f(cx + dir * 42)} ${f(gy + 4)} ${f(cx + dir * 10)} ${f(gy + 5)} ${f(cx + dir * 8)} ${f(gy + 2)} Z`, pal.light, 2.2);
-      s += ink(`M${f(cx + dir * 4)} ${f(gy - 6)} C${f(cx + dir * 2)} ${f(gy - 22)} ${f(cx + dir * 18)} ${f(gy - 24)} ${f(cx + dir * 18)} ${f(gy - 8)} C${f(cx + dir * 16)} ${f(gy - 2)} ${f(cx + dir * 6)} ${f(gy - 2)} ${f(cx + dir * 4)} ${f(gy - 6)} Z`, pal.body, 2);
-      s += line(`M${f(cx + dir * 9)} ${f(gy - 4)} l0 -3 M${f(cx + dir * 13)} ${f(gy - 4)} l0 -3`, 1.2);
-    }
-    // Oreilles-antennes.
-    if (st === 0) {
-      s += ear(cx - hr * 0.4, hy - hr * 0.7, cx - hr * 1.2, hy - hr * 1.9, 9, -10, pal.body, pal.accent, pal.glow, 7);
-      // L'autre oreille retombe, toute molle.
-      s += ear(cx + hr * 0.4, hy - hr * 0.72, cx + hr * 1.5, hy - hr * 1.15, 9, -12, pal.body, pal.accent, pal.glow, 7);
-    } else {
-      s += ear(cx - hr * 0.35, hy - hr * 0.75, cx - hr * 0.95, hy - hr * 2.6, 9.5, -8, pal.body, pal.accent, pal.glow, 8);
-      s += ear(cx + hr * 0.35, hy - hr * 0.75, cx + hr * 1.1, hy - hr * 2.5, 9.5, 10, pal.body, pal.accent, pal.glow, 8);
-    }
-    // Tête ronde aux joues duveteuses.
-    const head = `M${f(cx - hr)} ${f(hy)} C${f(cx - hr)} ${f(hy - hr * 1.05)} ${f(cx + hr)} ${f(hy - hr * 1.05)} ${f(cx + hr)} ${f(hy)} L${f(cx + hr * 1.1)} ${f(hy + hr * 0.3)} L${f(cx + hr * 0.9)} ${f(hy + hr * 0.36)} C${f(cx + hr * 0.7)} ${f(hy + hr * 0.82)} ${f(cx - hr * 0.7)} ${f(hy + hr * 0.82)} ${f(cx - hr * 0.9)} ${f(hy + hr * 0.36)} L${f(cx - hr * 1.1)} ${f(hy + hr * 0.3)} Z`;
-    s += ink(head, pal.body, 2.6);
-    s += shadow(`M${f(cx + hr * 0.5)} ${f(hy - hr * 0.72)} C${f(cx + hr * 1.02)} ${f(hy - hr * 0.3)} ${f(cx + hr * 1.0)} ${f(hy + hr * 0.2)} ${f(cx + hr * 0.82)} ${f(hy + hr * 0.4)} C${f(cx + hr * 0.82)} ${f(hy)} ${f(cx + hr * 0.75)} ${f(hy - hr * 0.4)} ${f(cx + hr * 0.5)} ${f(hy - hr * 0.72)} Z`, pal.shade, 0.55);
-    s += ink(`M${f(cx - hr * 0.42)} ${f(hy + hr * 0.3)} C${f(cx - hr * 0.4)} ${f(hy + hr * 0.72)} ${f(cx + hr * 0.4)} ${f(hy + hr * 0.72)} ${f(cx + hr * 0.42)} ${f(hy + hr * 0.3)} C${f(cx + hr * 0.2)} ${f(hy + hr * 0.14)} ${f(cx - hr * 0.2)} ${f(hy + hr * 0.14)} ${f(cx - hr * 0.42)} ${f(hy + hr * 0.3)} Z`, pal.belly, 1.4);
-    s += crater(cx + hr * 0.42, hy - hr * 0.55, hr * 0.13, pal.light);
-    s += shine(`M${f(cx - hr * 0.72)} ${f(hy - hr * 0.42)} q6 -12 18 -16`, 2.2);
-    // Croissant de lune au front.
-    s += ink(`M${f(cx - 6)} ${f(hy - hr * 0.68)} a8 8 0 1 0 12 0 a6 6 0 1 1 -12 0 Z`, pal.glow, 1.3);
-    const er = hr * (st === 0 ? 0.28 : 0.25);
-    s += eye(cx - hr * 0.42, hy + hr * 0.02, er, pal.eye, 0.1) + eye(cx + hr * 0.42, hy + hr * 0.02, er, pal.eye, 0.1);
-    s += ink(`M${f(cx - 4)} ${f(hy + hr * 0.3)} Q${f(cx)} ${f(hy + hr * 0.26)} ${f(cx + 4)} ${f(hy + hr * 0.3)} Q${f(cx)} ${f(hy + hr * 0.4)} ${f(cx - 4)} ${f(hy + hr * 0.3)} Z`, '#FF8FB1', 1.2);
-    s += line(`M${f(cx)} ${f(hy + hr * 0.38)} l0 4 M${f(cx - 6)} ${f(hy + hr * 0.5)} q3 3 6 0 q3 3 6 0`, 1.4);
-    // Moustaches.
-    s += line(`M${f(cx - hr * 0.5)} ${f(hy + hr * 0.4)} l-14 -3 M${f(cx - hr * 0.5)} ${f(hy + hr * 0.48)} l-14 3 M${f(cx + hr * 0.5)} ${f(hy + hr * 0.4)} l14 -3 M${f(cx + hr * 0.5)} ${f(hy + hr * 0.48)} l14 3`, 1.2);
-    s += `<ellipse cx="${f(cx - hr * 0.66)}" cy="${f(hy + hr * 0.36)}" rx="5" ry="3" fill="#FF8FB1" opacity="0.6"/><ellipse cx="${f(cx + hr * 0.66)}" cy="${f(hy + hr * 0.36)}" rx="5" ry="3" fill="#FF8FB1" opacity="0.6"/>`;
-    s += sparkle(cx - 74, hy - 10, 4.5, pal.glow) + sparkle(cx + 78, gy - 60, 3.5, '#FFF6D8');
+  if (st >= 2) {
+    g += aura(120, 70, 80, pal.glow);
+    // Grand croissant de lune gravé, derrière.
+    // Pleine lune gravée derrière le lièvre (mers, cratères, terminateur hachuré).
+    const mx = 128, my = 100, mr = 72;
+    g += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${pal.belly}" opacity="0.5"/>`;
+    g += `<defs><clipPath id="${id}-m"><circle cx="${mx}" cy="${my}" r="${mr}"/></clipPath></defs><g clip-path="url(#${id}-m)">`;
+    for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) g += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${pal.shade}" opacity="0.35"/>`;
+    for (const [x, y, r] of [[176, 92, 5], [86, 104, 4], [138, 44, 3.5], [184, 132, 3]] as const) g += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.deep}" stroke-width="0.6" opacity="0.6"/>`;
+    g += shadow(`M${mx + 20} ${my - mr - 4} A${mr} ${mr} 0 0 1 ${mx + 20} ${my + mr + 4} L${mx + mr + 6} ${my + mr + 6} L${mx + mr + 6} ${my - mr - 6} Z`, pal.shade, 0.35, 'fine');
+    g += `</g><circle cx="${mx}" cy="${my}" r="${mr}" fill="none" stroke="#E9C25B" stroke-width="1.3"/>`;
+    g += `<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="none" stroke="#E9C25B" stroke-width="0.6" stroke-dasharray="1 4" opacity="0.8"/>`;
+  }
+  g += ground(124, 205, st === 0 ? 70 : 74);
+
+  // Oreille éloignée.
+  const ear = (pts: P[], far: boolean) => {
+    const d = cl(pts);
+    let s = ink(d, far ? pal.shade : pal.body, far ? 1.2 : 1.5);
+    s += `<defs><clipPath id="${id}-e${far ? 'f' : 'n'}"><path d="${d}"/></clipPath></defs><g clip-path="url(#${id}-e${far ? 'f' : 'n'})">`;
+    // Intérieur sombre et pointe noire.
+    const mid = Math.floor(pts.length / 2);
+    const tip = pts[mid - 1];
+    const base0 = pts[0], base1 = pts[pts.length - 1];
+    s += `<path d="M${f((base0[0] + base1[0]) / 2)} ${f((base0[1] + base1[1]) / 2)} Q${f((base0[0] + tip[0]) / 2 + 3)} ${f((base0[1] + tip[1]) / 2)} ${f(tip[0])} ${f(tip[1])} L${f(pts[mid][0])} ${f(pts[mid][1])} Q${f((base1[0] + tip[0]) / 2 + 2)} ${f((base1[1] + tip[1]) / 2 + 2)} ${f(base1[0])} ${f(base1[1])} Z" fill="${pal.deep}" opacity="${far ? 0.5 : 0.35}"/>`;
+    s += `<circle cx="${f(tip[0])}" cy="${f(tip[1])}" r="9" fill="#140F24" opacity="0.85"/>`;
+    if (!far) s += shadow(d, pal.shade, 0, 'fine');
+    s += `</g>${ink(d, 'none', far ? 1.2 : 1.5)}`;
     return s;
+  };
+  g += ear(p.earF, true);
+
+  // Membres éloignés.
+  const limb = (pts: P[], w0: number, w1: number, fill: string, lw = 1.3) => ink(tube(pts, [[0, w0], [0.45, w1 * 1.1], [0.8, w1 * 0.9], [1, w1 * 1.15]]), fill, lw);
+  g += limb(p.foreF, 5, 3.4, pal.shade, 1.1);
+  if (p.footF) g += ink(cl(p.footF), pal.shade, 1.1);
+
+  // Corps.
+  const body = cl(p.body);
+  g += ink(body, pal.body, 1.7);
+  g += `<defs><clipPath id="${id}-b"><path d="${body}"/></clipPath></defs><g clip-path="url(#${id}-b)">`;
+  g += `<path d="${cl(p.belly)}" fill="${pal.belly}" opacity="0.85"/>`;
+  g += shadow(cl(p.shadeB), pal.shade, 0.75, 'fine');
+  // « Mers » lunaires sur le pelage.
+  const [hx, hy] = p.haunch[2];
+  g += `<ellipse cx="${f(hx + 6)}" cy="${f(hy + 12)}" rx="14" ry="9" fill="${pal.deep}" opacity="0.18"/>`;
+  g += `<ellipse cx="${f(hx - 14)}" cy="${f(hy - 8)}" rx="8" ry="5" fill="${pal.deep}" opacity="0.15"/>`;
+  g += `</g>`;
+  g += line(op(p.haunch), 1.1, '#140F24', ' opacity="0.85"');
+  // Poils : touffes sur la cuisse, le dos et le poitrail.
+  const [b1, b2] = [p.body[2], p.body[4]];
+  g += fur(c, b1[0] - 2, b1[1] + 6, 8, 120, 4, 6) + fur(c, b2[0] - 6, b2[1] + 4, 9, 110, 4, 7);
+  g += fur(c, p.haunch[2][0] + 4, p.haunch[2][1] + 10, 9, 100, 5, 8);
+  g += fur(c, p.belly[1][0] + 4, p.belly[1][1] + 4, 7, 100, 4, 4, pal.shade);
+  g += rim(op(p.body.slice(0, 5)), pal.glow, 1.3);
+  // Queue (scut blanc).
+  g += ink(`M${p.tail[0]} ${p.tail[1]} c6 -6 14 -4 14 3 c0 7 -8 10 -14 6 Z`, pal.belly, 1.2);
+
+  // Pied arrière.
+  g += ink(cl(p.foot), pal.body, 1.4);
+  g += shadow(`M${f(p.foot[0][0])} ${f(p.foot[0][1] + 4)} L${f(p.foot[3][0])} ${f(p.foot[3][1] + 3)} L${f(p.foot[4][0])} ${f(p.foot[4][1])} L${f(p.foot[6][0])} ${f(p.foot[6][1])} Z`, pal.shade, 0.6, 'fine');
+  g += line(`M${f(p.foot[4][0] + 3)} ${f(p.foot[4][1] - 1)} l3 -1 M${f(p.foot[4][0] + 8)} ${f(p.foot[4][1])} l3 -1`, 0.7);
+
+  // Patte avant proche.
+  g += limb(p.foreN, 5.5, 3.6, pal.body);
+  g += shadow(tube(p.foreN, [[0, 2], [1, 1.4]]), pal.shade, 0.4, 'fine');
+
+  // Oreille proche, tête.
+  g += ear(p.earN, false);
+  const head = cl(p.head);
+  g += ink(head, pal.body, 1.7);
+  g += `<defs><clipPath id="${id}-h"><path d="${head}"/></clipPath></defs><g clip-path="url(#${id}-h)">`;
+  g += `<path d="${cl(p.jaw)}" fill="${pal.belly}" opacity="0.9"/>`;
+  const [ex, ey] = p.eye;
+  // Joue : ombre fine sous l'œil, arcade claire.
+  g += shadow(`M${f(ex - 4)} ${f(ey + 12)} Q${f(ex + 10)} ${f(ey + 8)} ${f(ex + 26)} ${f(ey + 16)} L${f(ex + 30)} ${f(ey + 30)} L${f(ex - 4)} ${f(ey + 30)} Z`, pal.shade, 0.3, 'fine');
+  g += `</g>`;
+  g += eyeA(ex, ey, 6, pal.eye, { angle: p.eyeAng, slit: false, open: 0.6 });
+  g += `<path d="M${f(ex - 9)} ${f(ey + 2)} Q${f(ex)} ${f(ey + 9)} ${f(ex + 9)} ${f(ey + 1)}" fill="none" stroke="${pal.light}" stroke-width="1" opacity="0.7"/>`;
+  const [nx, ny] = p.nose;
+  g += `<path d="M${f(nx)} ${f(ny - 2)} q3 -1 4 1.5 q-2 2 -4 1 Z" fill="#140F24"/>`;
+  g += line(`M${f(nx + 2)} ${f(ny + 1)} q0 4 -1 6 M${f(nx + 1)} ${f(ny + 7)} q4 3 9 1`, 0.9);
+  // Moustaches.
+  for (const [dx, dy] of [[-22, -4], [-24, 2], [-20, 7]] as const) g += line(`M${f(nx + 8)} ${f(ny + 4)} q${f(dx * 0.5)} ${f(dy * 0.4 - 2)} ${f(dx)} ${f(dy)}`, 0.5, '#FFF6D8', ' opacity="0.75"');
+  g += fur(c, p.head[0][0] - 4, p.head[0][1] + 10, 6, 100, 4, 5);
+  g += rim(op(p.head.slice(1, 6)), pal.glow, 1.1);
+
+  // Ornements.
+  if (st >= 1) {
+    const [fx, fy] = [ex + 6, ey - 12];
+    if (st >= 2) g += gild(`M${f(fx - 3)} ${f(fy - 4)} a4.5 4.5 0 1 0 6 7 a3.5 3.5 0 1 1 -6 -7 Z`, 1);
+    else g += sparkle(fx, fy, 2.4, pal.gold, false);
   }
-
-  // ---- Stade 2+ : grand lièvre élancé en plein bond (profil, vers la gauche) ----
-  if (st >= 3) s += aura(118, 110, 100, pal.glow);
-  s += ground(116, 206, 76);
-  // Traînée de poussière d'étoiles derrière.
-  s += line('M150 188 Q176 178 204 186 M162 198 Q184 192 214 196 M140 176 Q158 168 178 170', 2, pal.glow, ' opacity="0.7"');
-  for (const [x, y, r] of [[204, 168, 4], [212, 186, 3], [188, 196, 2.5], [180, 162, 2]]) s += sparkle(x, y, r + 1, '#FFF6D8', r > 2.5);
-
-  // Patte arrière lointaine (sombre).
-  s += ink('M150 122 C168 132 184 150 196 160 C206 168 214 170 216 176 C208 180 192 176 182 168 C168 158 150 148 138 140 Z', pal.shade, 2.2);
-  // Patte avant lointaine.
-  s += ink('M76 132 C64 144 50 154 36 158 C30 160 28 166 34 168 C48 168 64 160 86 144 Z', pal.shade, 2.2);
-  // Oreille lointaine (rabattue en arrière).
-  s += ear(66, 62, 150, 30, 8, -12, pal.shade, pal.accent, pal.glow, 7);
-
-  // Corps allongé, incliné.
-  const body = 'M58 106 C70 88 110 86 146 94 C172 100 182 122 168 138 C154 152 114 150 88 142 C68 136 52 122 58 106 Z';
-  s += ink(body, pal.body, 2.6);
-  s += shadow('M100 146 C126 152 156 150 168 138 C180 124 176 106 164 98 C170 120 156 140 100 146 Z', pal.shade, 0.6);
-  s += ink('M60 114 C64 132 84 144 112 147 C104 136 90 130 80 116 C74 108 64 106 60 114 Z', pal.belly, 1.6);
-  s += crater(118, 104, 6, pal.light) + crater(140, 118, 4.5, pal.light) + crater(104, 126, 3.5, pal.light) + crater(152, 100, 3, pal.light);
-  s += shine('M80 94 q16 -10 34 -10', 2.2);
-  // Queue pompon.
-  s += ink('M172 104 c8 -14 28 -10 26 4 c6 10 -10 20 -22 12 Z', pal.belly, 2.2);
-  // Cuisse + patte arrière proche, tendue en arrière.
-  s += ink('M134 112 C160 104 180 124 172 146 C184 156 200 164 212 168 C222 172 220 182 210 182 C190 182 168 170 150 160 C132 152 120 126 134 112 Z', pal.body, 2.4);
-  s += line('M150 150 q10 -10 6 -24', 1.4, pal.shade);
-  s += line('M206 174 l-4 6 M200 172 l-4 7', 1.2);
-  // Patte avant proche, tendue vers l'avant.
-  s += ink('M70 126 C60 140 44 150 26 152 C18 154 18 162 26 164 C46 164 66 154 88 138 Z', pal.body, 2.4);
-  s += line('M28 156 l-3 5 M34 156 l-2 6', 1.2);
-
-  // Tête de profil (museau vers la gauche).
-  const head = 'M30 76 C28 58 46 46 66 46 C86 46 98 60 94 76 C90 90 76 96 60 96 C46 96 36 92 26 88 C18 86 18 78 30 76 Z';
-  s += ink(head, pal.body, 2.6);
-  s += shadow('M80 50 C94 58 98 74 92 84 C86 94 74 98 62 96 C82 88 90 70 80 50 Z', pal.shade, 0.55);
-  s += ink('M24 84 C28 90 38 94 52 94 C48 88 44 82 42 76 C36 76 28 78 24 84 Z', pal.belly, 1.4);
-  s += ink('M20 81 q3 -4 6 0 q-3 4 -6 0 Z', '#FF8FB1', 1.2);
-  s += line('M26 88 q6 4 12 0', 1.4);
-  s += line('M30 82 l-18 -5 M30 84 l-18 3', 1.1);
-  s += shine('M52 54 q8 -6 18 -6', 2);
-  s += eye(56, 66, 9, pal.eye, -0.6);
-  s += `<ellipse cx="66" cy="82" rx="5" ry="3" fill="#FF8FB1" opacity="0.55"/>`;
-  s += sparkle(42, 60, 4.5, pal.glow);
-  // Oreille proche, longue antenne étoilée qui flotte vers l'arrière.
-  s += ear(76, 56, 172, 22, 9.5, -16, pal.body, pal.accent, pal.glow, 9);
-
-  s += sparkle(28, 26, 5, pal.glow) + sparkle(196, 60, 4, '#FFF6D8') + sparkle(120, 36, 3.5, pal.glow);
-  if (st >= 3) {
-    s += line('M84 112 L104 104 L118 116 L140 108', 1.2, pal.glow, ' opacity="0.9"');
-    s += sparkle(20, 120, 5, pal.glow) + sparkle(110, 186, 4, pal.glow);
+  if (st >= 2) {
+    g += constellation([[124, 120], [134, 136], [128, 152], [140, 168]], pal.gold);
+    g += gild('M150 156 c6 8 8 18 4 28', 0.9);
+    for (const [x, y, z] of [[30, 30, 3.2], [24, 96, 2.4], [196, 160, 2.8], [60, 150, 2]] as const) g += sparkle(x, y, z, pal.glow, false);
+  } else if (st === 1) {
+    g += sparkle(150, 40, 2.6, pal.glow, false) + sparkle(40, 130, 2, pal.glow, false);
+  } else {
+    g += sparkle(60, 100, 2.2, pal.glow, false) + sparkle(170, 120, 2.6, pal.glow, false);
   }
-  return s;
+  return `<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${g}</g>`;
 };

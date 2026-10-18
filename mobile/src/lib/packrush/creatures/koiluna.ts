@@ -1,131 +1,145 @@
-import { aura, eye, ink, line, shadow, shine, sparkle, type Species } from './style.ts';
+import { constellation, eyeA, gild, ink, line, rim, shadow, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
+import { along, band, f, frames, P, tube, type Pt } from './legendkit.ts';
 
-/** Koiluna : deux carpes célestes (une claire, une sombre) tournant en cercle autour d'une lune (légendaire). */
+/**
+ * Koiluna : deux carpes koï célestes, l'une d'ivoire, l'autre d'encre et d'or, qui tournent sans fin autour d'une
+ * lune gravée (composition en yin-yang). Carpes de profil, dos vers l'extérieur, ventre éclairé par la lune.
+ */
+const CX = 111, CY = 112;
+
+function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: string, dark: boolean): string {
+  const { pal } = c;
+  const id = `koiluna-${c.stage}-${tag}`;
+  // Ligne médiane : arc autour de la lune, légère ondulation.
+  const spine: Pt[] = [];
+  for (let i = 0; i <= 60; i++) {
+    const u = i / 60, a = ((166 + 138 * u) * Math.PI) / 180, R = 64 + Math.sin(u * Math.PI * 1.4) * 5;
+    spine.push([CX + Math.cos(a) * R, CY + Math.sin(a) * R]);
+  }
+  // Côté extérieur (dos) = -normale ici ; on travaille en « dos » (wd) et « ventre » (wv).
+  const prof = (u: number) => (u < 0.1 ? 6 + Math.sqrt(u / 0.1) * 10 : u < 0.34 ? 16 + ((u - 0.1) / 0.24) * 2.5 : 18.5 - Math.pow((u - 0.34) / 0.52, 1.25) * 14.5);
+  const wd = (u: number) => prof(u) * 1.05, wv = (u: number) => prof(u) * 0.9;
+  const fr = frames(spine);
+  const out = (u: number, k: number): Pt => { const { p, n } = along(spine, u); return [p[0] - n[0] * k, p[1] - n[1] * k]; };
+  const tan = (u: number) => along(spine, u).t;
+
+  let o = '';
+  // Nageoire caudale voilée : deux lobes ondulants.
+  const tb = 0.86, [bx, by] = out(tb, 0), [tx, ty] = tan(tb);
+  const nX = (k: number): Pt => { const { n } = along(spine, tb); return [-n[0] * k, -n[1] * k]; };
+  for (const sg of [1, -1]) {
+    const q = (a: number, b: number): Pt => [bx + tx * a + nX(b * sg)[0], by + ty * a + nX(b * sg)[1]];
+    const d = `M${P(q(-2, 3))} C${P(q(10, 10))} ${P(q(20, 30))} ${P(q(36, 38))} C${P(q(44, 42))} ${P(q(52, 40))} ${P(q(56, 34))} C${P(q(48, 32))} ${P(q(44, 26))} ${P(q(46, 18))} C${P(q(47, 12))} ${P(q(42, 8))} ${P(q(36, 7))} C${P(q(30, 5))} ${P(q(26, 1))} ${P(q(22, 0))} C${P(q(14, 0))} ${P(q(6, 0))} ${P(q(-2, 0))} Z`;
+    o += `<path d="${d}" fill="${dark ? pal.deep : base}" opacity="0.92"/>`;
+    o += `<path d="${d}" fill="${patch}" opacity="${dark ? 0.25 : 0.35}"/>`;
+    for (let k = 1; k < 6; k++) {
+      const e = q(30 + k * 4, 6 + k * 6);
+      o += `<path d="M${P(q(0, 1 + k * 0.4))} Q${P(q(20, 3 + k * 3))} ${P(e)}" fill="none" stroke="${dark ? pal.gold : pal.shade}" stroke-width="0.5" opacity="0.6"/>`;
+    }
+    o += `<path d="${d}" fill="none" stroke="${pal.ink}" stroke-width="1"/>`;
+  }
+  // Nageoires pectorales longues (côté ventre, sous la tête) et pelviennes.
+  for (const [u, len, wid] of [[0.17, 26, 9], [0.46, 13, 5], [0.66, 10, 4]] as [number, number, number][]) {
+    const b0 = out(u, -wv(u) * 0.7), t0 = tan(u), { n } = along(spine, u);
+    const tip: Pt = [b0[0] + t0[0] * len * 0.85 + n[0] * len * 0.55, b0[1] + t0[1] * len * 0.85 + n[1] * len * 0.55];
+    const d = `M${P(b0)} C${P([b0[0] + n[0] * wid, b0[1] + n[1] * wid])} ${P([tip[0] - t0[0] * 6, tip[1] - t0[1] * 6])} ${P(tip)} C${P([tip[0] - t0[0] * 4 - n[0] * 4, tip[1] - t0[1] * 4 - n[1] * 4])} ${P([b0[0] + t0[0] * wid, b0[1] + t0[1] * wid])} ${P([b0[0] + t0[0] * wid * 1.2, b0[1] + t0[1] * wid * 1.2])} Z`;
+    o += ink(d, dark ? pal.shade : pal.belly, 0.9, ' opacity="0.95"');
+    o += line(`M${P(b0)} L${P([tip[0] * 0.8 + b0[0] * 0.2, tip[1] * 0.8 + b0[1] * 0.2])}`, 0.5, dark ? pal.gold : pal.shade, ' opacity="0.6"');
+  }
+  // Nageoire dorsale (dos) avec rayons.
+  {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 10; i++) { const u = 0.28 + i * 0.034; pts.push(out(u, wd(u) - 1)); }
+    const tips: Pt[] = [];
+    for (let i = 0; i <= 10; i++) { const u = 0.29 + i * 0.034; tips.push(out(u + 0.02, wd(u) + 12 - i * 0.8 + Math.sin(i * 1.3) * 1.2)); }
+    const d = `M${pts.map(P).join(' L')} L${tips.reverse().map(P).join(' L')} Z`;
+    o += ink(d, dark ? pal.deep : base, 0.9);
+    o += `<path d="${d}" fill="${patch}" opacity="0.3"/>`;
+    for (let i = 0; i <= 10; i += 2) {
+      const u = 0.28 + i * 0.034;
+      o += line(`M${P(out(u, wd(u)))} L${P(out(u + 0.03, wd(u) + 10 - i * 0.7))}`, 0.5, dark ? pal.gold : pal.shade, ' opacity="0.7"');
+    }
+  }
+  // Corps.
+  const bodyPts = spine.filter((_, i) => i <= Math.round(tb * 60));
+  const body = tube(bodyPts, (u) => -0 + wv(u * tb), (u) => wd(u * tb));
+  o += `<defs><clipPath id="${id}"><path d="${body}"/></clipPath></defs>`;
+  let inner = `<path d="${body}" fill="${base}"/>`;
+  // Motifs de koï (taches), clippés au corps.
+  for (const [u, k, rx, ry, col] of [[0.07, 4, 10, 7, patch], [0.3, 6, 16, 11, patch], [0.5, -4, 11, 9, patch2], [0.62, 7, 9, 6, patch], [0.43, 12, 6, 5, patch2]] as [number, number, number, number, string][]) {
+    const [x, y] = out(u, k), t0 = tan(u);
+    inner += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${rx}" ry="${ry}" fill="${col}" opacity="0.92" transform="rotate(${f((Math.atan2(t0[1], t0[0]) * 180) / Math.PI)} ${f(x)} ${f(y)})"/>`;
+  }
+  // Ombre du dos (extérieur, loin de la lune) et lumière lunaire au ventre.
+  inner += shadow(band(bodyPts, (u) => wd(u * tb), -1.05, -0.35), dark ? '#000' : pal.shade, dark ? 0.45 : 0.45, 'fine');
+  inner += `<path d="${band(bodyPts, (u) => wv(u * tb), 1.05, 0.6)}" fill="#FFF6D8" opacity="${dark ? 0.18 : 0.3}"/>`;
+  // Écailles : arcs ouverts vers la tête, en rangs décalés.
+  for (let i = 0; i < 18; i++) {
+    const u = 0.17 + i * 0.037;
+    for (let j = -2; j <= 2; j++) {
+      const k = (j + (i % 2) * 0.5) * prof(u) * 0.36;
+      if (Math.abs(k) > prof(u) * 0.8) continue;
+      const [x, y] = out(u, k), t0 = tan(u), { n } = along(spine, u), r = Math.max(1.6, prof(u) * 0.2);
+      inner += `<path d="M${f(x - n[0] * r)} ${f(y - n[1] * r)} Q${f(x + t0[0] * r * 1.4)} ${f(y + t0[1] * r * 1.4)} ${f(x + n[0] * r)} ${f(y + n[1] * r)}" fill="none" stroke="${dark ? pal.gold : pal.ink}" stroke-width="0.45" opacity="${dark ? 0.55 : 0.4}"/>`;
+    }
+  }
+  // Ligne latérale.
+  inner += `<path d="M${bodyPts.filter((_, i) => i > 8 && i % 3 === 0).map(({ 0: x, 1: y }, i) => { const u = (9 + i * 3) / 60; const [a, b] = out(u, 1); return `${f(a)} ${f(b)}`; }).join(' L')}" fill="none" stroke="${dark ? pal.light : pal.shade}" stroke-width="0.5" stroke-dasharray="1.5 2" opacity="0.6"/>`;
+  if (dark) inner += speckles(c, ...out(0.45, 0), 30, 12, 10);
+  o += `<g clip-path="url(#${id})">${inner}</g>`;
+  o += `<path d="${body}" fill="none" stroke="${pal.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
+  // Lumière de lune sur le ventre.
+  o += rim(`M${fr.filter(({ u }) => u > 0.05 && u < 0.75).filter((_, i) => i % 2 === 0).map(({ u }) => P(out(u, -wv(u) + 1))).join(' L')}`, '#FFF6D8', 1);
+  // Tête : opercule, œil, bouche et barbillons.
+  const g0 = out(0.13, wd(0.13) * 0.85), g1 = out(0.14, 0), g2 = out(0.13, -wv(0.13) * 0.85);
+  o += line(`M${P(g0)} Q${P(g1)} ${P(g2)}`, 0.9, pal.ink, ' opacity="0.8"');
+  const e = out(0.06, 3.5), te = tan(0.06);
+  o += `<circle cx="${f(e[0])}" cy="${f(e[1])}" r="3.8" fill="${dark ? pal.shade : pal.belly}" stroke="${pal.ink}" stroke-width="0.6"/>`;
+  o += eyeA(e[0], e[1], 3, pal.eye, { angle: (Math.atan2(te[1], te[0]) * 180) / Math.PI + 180, slit: false, open: 0.7 });
+  const m = out(0.0, -2), t0 = tan(0), nn = along(spine, 0).n;
+  for (const sg of [1, -1.6]) {
+    o += line(`M${P(m)} q${f(-t0[0] * 5 + nn[0] * sg * 2)} ${f(-t0[1] * 5 + nn[1] * sg * 2)} ${f(-t0[0] * 6 + nn[0] * sg * 8)} ${f(-t0[1] * 6 + nn[1] * sg * 8)}`, 0.8, dark ? pal.gold : pal.ink);
+  }
+  o += line(`M${P(out(0.0, 1))} L${P(out(0.02, -3))}`, 0.9);
+  // Filet d'or le long du dos (marque céleste).
+  o += gild(`M${[0.12, 0.2, 0.28].map((u) => P(out(u, wd(u) * 0.55))).join(' L')}`, 0.8);
+  return o;
+}
+
 export const koiluna: Species = (c) => {
   const { pal } = c;
-  const f = (v: number) => v.toFixed(1);
-  const cx = 111, cy = 118, R0 = 68;
+  const id = `koiluna-${c.stage}`;
   let s = '';
-  s += aura(cx, cy, 104, pal.glow);
-
-  // Remous : cercles d'eau céleste.
-  s += `<circle cx="${cx}" cy="${cy}" r="${R0 + 30}" fill="none" stroke="${pal.light}" stroke-width="1.3" opacity="0.45" stroke-dasharray="14 9"/>`;
-  s += `<circle cx="${cx}" cy="${cy}" r="${R0 - 26}" fill="none" stroke="${pal.glow}" stroke-width="1.2" opacity="0.5" stroke-dasharray="6 6"/>`;
-
-  // Lune au centre : disque crème, ombre en croissant, cratères.
-  s += `<circle cx="${cx}" cy="${cy}" r="40" fill="${pal.glow}" opacity="0.4" filter="url(#soft)"/>`;
-  s += ink(`M${cx - 30} ${cy} a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0 Z`, '#FFF6D8', 2.6);
-  s += shadow(`M${cx + 4} ${cy - 29.7} a30 30 0 0 1 0 59.4 a22 30 0 0 0 0 -59.4 Z`, pal.light, 0.9);
-  for (const [x, y, r] of [[-10, -12, 6], [-14, 8, 4], [2, 14, 5], [-2, -2, 2.6], [6, -18, 2.4]] as [number, number, number][]) {
-    s += `<circle cx="${cx + x}" cy="${cy + y}" r="${r}" fill="${pal.light}" stroke="#1A1230" stroke-width="1" opacity="0.85"/>`;
+  // Courants célestes : cercles gravés.
+  s += `<circle cx="${CX}" cy="${CY}" r="58" fill="${pal.glow}" opacity="0.18" filter="url(#soft)"/>`;
+  for (const [r, w, op, dash] of [[100, 0.6, 0.35, '1 4'], [86, 0.5, 0.3, ''], [44, 0.7, 0.5, '2 3']] as [number, number, number, string][]) {
+    s += `<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="${pal.gold}" stroke-width="${w}" opacity="${op}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
   }
-  s += shine(`M${cx - 22} ${cy - 14} q6 -10 16 -14`, 2.2);
+  // Lune gravée : mers, cratères, terminateur hachuré.
+  const R = 31;
+  s += `<defs><clipPath id="${id}-m"><circle cx="${CX}" cy="${CY}" r="${R}"/></clipPath></defs>`;
+  let moon = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="#F3EBD3"/>`;
+  for (const [x, y, rx, ry] of [[-10, -8, 12, 8], [6, 8, 10, 7], [10, -14, 6, 4], [-14, 12, 6, 5]] as const) {
+    moon += `<ellipse cx="${CX + x}" cy="${CY + y}" rx="${rx}" ry="${ry}" fill="${pal.light}" opacity="0.65"/>`;
+  }
+  for (const [x, y, r] of [[-16, -16, 3.6], [12, 16, 2.6], [-4, 18, 2], [16, -4, 2.2], [-20, 4, 1.6], [2, -22, 1.8]] as const) {
+    moon += `<circle cx="${CX + x}" cy="${CY + y}" r="${r}" fill="none" stroke="${pal.ink}" stroke-width="0.5" opacity="0.6"/>`
+      + `<path d="M${f(CX + x - r * 0.7)} ${f(CY + y + r * 0.4)} a${r} ${r} 0 0 0 ${f(r * 1.4)} 0" fill="none" stroke="${pal.shade}" stroke-width="0.8" opacity="0.6"/>`;
+  }
+  moon += shadow(`M${CX + 6} ${CY - R - 1} A${R} ${R} 0 0 1 ${CX + 6} ${CY + R + 1} A${R * 0.62} ${R} 0 0 0 ${CX + 6} ${CY - R - 1} Z`, pal.shade, 0.55, 'fine');
+  moon += shadow(`M${CX + 16} ${CY - R} A${R} ${R} 0 0 1 ${CX + 16} ${CY + R} A${R * 0.4} ${R} 0 0 0 ${CX + 16} ${CY - R} Z`, pal.deep, 0.5, 'xhatch');
+  s += `<circle cx="${CX}" cy="${CY}" r="${R + 6}" fill="#FFF6D8" opacity="0.35" filter="url(#soft)"/>`;
+  s += `<g clip-path="url(#${id}-m)">${moon}</g>`;
+  s += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${pal.ink}" stroke-width="1.4"/>`;
+  s += `<circle cx="${CX}" cy="${CY}" r="${R + 4}" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
+  s += rim(`M${CX - 22} ${CY - 22} A${R} ${R} 0 0 1 ${CX + 4} ${CY - R}`, '#FFFFFF', 1.2);
 
-  // Une carpe vue de dessus, nageant en arc autour de la lune.
-  const koi = (body: string, fin: string, spot: string, dark: boolean) => {
-    const a0 = -0.35, span = 2.85;
-    const N = 36;
-    const ctr: [number, number][] = [], nrm: [number, number][] = [], tan: [number, number][] = [];
-    for (let i = 0; i <= N; i++) {
-      const t = i / N, a = a0 - span * t, r = R0 + Math.sin(t * Math.PI * 1.6) * 6;
-      ctr.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r]);
-    }
-    for (let i = 0; i <= N; i++) {
-      const [xa, ya] = ctr[Math.max(0, i - 1)], [xb, yb] = ctr[Math.min(N, i + 1)];
-      const l = Math.hypot(xb - xa, yb - ya) || 1;
-      tan.push([(xb - xa) / l, (yb - ya) / l]);
-      nrm.push([-(yb - ya) / l, (xb - xa) / l]);
-    }
-    const tb = 0.84;
-    const wd = (t: number) => {
-      if (t < 0.1) return 8 + Math.sqrt(t / 0.1) * 11;
-      if (t < 0.32) return 19 + ((t - 0.1) / 0.22) * 3;
-      return 22 - Math.pow((t - 0.32) / (tb - 0.32), 1.3) * 18;
-    };
-    const at = (t: number, off: number) => {
-      const i = Math.min(N, Math.round(t * N));
-      return [ctr[i][0] + nrm[i][0] * off, ctr[i][1] + nrm[i][1] * off];
-    };
-    const P = (x: number, y: number) => `${f(x)} ${f(y)}`;
-    let o = '';
-    const ib = Math.round(tb * N);
-    const [bx, by] = ctr[ib], [tx, ty] = tan[ib], [nx, ny] = nrm[ib];
-    // Queue voilée (deux lobes ondulants).
-    for (const sg of [1, -1]) {
-      const p1 = [bx + tx * 20 + nx * sg * 14, by + ty * 20 + ny * sg * 14];
-      const tip = [bx + tx * 50 + nx * sg * 32, by + ty * 50 + ny * sg * 32];
-      const p2 = [bx + tx * 36 + nx * sg * 6, by + ty * 36 + ny * sg * 6];
-      const d = `M${P(bx + nx * sg * 2, by + ny * sg * 2)} Q${P(p1[0] - nx * sg * 2, p1[1] - ny * sg * 2)} ${P(tip[0], tip[1])} Q${P(p2[0] + nx * sg * 6, p2[1] + ny * sg * 6)} ${P(p2[0], p2[1])} Q${P(bx + tx * 22, by + ty * 22)} ${P(bx + tx * 24 - nx * sg * 2, by + ty * 24 - ny * sg * 2)} Q${P(bx + tx * 10, by + ty * 10)} ${P(bx, by)} Z`;
-      o += ink(d, fin, 2, ' opacity="0.95"');
-      o += line(`M${P(bx + tx * 4, by + ty * 4)} L${P(bx + tx * 30 + nx * sg * 18, by + ty * 30 + ny * sg * 18)} M${P(bx + tx * 6, by + ty * 6)} L${P(bx + tx * 26 + nx * sg * 8, by + ty * 26 + ny * sg * 8)}`, 1, '#1A1230', ' opacity="0.45"');
-      o += sparkle(tip[0], tip[1], 3.4, pal.glow);
-    }
-    // Nageoires pectorales et pelviennes.
-    for (const [t, len, w] of [[0.2, 30, 14], [0.55, 18, 8]] as [number, number, number][]) {
-      const i = Math.round(t * N), [x0, y0] = ctr[i], [ax, ay] = tan[i], [mx, my] = nrm[i], ww = wd(t);
-      for (const sg of [1, -1]) {
-        const bx2 = x0 + mx * sg * ww * 0.8, by2 = y0 + my * sg * ww * 0.8;
-        const tip = [bx2 + ax * len * 0.8 + mx * sg * len * 0.7, by2 + ay * len * 0.8 + my * sg * len * 0.7];
-        const d = `M${P(bx2 - ax * 3, by2 - ay * 3)} Q${P(bx2 + mx * sg * w + ax * 2, by2 + my * sg * w + ay * 2)} ${P(tip[0], tip[1])} Q${P(bx2 + ax * len * 0.7, by2 + ay * len * 0.7)} ${P(bx2 + ax * 8, by2 + ay * 8)} Z`;
-        o += ink(d, fin, 1.8);
-        o += line(`M${P(bx2, by2)} L${P(tip[0] * 0.8 + bx2 * 0.2, tip[1] * 0.8 + by2 * 0.2)}`, 0.9, '#1A1230', ' opacity="0.45"');
-      }
-    }
-    // Corps.
-    const left: string[] = [], right: string[] = [];
-    for (let i = 0; i <= ib; i++) {
-      const t = i / N, w = wd(t), [x, y] = ctr[i], [mx, my] = nrm[i];
-      left.push(P(x + mx * w, y + my * w)); right.push(P(x - mx * w, y - my * w));
-    }
-    const [hx, hy] = ctr[0], [hax, hay] = tan[0];
-    const snout = P(hx - hax * 8, hy - hay * 8);
-    o += ink(`M${right[0]} Q${snout} ${left[0]} L${left.join(' L')} L${right.reverse().join(' L')} Z`, body, 2.6);
-    // Ombre hachurée côté intérieur.
-    const sh1: string[] = [], sh2: string[] = [];
-    for (let i = 2; i <= ib; i++) {
-      const t = i / N, w = wd(t), [x, y] = ctr[i], [mx, my] = nrm[i];
-      sh1.push(P(x - mx * w, y - my * w)); sh2.push(P(x - mx * w * 0.35, y - my * w * 0.35));
-    }
-    o += shadow(`M${sh1.join(' L')} L${sh2.reverse().join(' L')} Z`, dark ? '#1A1230' : pal.shade, dark ? 0.35 : 0.55);
-    // Taches de koi.
-    for (const [t, off, rr] of [[0.14, -4, 6], [0.3, 6, 8], [0.47, -5, 6.5], [0.62, 3, 4.5]] as [number, number, number][]) {
-      const [x, y] = at(t, off);
-      o += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rr)}" ry="${f(rr * 0.75)}" fill="${spot}" stroke="#1A1230" stroke-width="1" transform="rotate(${f((Math.atan2(tan[Math.round(t * N)][1], tan[Math.round(t * N)][0]) * 180) / Math.PI)} ${f(x)} ${f(y)})"/>`;
-    }
-    // Arête dorsale en pointillés d'étoiles.
-    for (let t = 0.24; t < 0.8; t += 0.07) {
-      const [x, y] = at(t, 0);
-      o += `<circle cx="${f(x)}" cy="${f(y)}" r="1.4" fill="${dark ? pal.glow : '#FFFFFF'}"/>`;
-    }
-    // Écailles (petits arcs).
-    for (const [t, off] of [[0.36, -9], [0.42, 9], [0.5, 2], [0.58, -6], [0.66, 6], [0.72, -2]] as [number, number][]) {
-      const i = Math.round(t * N), [x, y] = at(t, off), [ax, ay] = tan[i], [mx, my] = nrm[i];
-      o += line(`M${P(x + mx * 3, y + my * 3)} Q${P(x - ax * 3, y - ay * 3)} ${P(x - mx * 3, y - my * 3)}`, 1, dark ? pal.light : pal.shade, ' opacity="0.7"');
-    }
-    // Reflet.
-    const sl: string[] = [];
-    for (let i = 5; i < 18; i++) { const [x, y] = at(i / N, wd(i / N) * 0.6); sl.push(P(x, y)); }
-    o += line(`M${sl.join(' L')}`, 2, '#FFFFFF', ' opacity="0.8"');
-    // Tête : yeux sur les côtés, barbillons.
-    for (const sg of [1, -1]) {
-      const [ex, ey] = at(0.06, sg * 12);
-      o += eye(ex, ey, 5, pal.eye, 0);
-      const [wx, wy] = at(0.02, sg * 6);
-      o += line(`M${P(wx, wy)} q${f(-hax * 8 + nrm[0][0] * sg * 6)} ${f(-hay * 8 + nrm[0][1] * sg * 6)} ${f(-hax * 14 + nrm[0][0] * sg * 14)} ${f(-hay * 14 + nrm[0][1] * sg * 14)}`, 1.4, dark ? pal.light : '#1A1230');
-    }
-    const [mx0, my0] = at(0, 0);
-    o += `<circle cx="${f(mx0 - hax * 5)}" cy="${f(my0 - hay * 5)}" r="2" fill="#1A1230"/>`;
-    // Marque lunaire sur le front.
-    const [fx, fy] = at(0.09, 0);
-    o += dark ? sparkle(fx, fy, 4.5, pal.glow) : `<path d="M${f(fx - 3)} ${f(fy - 4)} a5 5 0 1 0 6 7 a4 4 0 1 1 -6 -7 Z" fill="${pal.accent}" stroke="#1A1230" stroke-width="1"/>`;
-    return o;
-  };
+  // Les deux carpes (la seconde = rotation de 180°).
+  s += koi(c, 'a', '#F1E6CE', pal.accent, pal.gold, false);
+  s += `<g transform="rotate(180 ${CX} ${CY})">${koi(c, 'b', pal.deep, pal.gold, pal.light, true)}</g>`;
 
-  // Carpe claire (en haut) et carpe sombre (rotation de 180°).
-  s += koi('#FFF6D8', pal.light, pal.accent, false);
-  s += `<g transform="rotate(180 ${cx} ${cy})">` + koi(pal.shade, pal.body, pal.glow, true) + '</g>';
-
-  // Étincelles autour.
-  s += sparkle(22, 30, 4.4, pal.glow) + sparkle(204, 206, 4.2, '#FFF6D8') + sparkle(196, 28, 3.4, pal.accent2) + sparkle(26, 210, 3.4, pal.accent2);
+  // Bulles d'étoiles et constellation.
+  s += constellation([[22, 30], [34, 22], [46, 28]], pal.gold) + constellation([[176, 200], [190, 192], [202, 200]], pal.gold);
+  for (const [x, y, z] of [[196, 30, 3.4], [24, 196, 3], [111, 18, 2.2], [111, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
   return s;
 };

@@ -96,6 +96,78 @@ function kit(c: DrawCtx): string {
   return g;
 }
 
+/** Tête adulte de profil trois-quarts (nez vers (46, 84)). */
+function foxHead(c: DrawCtx): string {
+  const { pal } = c;
+  let g = '';
+  // Oreille lointaine.
+  g += ink('M98 62 C93 46 93 30 97 16 C106 24 112 40 113 58 Z', pal.deep, 1.5);
+  // Tête.
+  const head = 'M46 84 C56 80 66 76 76 70 C82 62 92 56 104 56 C114 56 122 64 122 76 C122 86 118 94 112 100 L114 106 L104 105 L106 110 L94 107 C84 104 72 99 62 96 C56 94 50 92 46 90 C43 88 43 86 46 84 Z';
+  g += ink(head, pal.body, 1.8);
+  g += shadow('M122 76 C122 86 118 94 112 100 L114 106 L104 105 C110 96 114 86 112 72 C110 64 106 60 104 56 C114 56 122 64 122 76 Z', pal.shade, 0.75, 'fine');
+  g += ink('M47 89 C56 90 66 88 76 86 C88 84 98 90 106 100 L110 105 L102 105 L105 109 L94 107 C84 104 72 99 62 96 C56 95 50 93 47 89 Z', pal.belly, 1);
+  g += ink('M106 62 C110 46 118 32 129 22 C133 38 132 54 124 72 Z', pal.body, 1.6);
+  g += ink('M110 60 C114 48 120 38 127 30 C129 42 127 54 121 66 Z', pal.deep, 0);
+  g += fur(c, 117, 60, 9, -70, 4, 6, pal.light, 0.8);
+  g += ink('M40 84 C42 80 49 80 51 83 C50 88 44 89 41 87 Z', pal.ink, 0);
+  g += line('M48 90 C55 92 61 92 66 92', 1);
+  g += line('M60 82 C66 80 72 76 76 72', 0.8, pal.shade);
+  g += eyeA(78, 72, 6.5, pal.eye, { angle: -16 });
+  g += line('M72 78 C70 84 66 88 62 90', 0.9, pal.ink);
+  g += fur(c, 98, 76, 7, 150, 4, 8, pal.shade) + fur(c, 116, 98, 7, 100, 3, 6);
+  g += rim('M46 84 C56 80 66 76 76 70 C82 62 92 56 104 56', pal.glow, 1.2);
+  g += rim('M108 60 C112 46 118 34 128 23', pal.light, 0.9);
+
+  return g;
+}
+
+/** Stade 1 : sub-adulte debout, à l'arrêt, patte avant levée ; queue basse qui remonte en comète. */
+function young(c: DrawCtx): string {
+  const { pal } = c;
+  const id = 'lumikit-1';
+  let g = ground(122, 205, 84);
+  // Queue pendante, touffue, dont la pointe-comète frôle le sol.
+  const outer: Chain = [174, 102, 198, 102, 216, 120, 218, 148, 220, 174, 210, 196, 188, 201];
+  const inner: Chain = [188, 201, 192, 186, 190, 168, 186, 152, 184, 140, 180, 132, 172, 128];
+  const tail = `M174 104${tufts(outer, 8, 3.2, -1, 1)}${tufts(inner, 7, 2.4, -1, -1)} Z`;
+  g += nebula(c, `${id}-t`, tail, [[204, 140, 12, 22, pal.accent, 0.6], [200, 176, 10, 14, pal.accent2, 0.55], [194, 196, 10, 8, '#FFF6D8', 0.95], [190, 110, 16, 10, pal.shade, 0.9]], [202, 150, 12, 40, 16]);
+  g += ink(tail, 'none', 1.6) + line('M184 110 C200 114 208 132 208 156 C208 174 204 186 196 194', 0.7, pal.light, ' opacity="0.55"');
+  g += constellation([[192, 116], [204, 132], [206, 156], [202, 178]]);
+  g += glowDot(194, 196, 7, '#FFF6D8') + sparkle(193, 195, 4.5, '#FFF6D8', false);
+  // Pattes lointaines (dans l'ombre).
+  g += ink('M100 142 C101 160 101 172 100 182 C100 190 99 196 98 199 C95 200 93 202 93 205 L106 205 C106 202 105 199 106 196 C107 188 108 180 108 170 L111 142 Z', pal.shade, 1.2);
+  g += shadow('M100 142 C101 160 101 172 100 182 C100 190 99 196 98 199 C95 200 93 202 93 205 L106 205 C106 202 105 199 106 196 C107 188 108 180 108 170 L111 142 Z', pal.deep, 0.5, 'xhatch');
+  g += ink('M146 136 C148 152 152 166 156 176 L151 199 C148 200 145 202 145 205 L157 205 C158 200 160 192 164 180 C163 166 161 150 159 136 Z', pal.shade, 1.2);
+  g += shadow('M146 136 C148 152 152 166 156 176 L151 199 C148 200 145 202 145 205 L157 205 C158 200 160 192 164 180 C163 166 161 150 159 136 Z', pal.deep, 0.5, 'xhatch');
+  // Corps : poitrail profond, ventre qui remonte vers les hanches.
+  const body = 'M84 98 C70 108 66 124 72 140 C80 152 100 154 116 150 C132 146 148 142 162 138 C176 134 184 122 182 110 C180 98 170 92 158 94 C144 96 132 102 120 98 C114 94 110 84 110 72 L96 80 Z';
+  g += ink(body, pal.body, 1.8);
+  g += shadow('M72 140 C80 152 100 154 116 150 C132 146 148 142 162 138 C148 138 138 136 122 140 C104 144 88 144 72 140 Z', pal.shade, 0.85, 'xhatch');
+  g += shadow('M120 98 C132 102 144 96 158 94 C170 92 180 98 182 110 C168 104 150 104 134 108 C126 108 122 104 120 98 Z', pal.shade, 0.55, 'fine');
+  g += line('M90 104 C100 112 104 126 100 140', 1.1) + shadow('M100 140 C104 126 100 112 90 104 C104 110 112 126 108 142 Z', pal.shade, 0.45, 'fine');
+  g += fur(c, 128, 112, 8, 80, 3, 6) + fur(c, 112, 110, 7, 70, 3, 5) + fur(c, 138, 138, 6, 100, 3, 6, pal.light) + fur(c, 156, 104, 7, 70, 3, 6);
+  g += rim('M120 98 C132 102 144 96 158 94 C170 92 180 98 182 110', pal.light, 1.1);
+  // Plastron.
+  g += ink('M84 98 C70 108 66 124 72 140 C76 145 82 147 88 146 C88 138 90 132 92 126 L88 120 L94 115 L89 109 L94 103 Z', pal.belly, 1.1);
+  g += fur(c, 80, 130, 7, 95, 3, 5, pal.shade);
+  g += rim('M82 100 C70 110 66 124 70 134', '#FFF6D8', 1.1);
+  // Patte arrière proche.
+  g += ink('M146 118 C148 132 152 146 158 154 C162 162 166 170 168 178 L166 198 C163 200 160 202 160 205 L175 205 C176 200 176 194 176 184 L178 176 C182 168 182 158 180 148 C182 136 182 120 174 110 C166 104 154 108 146 118 Z', pal.body, 1.6);
+  g += shadow('M180 148 C182 158 182 168 178 176 L176 184 C174 172 172 160 168 152 C174 150 178 146 180 148 Z', pal.shade, 0.8, 'fine');
+  g += ink('M167 186 L166 198 C163 200 160 202 160 205 L175 205 C176 200 176 194 176 186 Z', pal.deep, 1.1);
+  g += line('M154 124 C164 122 172 128 174 140', 0.9) + fur(c, 164, 130, 7, 80, 3, 8);
+  g += rim('M147 120 C149 134 153 146 159 154', pal.light, 0.9);
+  // Patte avant proche levée : avant-bras à l'horizontale, patte pendante.
+  g += ink('M84 128 C86 138 88 144 86 148 C80 150 72 150 68 152 C64 154 62 160 62 166 C62 172 64 178 67 180 C70 182 73 179 71 175 C69 170 69 164 72 160 C78 158 88 160 96 160 C102 158 106 152 104 142 L102 128 Z', pal.body, 1.5);
+  g += ink('M70 151 C66 152 63 156 62 162 C62 170 64 178 67 180 C70 182 73 179 71 175 C69 170 69 164 72 160 C71.5 157 71 154 70 151 Z', pal.deep, 1.1);
+  g += shadow('M72 160 C78 158 88 160 96 160 C102 158 106 152 104 142 C102 150 96 154 86 154 C80 154 76 156 72 160 Z', pal.shade, 0.6, 'fine');
+  g += rim('M84 130 C86 138 88 144 86 148 C80 150 72 150 68 152', pal.light, 1);
+  // Tête un peu plus fine que l'adulte.
+  g += `<g transform="translate(110 96) scale(0.86) translate(-112 -100)">${foxHead(c)}${sparkle(97, 60, 3.2, pal.gold, false)}</g>`;
+  return g;
+}
+
 function adult(c: DrawCtx): string {
   const { pal, stage } = c;
   const id = `lumikit-${stage}`;
@@ -145,24 +217,7 @@ function adult(c: DrawCtx): string {
   g += rim('M85 150 C85.5 160 86 170 86 178', pal.light, 1);
   g += shadow('M98 146 C95 162 93 176 93.6 178 C92 170 91 160 92 148 Z', pal.shade, 0.6, 'fine');
 
-  // Oreille lointaine.
-  g += ink('M98 62 C93 46 93 30 97 16 C106 24 112 40 113 58 Z', pal.deep, 1.5);
-  // Tête.
-  const head = 'M46 84 C56 80 66 76 76 70 C82 62 92 56 104 56 C114 56 122 64 122 76 C122 86 118 94 112 100 L114 106 L104 105 L106 110 L94 107 C84 104 72 99 62 96 C56 94 50 92 46 90 C43 88 43 86 46 84 Z';
-  g += ink(head, pal.body, 1.8);
-  g += shadow('M122 76 C122 86 118 94 112 100 L114 106 L104 105 C110 96 114 86 112 72 C110 64 106 60 104 56 C114 56 122 64 122 76 Z', pal.shade, 0.75, 'fine');
-  g += ink('M47 89 C56 90 66 88 76 86 C88 84 98 90 106 100 L110 105 L102 105 L105 109 L94 107 C84 104 72 99 62 96 C56 95 50 93 47 89 Z', pal.belly, 1);
-  g += ink('M106 62 C110 46 118 32 129 22 C133 38 132 54 124 72 Z', pal.body, 1.6);
-  g += ink('M110 60 C114 48 120 38 127 30 C129 42 127 54 121 66 Z', pal.deep, 0);
-  g += fur(c, 117, 60, 9, -70, 4, 6, pal.light, 0.8);
-  g += ink('M40 84 C42 80 49 80 51 83 C50 88 44 89 41 87 Z', pal.ink, 0);
-  g += line('M48 90 C55 92 61 92 66 92', 1);
-  g += line('M60 82 C66 80 72 76 76 72', 0.8, pal.shade);
-  g += eyeA(78, 72, 6.5, pal.eye, { angle: -16 });
-  g += line('M72 78 C70 84 66 88 62 90', 0.9, pal.ink);
-  g += fur(c, 98, 76, 7, 150, 4, 8, pal.shade) + fur(c, 116, 98, 7, 100, 3, 6);
-  g += rim('M46 84 C56 80 66 76 76 70 C82 62 92 56 104 56', pal.glow, 1.2);
-  g += rim('M108 60 C112 46 118 34 128 23', pal.light, 0.9);
+  g += foxHead(c);
 
   // Marques célestes.
   if (stage >= 2) g += gild('M92 62 a5 5 0 1 0 8 -3 a4 4 0 1 1 -8 3 Z', 1.1);
@@ -172,11 +227,16 @@ function adult(c: DrawCtx): string {
     g += gild('M84 120 l4 -6 l4 6 l-4 6 Z M86 140 l3 -4 l3 4 l-3 4 Z', 1);
     g += glowDot(78, 72, 12, pal.eye);
     g += constellation([[24, 48], [40, 36], [58, 44], [66, 28]], pal.gold);
+    // Filets d'or le long du dos, des oreilles et de la queue ; diadème d'étoiles.
+    g += gild('M118 72 C124 88 132 106 142 118 C154 134 162 156 164 172', 1.3) + gild('M106 62 C110 46 118 32 129 22', 1.1) + gild('M210 134 C214 160 200 186 170 194', 1.2);
+    g += gild('M90 150 c-6 -6 -6 -16 2 -20 c-4 6 -2 14 4 18 Z', 1);
+    for (const [x, y, z] of [[100, 40, 3.2], [112, 30, 4.2], [124, 14, 3.2]] as const) g += sparkle(x, y, z, pal.gold, false);
     for (const [x, y, z] of [[30, 120, 4], [56, 160, 3], [140, 26, 3.5], [36, 190, 3]] as const) g += sparkle(x, y, z, pal.glow, false);
   }
   return g;
 }
 
 export const lumikit: Species = (c) => {
-  return `<g transform="translate(116 205) scale(0.95) translate(-116 -205)">${c.stage === 0 ? kit(c) : adult(c)}</g>`;
+  const k = [1.14, 0.97, 0.95, 0.95, 0.95][c.stage] ?? 0.95;
+  return `<g transform="translate(114 205) scale(${k}) translate(-114 -205)">${c.stage === 0 ? kit(c) : c.stage === 1 ? young(c) : adult(c)}</g>`;
 };

@@ -24,6 +24,13 @@ function cr(q: Pt[], closed = false): string {
 
 const clip = (id: string, d: string, inner: string) => `<clipPath id="${id}"><path d="${d}"/></clipPath><g clip-path="url(#${id})">${inner}</g>`;
 
+/** Hachures de gravure : copies décalées d'une courbe (suivent la forme), qui s'estompent. */
+function contour(q: Pt[], dx: number, dy: number, n: number, w = 0.6, color = '#140F24', op = 0.6): string {
+  let s = '';
+  for (let i = 0; i < n; i++) s += `<path d="${cr(q.map((p) => [p[0] + dx * i, p[1] + dy * i] as Pt))}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" opacity="${f(op * (1 - i / n))}"/>`;
+  return s;
+}
+
 /** Taches de pelage (petites ellipses sombres, dispersées dans une zone). */
 function spots(c: DrawCtx, cx: number, cy: number, rx: number, ry: number, count: number, color: string, op = 0.55): string {
   let s = '';
@@ -99,7 +106,7 @@ function head(c: DrawCtx, id: string, tuft: number, ruff: number, young = 0): st
   const R = 6 + ruff * 12;
   const ruffD = C([[96, 84], [100, 100], [97, f(106 + R * 0.4)], [93, f(110 + R * 0.7), 1], [87, f(106 + R * 0.25)], [80, f(110 + R * 0.95), 1], [74, f(106 + R * 0.3)], [66, f(110 + R * 0.7), 1], [60, f(104 + R * 0.25)], [52, f(104 + R * 0.45), 1], [46, 100], [50, 92], [70, 86]], true);
   s += ink(ruffD, pal.belly, 1.4);
-  s += clip(`${id}-rf`, ruffD, shadow(cr([[90, 80], [104, 96], [100, 140], [80, 140], [86, 104]], true), pal.shade, 0.75, 'fine')
+  s += clip(`${id}-rf`, ruffD, shadow(cr([[92, 84], [104, 96], [100, 140], [86, 140], [90, 104]], true), pal.shade, 0.45, 'fine')
     + line(`M58 104 C66 108 72 114 76 ${f(110 + R * 0.8)} M68 102 C76 106 82 112 86 ${f(108 + R * 0.6)}`, 1, pal.ink, ' opacity="0.65"')
     + fur(c, 70, 108, 6 + R * 0.5, 100, 7, 14, pal.ink, 0.6));
   // Crâne et museau.
@@ -155,19 +162,22 @@ function standing(c: DrawCtx, id: string, o: { headRot: number; tuft: number; ru
     + `<path d="${cr([[62, 112], [76, 118], [86, 138], [84, 160], [62, 150]], true)}" fill="${pal.belly}" opacity="0.85"/>`
     + spots(c, 140, 124, 40, 18, 22, pal.ink, 0.45)
     + fur(c, 120, 152, 7, 95, 8, 30, pal.ink, 0.6) + fur(c, 76, 146, 7, 110, 5, 10, pal.ink, 0.6)
-    + fur(c, 150, 102, 6, -80, 6, 26, pal.ink, 0.5));
+    + fur(c, 150, 102, 6, -80, 6, 26, pal.ink, 0.5)
+    + contour([[70, 158], [100, 160], [130, 150], [156, 146], [182, 150]], 0, -2.4, 6, 0.6, pal.ink, 0.7));
   // Pattes proches (larges pattes « raquettes »).
   const hind = cr([[146, 112], [170, 104], [190, 118], [194, 140], [186, 158], [180, 172], [184, 184], [185, 198], [184, 205], [160, 205, 1], [160, 199], [167, 192], [168, 176], [162, 160], [150, 148], [142, 130]], true);
   s += ink(hind, pal.body, 1.1);
   s += clip(`${id}-hl`, hind, shadow(cr([[150, 150], [170, 160], [194, 150], [194, 210], [170, 210]], true), pal.shade, 0.85, 'fine')
     + shadow(cr([[176, 106], [200, 118], [196, 160], [186, 150], [184, 126]], true), pal.shade, 0.7, 'fine')
-    + spots(c, 166, 132, 16, 16, 9, pal.ink, 0.5) + fur(c, 160, 150, 7, 120, 4, 10, pal.ink, 0.6));
+    + spots(c, 166, 132, 16, 16, 9, pal.ink, 0.5) + fur(c, 160, 150, 7, 120, 4, 10, pal.ink, 0.6)
+    + contour([[176, 104], [192, 122], [194, 142], [186, 160]], -2.3, 0, 6, 0.6, pal.ink, 0.7)
+    + contour([[162, 162], [168, 178], [168, 192], [166, 206]], 2.2, 0, 4, 0.6, pal.ink, 0.6));
   s += line(cr([[170, 104], [190, 118], [194, 140], [186, 158], [180, 172], [184, 184], [185, 198], [184, 205]]), 1.7);
   s += line('M150 146 C160 140 172 140 184 150', 0.9, pal.ink, ' opacity="0.6"');
   const fore = cr([[72, 118], [96, 120], [98, 140], [92, 160], [88, 180], [89, 196], [92, 205], [64, 205, 1], [64, 199], [72, 193], [74, 176], [74, 154], [70, 136]], true);
   s += ink(fore, pal.body, 1.7);
   s += clip(`${id}-fl`, fore, shadow(cr([[86, 120], [104, 124], [100, 210], [84, 210], [90, 160]], true), pal.shade, 0.8, 'fine')
-    + spots(c, 84, 150, 8, 18, 6, pal.ink, 0.5));
+    + spots(c, 84, 150, 8, 18, 6, pal.ink, 0.5) + contour([[96, 122], [98, 140], [92, 160], [88, 182], [90, 206]], -2.2, 0, 5, 0.6, pal.ink, 0.7));
   s += line('M70 205 L71 200 M77 205 L78 199 M84 205 L84 200 M166 205 L167 200 M173 205 L174 199', 0.8);
   s += rim('M94 97 C118 104 146 100 170 96 C180 98 186 104 190 114', pal.glow, 1.2);
   if (o.gold) {
@@ -225,14 +235,14 @@ export const lynxaure: Species = (c) => {
     g += curtain(c, `${id}-a1`, [[86, 100], [110, 90], [138, 88], [164, 78], [188, 62]], 46, [pal.accent, pal.accent2, pal.glow]);
     g += curtain(c, `${id}-a2`, [[96, 108], [124, 102], [150, 100], [176, 92], [196, 80]], 30, [pal.glow, pal.accent, pal.accent2], 0.8);
     g += standing(c, id, { headRot: 2, tuft: 10, ruff: 0.5, gold: false, young: 0.3 });
-    return `<g transform="translate(111 206) scale(0.98) translate(-126 -206)">${g}</g>`;
+    return `<g transform="translate(111 206) scale(0.98) translate(-121 -206)">${g}</g>`;
   }
   // Adulte majestueux : posé sur un éperon rocheux, poitrail levé, grande crinière d'aurore en rideaux.
   const cols: [string, string, string] = [pal.accent, pal.accent2, pal.glow];
   let g = '';
-  g += curtain(c, `${id}-a1`, [[80, 88], [104, 84], [132, 78], [160, 66], [184, 44], [202, 14]], 62, cols);
-  g += curtain(c, `${id}-a2`, [[90, 98], [118, 96], [146, 90], [174, 78], [198, 58], [214, 36]], 46, [pal.glow, pal.accent, pal.accent2], 0.9);
-  g += curtain(c, `${id}-a3`, [[108, 104], [136, 102], [164, 96], [190, 86], [212, 70]], 30, [pal.accent2, pal.glow, pal.accent], 0.7);
+  g += curtain(c, `${id}-a1`, [[66, 82], [100, 84], [134, 78], [164, 64], [186, 42], [196, 18], [190, 0]], 64, cols);
+  g += curtain(c, `${id}-a2`, [[86, 94], [118, 96], [150, 92], [180, 84], [204, 70], [220, 50]], 44, [pal.glow, pal.accent, pal.accent2], 0.9);
+  g += curtain(c, `${id}-a3`, [[104, 104], [134, 104], [164, 100], [192, 98], [218, 92]], 26, [pal.accent2, pal.glow, pal.accent], 0.7);
   // Éperon rocheux gravé, plus haut à l'avant.
   const rock = cr([[22, 240], [30, 206], [50, 190, 1], [92, 186], [128, 196], [168, 202], [200, 204], [214, 212, 1], [222, 240]], true);
   g += ink(rock, pal.deep, 1.6) + clip(`${id}-rk`, rock, shadow(cr([[110, 200], [224, 200], [224, 244], [90, 244]], true), pal.ink, 0.5, 'xhatch')

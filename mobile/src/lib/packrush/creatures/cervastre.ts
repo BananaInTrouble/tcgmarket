@@ -52,7 +52,7 @@ function leg(id: string, c: DrawCtx, pts: Pw[], fill: string, far: boolean): str
   const e = pts[pts.length - 1];
   const inner = far ? shadow(d, c.pal.deep, 0.35, 'fine') : turn(d, fill, c.pal.shade, -pts[1][2] * 0.7, -1);
   return part(id, d, fill, inner + line(spl(pts.slice(1, 3).map(([x, y]) => [x + 0.6, y] as Pt)), 0.7, '#140F24', ' opacity="0.5"'), far ? 1.3 : 1.5)
-    + hoof(e[0], 205);
+    + hoof(e[0] + (e[1] < 195 ? 1 : 0), e[1] < 195 ? e[1] + 6 : 205);
 }
 
 /** Cerf adulte (stades 1 à 3), de profil vers la gauche, tête haute. */
@@ -81,7 +81,7 @@ function stag(c: DrawCtx): string {
       ];
     }
     let o = '';
-    const fill = st >= 3 ? (far ? pal.accent2 : pal.glow) : far ? pal.shade : pal.belly;
+    const fill = st >= 3 ? (far ? pal.light : pal.glow) : far ? pal.shade : pal.belly;
     beams.forEach((b, i) => {
       const d = tube(b);
       o += part(`${id}-a${far ? 'f' : 'n'}${i}`, d, fill, turn(d, fill, far ? pal.deep : pal.shade, -1.6, -0.6), far ? 1.1 : 1.3);
@@ -147,7 +147,8 @@ function stag(c: DrawCtx): string {
   g += rim('M66 55 C76 68 89 88 108 100 C128 96 150 97 168 102', pal.glow, 1.3);
 
   // ---- Pattes avant ----
-  g += leg(`${id}-ln1`, c, [[84, 140, 9], [81, 163, 4.6], [79, 176, 3.4], [78, 195, 2.8], [77, 200, 2.8]], pal.body, false);
+  const raised = st >= 2;
+  g += leg(`${id}-ln1`, c, raised ? [[84, 140, 9], [78, 158, 4.8], [68, 170, 3.5], [70, 182, 2.9], [73, 188, 2.8]] : [[84, 140, 9], [81, 163, 4.6], [79, 176, 3.4], [78, 195, 2.8], [77, 200, 2.8]], pal.body, false);
   g += leg(`${id}-ln2`, c, [[156, 128, 15], [163, 156, 7], [170, 174, 3.7], [166, 195, 2.9], [165, 200, 2.9]], pal.body, false);
 
   // ---- Bois de l'avant, oreilles, tête ----

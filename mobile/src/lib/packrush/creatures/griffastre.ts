@@ -1,159 +1,196 @@
-import { aura, eye, ground, ink, line, shadow, shine, sparkle, speckles, type Species } from './style.ts';
+import { constellation, eyeA, fur, gild, ground, ink, line, rim, shadow, sparkle, speckles, type Species } from './style.ts';
+import { band, f, feather, P, spline, tube, type Pt } from './legendkit.ts';
 
-/** Griffastre : griffon céleste (tête d'aigle, corps félin), ailes de plumes-étoiles, couronne de constellation (légendaire). */
+/**
+ * Griffastre : griffon céleste de profil, avant d'aigle et arrière de lion, une serre levée, ailes dressées
+ * « adossées » comme sur un blason. Les rémiges secondaires sont des fenêtres sur le ciel étoilé.
+ */
 export const griffastre: Species = (c) => {
   const { pal } = c;
-  const f = (v: number) => v.toFixed(1);
-  const P = (x: number, y: number) => `${f(x)} ${f(y)}`;
-  let s = '';
-  s += aura(118, 100, 100, pal.glow);
-  s += ground(130, 208, 82);
+  const lerp = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
-  // Plume en feuille : base (x,y), angle (degrés), longueur, demi-largeur.
-  const feather = (x: number, y: number, ang: number, l: number, w: number, fill: string, star: boolean, sw = 1.8) => {
-    const a = (ang * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a), nx = -dy, ny = dx;
-    const tx = x + dx * l, ty = y + dy * l;
-    const d = `M${P(x, y)} Q${P(x + dx * l * 0.45 + nx * w * 1.6, y + dy * l * 0.45 + ny * w * 1.6)} ${P(tx, ty)} Q${P(x + dx * l * 0.45 - nx * w * 1.6, y + dy * l * 0.45 - ny * w * 1.6)} ${P(x, y)} Z`;
-    let o = ink(d, fill, sw);
-    o += line(`M${P(x + dx * 4, y + dy * 4)} L${P(x + dx * l * 0.8, y + dy * l * 0.8)}`, 1, '#1A1230', ' opacity="0.55"');
-    if (star) o += sparkle(tx, ty, 4.2, pal.glow);
-    return o;
-  };
-
-  // Aile : os (épaule → coude → poignet → pointe), éventail de rémiges, couvertures pleines écaillées.
-  const wing = (dir: number, ox: number, oy: number, sc: number, col: string, col2: string, far: boolean) => {
-    const X = (x: number) => ox + dir * x * sc, Y = (y: number) => oy - (112 - y) * sc;
-    const bone: [number, number][] = [[0, 112], [8, 62], [32, 26], [66, 10]];
-    const at = (t: number) => {
-      const seg = Math.min(2, Math.floor(t * 3)), u = t * 3 - seg;
-      const [x0, y0] = bone[seg], [x1, y1] = bone[seg + 1];
-      return [x0 + (x1 - x0) * u, y0 + (y1 - y0) * u];
-    };
-    const ang = (deg: number) => (dir > 0 ? deg : 180 - deg);
-    const dirv = (deg: number) => { const a = (ang(deg) * Math.PI) / 180; return [Math.cos(a), Math.sin(a)]; };
+  // Aile : os (épaule, coude, poignet, main), rémiges primaires et secondaires, couvertures.
+  const wing = (S: Pt, E: Pt, W: Pt, H: Pt, prim: Pt[], sec: Pt[], far: boolean) => {
     let o = '';
-    // Rémiges : de la pointe (primaires, vers le haut) à l'épaule (secondaires, vers le bas).
-    const n = 12;
-    for (let i = 0; i < n; i++) {
-      const t = 1 - i / (n - 1);
-      const [bx, by] = at(0.22 + t * 0.78);
-      const deg = 112 - t * 34;
-      const l = (28 + t * 32) * sc;
-      o += feather(X(bx), Y(by), ang(deg), l, 8 * sc, i % 2 ? col : col2, t > 0.3 && !far && i % 2 === 0, far ? 1.6 : 1.9);
-    }
-    // Couvertures : masse pleine bordée d'écailles.
-    const top: string[] = [], bot: string[] = [];
-    const m = 8;
-    for (let i = 0; i <= m; i++) {
-      const t = i / m, [bx, by] = at(0.02 + t * 0.96), [dx, dy] = dirv(112 - t * 34);
-      top.push(`${f(X(bx) - dx * 4)} ${f(Y(by) - dy * 4)}`);
-      bot.push([X(bx) + dx * 22 * sc, Y(by) + dy * 22 * sc].map(f).join(' '));
-    }
-    let cov = `M${top.join(' L')}`;
-    const br = bot.reverse();
-    for (let i = 0; i < br.length; i++) {
-      const [x, y] = br[i].split(' ').map(Number);
-      if (i === 0) { cov += ` L${br[i]}`; continue; }
-      const [px, py] = br[i - 1].split(' ').map(Number);
-      cov += ` Q${f((x + px) / 2 + (dir > 0 ? 3 : -3))} ${f((y + py) / 2 + 5)} ${br[i]}`;
-    }
-    o += ink(cov + ' Z', far ? col : pal.light, 2);
-    // Petite rangée d'écailles.
-    for (let i = 1; i < m; i++) {
-      const t = i / m, [bx, by] = at(0.02 + t * 0.96), [dx, dy] = dirv(112 - t * 34);
-      const x = X(bx) + dx * 9 * sc, y = Y(by) + dy * 9 * sc;
-      o += line(`M${f(x - 4)} ${f(y - 1)} q4 5 8 0`, 1.1, far ? '#1A1230' : pal.shade, ' opacity="0.7"');
-    }
-    // Bord d'attaque.
-    const b = bone.map(([x, y]) => `${f(X(x))} ${f(Y(y))}`);
-    o += line(`M${b[0]} L${b[1]} L${b[2]} L${b[3]}`, 8 * sc, '#1A1230');
-    o += line(`M${b[0]} L${b[1]} L${b[2]} L${b[3]}`, 5 * sc, far ? col : pal.body);
-    if (!far) { o += line(`M${b[1]} L${b[2]} L${b[3]}`, 1.4, '#FFFFFF', ' opacity="0.8"'); o += sparkle(X(66), Y(10), 5.5, pal.glow); }
+    const fillP = far ? pal.shade : pal.body;
+    // Secondaires (derrière) : attachées le long du coude → poignet, pointes vers l'arrière.
+    sec.forEach((tip, i) => {
+      const base = lerp(W, E, i / (sec.length - 1) * 0.85 + 0.05);
+      const fe = feather(base, tip, far ? 5 : 7.5, 0.2);
+      o += ink(fe.d, pal.deep, far ? 0.9 : 1.1);
+      if (!far) {
+        o += `<path d="${fe.d}" fill="${i % 2 ? pal.accent2 : pal.accent}" opacity="0.18"/>`;
+        for (let k = 0; k < 3; k++) {
+          const q = lerp(base, tip, 0.45 + k * 0.17 + c.r() * 0.05);
+          o += `<circle cx="${f(q[0] + (c.r() - 0.5) * 4)}" cy="${f(q[1] + (c.r() - 0.5) * 4)}" r="${f(0.6 + c.r() * 0.7)}" fill="#FFF6D8"/>`;
+        }
+        const q = lerp(base, tip, 0.86);
+        o += gild(`M${P(lerp(q, tip, -0.2))} Q${P([q[0] + 2, q[1] + 2])} ${P(tip)}`, 0.7);
+      }
+      o += line(fe.rachis, 0.5, far ? pal.ink : pal.gold, ' opacity="0.55"');
+    });
+    // Primaires : le long du poignet → main.
+    prim.forEach((tip, i) => {
+      const base = lerp(W, H, i / (prim.length - 1));
+      const fe = feather(base, tip, 4, -0.15);
+      o += ink(fe.d, i % 2 ? fillP : far ? pal.deep : pal.light, far ? 0.9 : 1.1);
+      o += shadow(feather(lerp(base, tip, 0.05), tip, 1.8, -0.1).d, pal.shade, far ? 0.4 : 0.55, 'fine');
+      o += line(fe.rachis, 0.5, pal.ink, ' opacity="0.55"');
+    });
     return o;
   };
 
-  // Aile lointaine (derrière, plus sombre).
-  s += wing(-1, 98, 108, 0.95, pal.shade, pal.body, true);
+  let s = '';
+  s += ground(124, 208, 90);
 
-  // Queue féline, au sol, houppe en étoile.
-  s += ink(`M${P(172, 196)} C${P(200, 204)} ${P(214, 192)} ${P(210, 168)} C${P(208, 160)} ${P(202, 158)} ${P(200, 164)} C${P(204, 186)} ${P(196, 192)} ${P(176, 186)} Z`, pal.body, 2.2);
-  s += ink(`M${P(205, 166)} L${P(196, 150)} L${P(206, 156)} L${P(212, 140)} L${P(214, 158)} L${P(222, 156)} L${P(212, 168)} Z`, pal.accent, 1.8);
-  s += sparkle(211, 152, 4, pal.glow);
+  // ——— Aile lointaine ———
+  {
+    const S: Pt = [100, 100], E: Pt = [102, 68], W: Pt = [112, 42], H: Pt = [124, 30];
+    const prim: Pt[] = [[104, 8], [114, 4], [126, 4], [138, 8], [148, 14]];
+    const sec: Pt[] = [[146, 50], [146, 64], [142, 78]];
+    s += wing(S, E, W, H, prim, sec, true);
+    const cv = `M${P(S)} C98 88 98 76 ${P(E)} C106 58 108 50 ${P(W)} C116 36 120 32 ${P(H)} C132 34 134 42 130 52 C124 66 116 84 110 100 Z`;
+    s += ink(cv, pal.shade, 1.1) + shadow(cv, pal.deep, 0.5, 'xhatch');
+  }
 
-  // Corps félin assis.
-  const body = `M${P(84, 120)} C${P(76, 150)} ${P(80, 186)} ${P(94, 204)} L${P(156, 206)} C${P(190, 206)} ${P(196, 168)} ${P(180, 144)} C${P(166, 124)} ${P(132, 118)} ${P(108, 104)} Z`;
-  s += ink(body, pal.body, 2.8);
-  s += shadow(`M${P(150, 206)} C${P(186, 206)} ${P(192, 170)} ${P(178, 146)} C${P(184, 168)} ${P(176, 196)} ${P(142, 200)} Z`, pal.shade, 0.8);
-  // Cuisse arrière + patte de félin.
-  s += ink(`M${P(126, 200)} C${P(118, 168)} ${P(138, 144)} ${P(162, 150)} C${P(184, 158)} ${P(186, 188)} ${P(170, 202)} Z`, pal.body, 2.4);
-  s += shadow(`M${P(170, 202)} C${P(186, 188)} ${P(184, 160)} ${P(166, 152)} C${P(176, 168)} ${P(174, 190)} ${P(160, 200)} Z`, pal.shade, 0.7);
-  s += ink(`M${P(136, 206)} C${P(134, 194)} ${P(160, 192)} ${P(162, 206)} Z`, pal.light, 2);
-  s += line(`M${P(144, 206)} l0 -4 M${P(151, 206)} l0 -4`, 1.3);
-  // Constellation sur le flanc.
-  const st: [number, number][] = [[140, 160], [154, 166], [166, 160], [160, 180], [146, 184]];
-  s += line(`M${st.map(([x, y]) => P(x, y)).join(' L')}`, 1, '#FFF6D8', ' opacity="0.85" stroke-dasharray="2.5 2"');
-  for (const [x, y] of st) s += `<circle cx="${x}" cy="${y}" r="1.8" fill="#FFF6D8"/>`;
-  s += sparkle(154, 166, 3.6, pal.glow, false);
+  // ——— Queue de lion, pompon d'étoiles ———
+  const tailPath = spline([[194, 134], [210, 146], [214, 168], [206, 186], [196, 192]], 8);
+  s += ink(tube(tailPath, (u) => 3.4 - u * 1.6), pal.body, 1.2);
+  s += shadow(band(tailPath, (u) => 3.4 - u * 1.6, -1, 0), pal.shade, 0.8, 'fine');
+  s += ink('M196 188 C188 186 182 192 184 198 C186 204 194 206 200 202 C204 198 202 190 196 188 Z', pal.deep, 1.1);
+  s += fur(c, 192, 196, 6, 160, 4, 5, pal.light, 0.7) + sparkle(190, 198, 3, pal.gold, false);
 
-  // Aile proche (devant le corps, derrière la tête).
-  s += wing(1, 124, 128, 1.1, pal.body, pal.accent, false);
+  // ——— Pattes lointaines (sombres) ———
+  const farHind = 'M142 140 C142 154 148 164 158 170 C162 176 164 186 162 196 C160 200 156 202 154 204 C156 208 166 208 172 207 C174 202 170 198 170 194 C172 184 172 174 170 166 C166 156 162 146 160 136 Z';
+  s += ink(farHind, pal.shade, 1.2) + shadow(farHind, pal.deep, 0.55, 'xhatch');
+  // Patte avant lointaine (aigle) : culotte de plumes, tarse écailleux, serres.
+  s += ink('M88 146 C86 160 90 172 94 180 L106 180 C108 170 108 158 106 146 Z', pal.shade, 1.1);
+  s += fur(c, 98, 172, 6, 100, 4, 6, pal.ink, 0.6);
+  s += ink('M95 178 C94 186 94 192 95 199 L104 199 C104 192 104 186 105 178 Z', pal.shade, 1);
+  s += shadow('M95 178 C94 186 94 192 95 199 L104 199 C104 192 104 186 105 178 Z', pal.deep, 0.6, 'xhatch');
+  for (let k = 0; k < 5; k++) s += line(`M95 ${182 + k * 3.4} q5 2 9 0`, 0.5, pal.ink, ' opacity="0.6"');
+  for (const [a, b] of [[[97, 198], [82, 205]], [[99, 199], [90, 207]], [[102, 198], [110, 205]]] as [Pt, Pt][]) {
+    s += ink(tube(spline([a, b], 4), (u) => 2.6 - u), pal.shade, 0.9);
+    s += ink(`M${P(b)} q${b[0] < a[0] ? -3 : 3} 1 ${b[0] < a[0] ? -4 : 4} 4 q${b[0] < a[0] ? 2 : -2} -2 ${b[0] < a[0] ? 2 : -2} -4 Z`, pal.ink, 0.6);
+  }
 
-  // Pattes avant d'aigle : écailles + serres.
-  for (const x of [88, 112]) {
-    s += ink(`M${P(x - 7, 150)} C${P(x - 8, 170)} ${P(x - 5, 186)} ${P(x - 4, 198)} L${P(x + 5, 198)} C${P(x + 5, 186)} ${P(x + 7, 168)} ${P(x + 8, 150)} Z`, pal.glow, 2.2);
-    s += shadow(`M${P(x + 2, 152)} C${P(x + 2, 170)} ${P(x + 2, 186)} ${P(x + 1, 198)} L${P(x + 5, 198)} C${P(x + 5, 186)} ${P(x + 7, 168)} ${P(x + 8, 150)} Z`, pal.accent, 0.5);
-    s += line(`M${P(x - 6, 174)} q5 3 11 0 M${P(x - 5, 182)} q5 3 10 0 M${P(x - 5, 190)} q5 3 10 0`, 1.1, '#1A1230', ' opacity="0.6"');
-    for (const [k, a] of [[-11, -1], [-4, -0.3], [4, 0.4]] as [number, number][]) {
-      s += ink(`M${P(x, 196)} C${P(x + k * 0.5, 197)} ${P(x + k, 200)} ${P(x + k, 205)} L${P(x + k + 3, 205)} C${P(x + k + 3, 201)} ${P(x + 2, 199)} ${P(x + 2, 196)} Z`, pal.glow, 1.6);
-      s += ink(`M${P(x + k, 204)} q${f(a * 4 - 2)} 3 ${f(a * 3 - 4)} 2 q3 -1 6 -2 Z`, '#FFF6D8', 1.2);
+  // ——— Corps de lion ———
+  const body = 'M60 122 C56 138 64 150 80 153 C100 156 122 156 140 150 C150 147 156 144 162 142 C176 146 190 144 194 134 C198 122 190 110 176 106 C158 102 136 106 116 102 C104 98 94 88 88 74 L56 74 C54 90 56 106 60 122 Z';
+  s += ink(body, pal.body, 1.7);
+  s += shadow('M80 153 C100 156 122 156 140 150 C150 147 156 144 162 142 C150 144 136 146 120 146 C100 146 88 144 78 138 Z', pal.shade, 0.85, 'fine');
+  
+  // Côtes et muscles suggérés, pelage.
+  s += line('M128 118 C134 128 136 140 132 150', 0.6, pal.ink, ' opacity="0.4"') + line('M140 120 C146 130 148 142 146 152', 0.6, pal.ink, ' opacity="0.35"');
+  s += fur(c, 120, 154, 6, 95, 5, 12) + fur(c, 160, 112, 6, 160, 4, 8);
+  s += rim('M114 100 C134 104 160 104 178 108 C193 112 201 126 197 142', pal.glow, 1.1);
+  // Constellation dorée sur la cuisse.
+  s += constellation([[160, 124], [172, 120], [182, 130], [176, 142], [164, 140]], pal.gold);
+
+  // ——— Patte arrière proche (lion) ———
+  const hind = 'M158 118 C176 108 196 120 194 140 C193 152 190 160 192 168 C194 178 190 190 188 198 C192 200 195 204 192 208 L174 208 C170 206 172 202 177 200 C179 192 179 184 177 178 C170 172 162 166 158 158 C150 146 148 128 158 118 Z';
+  s += `<path d="${hind}" fill="${pal.body}"/>`;
+  s += line('M166 114 C180 110 196 122 194 140 C193 152 190 160 192 168 C194 178 190 190 188 198 C192 200 195 204 192 208 L174 208 C170 206 172 202 177 200 C179 192 179 184 177 178 C170 172 162 166 158 158', 1.6);
+  s += shadow('M194 140 C193 152 190 160 192 168 C194 178 190 190 188 198 L183 200 C185 190 186 180 184 170 C182 160 186 150 186 140 C186 130 180 122 172 118 C184 120 194 128 194 140 Z', pal.shade, 0.85, 'fine');
+  s += line('M174 208 C176 204 180 204 182 208 M182 208 C184 204 188 204 190 208', 0.7, pal.ink, ' opacity="0.7"');
+  s += line('M158 158 C164 150 172 146 180 148', 0.6, pal.ink, ' opacity="0.45"');
+  s += fur(c, 176, 140, 7, 110, 4, 8);
+
+  // Omoplate, flanc : musculature suggérée.
+  s += line('M100 142 C112 132 118 120 116 106', 0.7, pal.ink, ' opacity="0.45"') + line('M104 146 C114 140 122 134 128 124', 0.5, pal.ink, ' opacity="0.3"');
+  s += shadow('M100 142 C112 132 118 120 116 106 C124 116 124 132 114 146 Z', pal.shade, 0.35, 'fine');
+  s += fur(c, 108, 152, 5, 100, 6, 14, pal.ink, 0.6);
+  // ——— Cou et poitrail emplumés ———
+  const neck = 'M50 66 C48 86 52 108 60 122 C66 136 80 142 92 138 C100 130 104 116 100 100 C96 90 90 80 86 66 C78 56 60 56 50 66 Z';
+  s += ink(neck, pal.light, 1.4);
+  s += shadow('M100 100 C104 116 100 130 92 138 C96 124 96 110 90 98 C86 90 82 80 80 70 C86 76 92 88 100 100 Z', pal.shade, 0.6, 'fine');
+  // Écailles de plumes en rangs (gravure).
+  for (let row = 0; row < 7; row++) {
+    for (let k = 0; k < 4; k++) {
+      const x = 58 + k * 9 + (row % 2) * 4.5 + row * 1.6, y = 84 + row * 8;
+      if (x > 96 - row * 0.4 || (row > 5 && k > 2)) continue;
+      s += `<path d="M${f(x - 4)} ${f(y)} Q${f(x)} ${f(y + 5)} ${f(x + 4)} ${f(y)}" fill="none" stroke="${pal.ink}" stroke-width="0.55" opacity="0.5"/>`;
     }
   }
-
-  // Culottes de plumes en haut des pattes.
-  for (const x of [88, 112]) {
-    s += ink(`M${P(x - 10, 150)} C${P(x - 12, 164)} ${P(x - 10, 174)} ${P(x - 8, 180)} Q${P(x - 5, 176)} ${P(x - 3, 182)} Q${P(x, 177)} ${P(x + 3, 182)} Q${P(x + 6, 176)} ${P(x + 9, 180)} C${P(x + 11, 170)} ${P(x + 11, 160)} ${P(x + 10, 150)} Z`, pal.light, 2);
-    s += line(`M${P(x - 4, 160)} q2 6 0 12 M${P(x + 4, 158)} q2 6 0 12`, 1, pal.shade);
+  s += rim('M50 66 C48 86 52 108 60 122', pal.glow, 1.1);
+  // Lisière plumes → pelage : pointes de plumes débordant sur l'épaule.
+  for (let i = 0; i < 7; i++) {
+    const t = i / 6, x = 92 + t * 9 + Math.sin(t * 3) * 2, y = 84 + t * 54;
+    const fe = feather([x - 6, y - 3], [x + 7, y + 3], 2.6, 0.2);
+    s += ink(fe.d, pal.light, 0.7);
   }
-  s += speckles(c, 158, 176, 20, 18, 7);
+  s += gild('M58 118 C68 126 82 128 94 122 M62 124 l2 5 l2 -5', 1);
 
-  // Jabot de plumes (poitrail).
-  let ruff = `M${P(70, 92)}`;
-  const rp: [number, number][] = [[72, 108], [80, 120], [84, 134], [92, 146], [104, 150], [112, 140], [114, 124], [110, 108], [104, 96]];
-  for (const [x, y] of rp) ruff += ` Q${P(x - 6, y - 2)} ${P(x, y)}`;
-  s += ink(ruff + ' Z', pal.belly, 2.2);
-  for (const [x, y] of [[82, 116], [94, 128], [100, 140], [88, 104], [100, 114], [108, 126]] as [number, number][]) s += line(`M${P(x - 5, y - 3)} q5 5 10 0`, 1.1, pal.shade);
-  s += shine(`M${P(80, 106)} q2 8 8 14`, 1.8);
-
-  s += '<g transform="translate(86 86) scale(1.16) translate(-84 -80)">';
-  // Tête d'aigle (profil gauche) avec crête de plumes.
-  for (const [x, y, a, l] of [[94, 56, -40, 26], [100, 62, -24, 30], [104, 72, -8, 28], [104, 84, 10, 22]] as [number, number, number, number][]) {
-    s += feather(x, y, a, l, 5, pal.body, false, 1.8);
+  // ——— Aile proche ———
+  {
+    const S: Pt = [112, 102], E: Pt = [126, 70], W: Pt = [148, 46], H: Pt = [168, 32];
+    const prim: Pt[] = [[170, 2], [184, 3], [197, 9], [207, 19], [214, 31], [216, 44], [214, 57]];
+    const sec: Pt[] = [[208, 70], [202, 82], [192, 92], [180, 100], [166, 106], [152, 110]];
+    s += wing(S, E, W, H, prim, sec, false);
+    // Couvertures : bande le long du bras, rangs de plumes écailleux.
+    const cov = `M${P(S)} C114 88 118 78 ${P(E)} C134 60 140 52 ${P(W)} C154 40 160 35 ${P(H)} C172 34 174 38 170 44 C162 52 152 60 144 70 C136 80 128 94 122 106 Z`;
+    s += ink(cov, pal.body, 1.4);
+    // Grandes couvertures : rang de plumes courtes à la base des rémiges.
+    for (let i = 0; i < 9; i++) {
+      const t = i / 8;
+      const a: Pt = [170 - t * 48, 44 + t * 60];
+      const fe = feather(lerp(a, [a[0] - 6, a[1] - 6], 0.9), [a[0] + 10 + (1 - t) * 4, a[1] + 8 - t * 2], 3.6, 0.2);
+      s += ink(fe.d, i % 2 ? pal.light : pal.body, 0.8) + line(fe.rachis, 0.4, pal.ink, ' opacity="0.5"');
+    }
+    for (const [pts, sz] of [
+      [[[150, 44], [158, 40], [164, 38]], 3.6], [[[130, 70], [138, 62], [146, 54], [154, 48], [162, 44]], 4],
+      [[[120, 92], [126, 84], [132, 76], [140, 68], [148, 60]], 4.4],
+    ] as [Pt[], number][]) {
+      for (const [x, y] of pts) s += `<path d="M${f(x - sz)} ${f(y - 2)} Q${f(x)} ${f(y + sz * 0.9)} ${f(x + sz)} ${f(y - 2)}" fill="none" stroke="${pal.ink}" stroke-width="0.6" opacity="0.55"/>`;
+    }
+    s += shadow('M170 44 C162 52 152 60 144 70 C136 80 128 94 122 106 L118 102 C126 90 134 78 142 68 C150 58 160 50 170 44 Z', pal.shade, 0.7, 'fine');
+    s += rim(`M${P(S)} C112 84 116 72 ${P(E)} C132 50 140 40 ${P(W)} C156 24 164 18 ${P(H)}`, pal.glow, 1.3);
+    s += gild(`M118 96 C120 84 124 76 132 66 c5 -6 12 -5 11 1 c-1 4 -5 3 -4 0`, 0.9);
+    s += speckles(c, 184, 84, 20, 12, 12) + constellation([[160, 96], [174, 90], [186, 80], [196, 70]], '#FFF6D8');
   }
-  const head = `M${P(62, 72)} C${P(62, 52)} ${P(84, 44)} ${P(98, 52)} C${P(112, 60)} ${P(112, 82)} ${P(104, 96)} C${P(96, 104)} ${P(78, 104)} ${P(70, 96)} C${P(64, 90)} ${P(62, 82)} ${P(62, 72)} Z`;
-  s += ink(head, pal.light, 2.6);
-  s += shadow(`M${P(98, 52)} C${P(112, 60)} ${P(112, 82)} ${P(104, 96)} C${P(96, 104)} ${P(84, 104)} ${P(78, 100)} C${P(96, 96)} ${P(106, 76)} ${P(98, 52)} Z`, pal.body, 0.55);
-  // Bec crochu doré.
-  s += ink(`M${P(66, 68)} C${P(54, 64)} ${P(42, 70)} ${P(40, 82)} C${P(40, 90)} ${P(42, 96)} ${P(46, 98)} C${P(46, 92)} ${P(48, 86)} ${P(54, 84)} C${P(58, 84)} ${P(62, 86)} ${P(66, 88)} Z`, pal.glow, 2.4);
-  s += ink(`M${P(66, 88)} C${P(58, 86)} ${P(52, 88)} ${P(50, 92)} C${P(54, 96)} ${P(62, 96)} ${P(70, 94)} Z`, pal.glow, 2);
-  s += shadow(`M${P(62, 80)} C${P(54, 78)} ${P(46, 84)} ${P(45, 96)} C${P(46, 90)} ${P(50, 85)} ${P(56, 84)} C${P(60, 84)} ${P(64, 86)} ${P(66, 88)} Z`, pal.accent, 0.5);
-  s += `<circle cx="58" cy="74" r="1.5" fill="#1A1230"/>`;
-  s += shine(`M${P(52, 70)} q-6 2 -8 8`, 1.6);
-  // Œil perçant + sourcil.
-  s += eye(80, 70, 6.6, pal.eye, -0.6);
-  s += ink(`M${P(70, 62)} C${P(78, 56)} ${P(88, 58)} ${P(92, 64)} C${P(86, 62)} ${P(78, 62)} ${P(70, 64)} Z`, pal.ink, 1.2);
-  s += line(`M${P(72, 80)} q8 4 16 0`, 1.2, pal.shade);
-  // Marque d'étoile sur la joue.
-  s += sparkle(92, 84, 3.6, pal.glow, false);
 
-  s += '</g>';
+  // ——— Tête d'aigle ———
+  const head = 'M86 66 C88 52 80 40 66 38 C56 37 48 42 44 50 C40 52 36 54 33 57 C38 60 44 64 48 70 C52 74 62 76 72 74 C80 72 84 70 86 66 Z';
+  s += ink(head, pal.light, 1.6);
+  s += shadow('M86 66 C88 52 80 40 66 38 C76 44 80 54 78 64 C76 70 70 74 64 76 C72 76 82 72 86 66 Z', pal.shade, 0.6, 'fine');
+  // Plumes de nuque, longues et effilées vers l'arrière.
+  for (const [a, b] of [[[78, 44], [100, 40]], [[82, 52], [104, 52]], [[84, 60], [102, 64]]] as [Pt, Pt][]) {
+    const fe = feather(a, b, 3, 0.3);
+    s += ink(fe.d, pal.light, 0.9) + line(fe.rachis, 0.4, pal.ink, ' opacity="0.5"');
+  }
+  s += ink('M78 44 C84 40 92 38 100 40 C92 42 86 44 82 48 Z', pal.gold, 0.6, ' opacity="0.9"');
+  // Bec crochu : cire, mandibule supérieure, inférieure.
+  s += ink('M48 50 C41 50 35 53 31 58 C28 63 28 69 30 74 C31 70 34 67 37 66 C41 65 45 65 49 63 Z', pal.belly, 1.4);
+  s += shadow('M30 74 C31 70 34 67 37 66 C41 65 45 65 49 63 L48 60 C42 61 36 62 32 66 Z', pal.shade, 0.55, 'fine');
+  s += ink('M37 67 C41 69 45 69 49 66 C46 71 42 72 38 71 Z', pal.belly, 1);
+  s += ink('M48 50 C46 54 46 60 49 64 C52 60 52 54 48 50 Z', pal.gold, 0.8);
+  s += `<circle cx="42" cy="56" r="1" fill="${pal.ink}"/>`;
+  s += line('M33 57 C36 54 40 53 44 53', 0.6, '#FFF6D8', ' opacity="0.7"');
+  // Œil d'aigle sous l'arcade sourcilière.
+  s += eyeA(58, 54, 4.6, pal.eye, { angle: 6, slit: false, open: 0.55 });
+  s += line('M50 49 C56 46 64 47 70 51', 1.6) + line('M62 58 C66 60 70 60 74 58', 0.6, pal.ink, ' opacity="0.5"');
+  s += rim('M66 38 C56 37 48 42 44 50', pal.glow, 1.1);
+  // Diadème céleste : trois étoiles d'or sur un filet.
+  s += gild('M54 40 C62 32 74 30 84 36', 1) + sparkle(56, 38, 2.6, pal.gold, false) + sparkle(68, 32, 3.4, pal.gold, false) + sparkle(80, 33, 2.6, pal.gold, false);
 
-  // Couronne de constellation flottante.
-  const cr: [number, number][] = [[50, 38], [54, 20], [66, 30], [78, 8], [90, 28], [102, 18], [106, 36]];
-  s += line(`M${cr.map(([x, y]) => P(x, y)).join(' L')}`, 1.3, pal.glow, ' stroke-dasharray="3 2"');
-  s += line(`M${P(50, 38)} Q${P(78, 48)} ${P(106, 36)}`, 1.3, pal.glow, ' opacity="0.8"');
-  for (const [i, [x, y]] of cr.entries()) s += i % 2 ? sparkle(x, y, i === 3 ? 6.5 : 4.6, pal.glow) : `<circle cx="${x}" cy="${y}" r="2.2" fill="#FFF6D8" stroke="#1A1230" stroke-width="0.8"/>`;
+  // ——— Patte avant proche, levée (serres repliées) ———
+  const thigh = 'M62 116 C56 126 56 140 62 148 C68 152 78 150 84 144 C88 134 86 122 80 116 Z';
+  s += `<path d="${thigh}" fill="${pal.light}"/>` + line('M58 128 C56 138 58 144 62 148 C68 152 78 150 84 144 C86 140 87 134 86 128', 1.3);
+  s += shadow('M84 144 C78 150 68 152 62 148 C70 146 78 140 82 130 Z', pal.shade, 0.6, 'fine');
+  s += fur(c, 70, 144, 7, 120, 5, 7);
+  const tars = spline([[66, 146], [56, 156], [48, 164]], 6);
+  s += ink(tube(tars, (u) => 4.4 - u * 0.8), pal.belly, 1.2);
+  s += shadow(band(tars, (u) => 4.4 - u * 0.8, -1, 0), pal.shade, 0.5, 'fine');
+  for (let k = 0; k < 5; k++) s += line(`M${f(61 - k * 3)} ${f(148 + k * 3.2)} l4 4`, 0.5, pal.ink, ' opacity="0.6"');
+  for (const pts of [[[48, 164], [38, 166], [33, 174]], [[48, 166], [44, 174], [45, 181]], [[50, 164], [56, 170], [55, 177]]] as Pt[][]) {
+    s += ink(tube(spline(pts, 4), (u) => 2.4 - u * 0.8), pal.belly, 1);
+    const e = pts[2], d = pts[1];
+    const dx = e[0] - d[0], dy = e[1] - d[1], l = Math.hypot(dx, dy);
+    const ux = dx / l, uy = dy / l;
+    s += ink(`M${f(e[0] - uy * 1.8)} ${f(e[1] + ux * 1.8)} Q${f(e[0] + ux * 5)} ${f(e[1] + uy * 5)} ${f(e[0] + ux * 3 - uy * 4)} ${f(e[1] + uy * 3 + ux * 4)} L${f(e[0] + uy * 1.8)} ${f(e[1] - ux * 1.8)} Z`, pal.ink, 0.6);
+  }
+  s += rim('M62 116 C56 126 56 140 62 148', pal.glow, 0.8);
 
-  s += speckles(c, 150, 60, 40, 30, 8);
-  s += sparkle(24, 140, 4.5, pal.glow) + sparkle(30, 196, 3.4, '#FFF6D8') + sparkle(206, 108, 3.6, pal.accent2);
-  return s;
+  // ——— Éclats ———
+  for (const [x, y, z] of [[24, 30, 3.4], [16, 110, 2.4], [30, 196, 2.6], [212, 112, 2.4]] as const) s += sparkle(x, y, z, pal.glow, false);
+  return `<g transform="translate(116 206) scale(1.02) translate(-116 -206)">${s}</g>`;
 };

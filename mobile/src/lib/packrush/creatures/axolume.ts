@@ -196,6 +196,7 @@ export const axolume: Species = (c) => {
   g += line(`M${f(ex - 6)} ${f(ey - 4.5)} Q${f(ex)} ${f(ey - 8)} ${f(ex + 7)} ${f(ey - 4)}`, 0.7, pal.deep, ' opacity="0.7"');
 
   // ---- Branchies côté proche ----
+  if (st >= 2) { const [gx0, gy0] = at(fr, 0.17, -W(0.17)); g += `<ellipse cx="${f(gx0 + 10)}" cy="${f(gy0 - 26)}" rx="30" ry="24" fill="${pal.glow}" opacity="0.35" filter="url(#soft)"/>`; }
   for (const [t, o, a, k] of [[0.17, -0.7, -80, 1], [0.185, -0.35, -46, 0.94], [0.195, 0.05, -14, 0.8]] as const) {
     const [px, py] = at(fr, t, W(t) * o);
     g += gill(px, py, a, gillL * k, false);
@@ -229,5 +230,5 @@ export const axolume: Species = (c) => {
   // Bulles.
   for (const [x, y, r] of [[30, 104, 2.6], [22, 90, 1.7], [28, 78, 1.1]] as const) g += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.light}" stroke-width="0.7" opacity="0.8"/>`;
 
-  return `<g transform="translate(111 204) scale(${S}) translate(-111 -204)">${g}</g>`;
+  return `<g transform="translate(105 204) scale(${S}) translate(-111 -204)">${g}</g>`;
 };

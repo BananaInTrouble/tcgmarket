@@ -70,6 +70,10 @@ export const abyssquid: Species = (c) => {
   sq += ink(mantle, pal.body, 1.7);
   sq += shadow('M15 2 C19 -24 16 -52 10 -72 C7 -82 3 -90 0 -98 C6 -80 9 -50 6 -20 C5 -8 3 0 2 4 C8 4 12 3 15 2 Z', pal.shade, 0.9, 'fine');
   sq += shadow('M15 2 C18 -14 18 -30 16 -44 C14 -30 12 -14 8 3 Z', pal.deep, 0.6, 'xhatch');
+  // Contours transversaux gravés (volume du manteau).
+  for (const [y, hw] of [[-8, 16], [-18, 17], [-28, 17], [-38, 16], [-48, 14.5], [-58, 12.5], [-68, 10.5], [-78, 8]] as const) {
+    sq += `<path d="M${-hw} ${y} Q0 ${y + 4} ${hw} ${y}" fill="none" stroke="${pal.ink}" stroke-width="0.45" opacity="0.35"/>`;
+  }
   // Chromatophores et filigrane doré (gravure Art nouveau).
   for (const [x, y, r] of [[-8, -20, 1.6], [-4, -34, 1.2], [-10, -44, 1], [-2, -58, 1.3], [-6, -66, 0.9], [-12, -8, 1.1], [3, -12, 1], [-1, -46, 0.8]] as const) {
     sq += `<circle cx="${x}" cy="${y}" r="${r}" fill="${pal.deep}" opacity="0.8"/>`;
@@ -87,6 +91,8 @@ export const abyssquid: Species = (c) => {
     sq += eyeA(sg * 11, 14, 6, pal.eye, { angle: sg * -8, slit: false, open: 0.62 });
   }
   sq += line('M-6 6 C-2 9 2 9 6 6', 0.7, pal.ink, ' opacity="0.6"');
+  sq += line('M-15 2 C-10 5 -5 3 0 5 C5 3 10 5 15 2', 1, pal.ink, ' opacity="0.7"');
+  sq += ink('M-4 26 C-3 30 3 30 4 26 Z', pal.shade, 0.8);
   const squid = `<g transform="translate(102 98) rotate(20) scale(0.9)">${sq}</g>`;
 
   const rt = `transform="rotate(-9 ${BH[0]} ${BH[1]})"`;

@@ -21,7 +21,17 @@ export interface DrawCtx {
   stage: number;
 }
 
-export type Species = (c: DrawCtx) => string;
+/** Limites visibles de la fenêtre dans le repère de la créature (plus grandes pour les SSR plein cadre). */
+export interface Bounds { x0: number; y0: number; x1: number; y1: number }
+
+/**
+ * Décor propre à l'espèce (et au stade) : remplace le ciel générique de la carte et doit couvrir toute la fenêtre
+ * `b` (forêt cosmique, océan d'étoiles, désert lunaire…). Dessiné derrière la créature.
+ */
+export type Scene = (c: DrawCtx, b: Bounds) => string;
+
+/** Une espèce dessine la créature ; elle peut porter son décor dans `scene`. */
+export type Species = ((c: DrawCtx) => string) & { scene?: Scene };
 
 export const hsl = (h: number, s: number, l: number, a = 1) =>
   `hsla(${Math.round(((h % 360) + 360) % 360)},${s}%,${l}%,${a})`;
