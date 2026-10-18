@@ -126,16 +126,16 @@ export const ophalia: Species = (c: DrawCtx) => {
   let hd = '';
   for (let i = 0; i < 5; i++) hd += feather(4, -4 + i * 1.5, 192 - i * 9, 34 - i * 3, 6, i % 2 ? pal.light : pal.body, pal.gold);
   // Mâchoire inférieure entrouverte, langue fourchue.
-  hd += ink('M30 5 L50 3 C46 8 36 12 22 13 C12 14 6 12 2 9 Z', INK, 0.9);
-  hd += line('M50 5 L60 7 L65 5 M60 7 L65 10', 1, pal.accent);
-  hd += ink('M50 4 C46 9 36 13 22 14 C12 15 6 13 2 10 C10 10 22 9 34 7 Z', pal.belly, 1.1);
-  hd += ink('M44 4.5 L45 8.5 L46.6 4.2 Z M38 5.2 L39 8 L40.4 5 Z', CREAM, 0.5);
-  const skull = 'M0 -9 C8 -15 20 -16 30 -13 C38 -11 46 -7 52 -3 C54 -1 53 1 50 2 L30 4 C22 6 12 8 2 9 C-2 6 -2 -4 0 -9 Z';
-  hd += ink(skull, pal.body, 1.5);
-  hd += `<path d="M50 2 L30 4 C22 6 12 8 2 9 C-1 7 -2 4 -1 1 C12 1 26 0 38 -1 C44 -1 50 0 50 2 Z" fill="${pal.belly}"/>`;
-  hd += shadow('M0 -9 C8 -15 20 -16 30 -13 C22 -10 12 -6 2 -1 Z', pal.shade, 0.6, 'fine');
-  hd += `<path d="M10 -12 L17 -14 L20 -9 L13 -7 Z M20 -14 L27 -13 L28 -8 L21 -9 Z M36 -9 L42 -7 L41 -4 L35 -5 Z M3 -7 L10 -12 L13 -7 L6 -3 Z" fill="${pal.shade}" stroke="${INK}" stroke-width="0.5" opacity="0.85"/>`;
-  hd += line('M2 3 C12 3 24 2 36 1', 0.6, INK, ' opacity="0.6"');
+  hd += ink('M30 4 L50 3 C45 7 36 9 24 10 C14 11 6 10 2 8 Z', INK, 0.9);
+  hd += line('M52 4 L62 6 L67 4 M62 6 L67 9', 1, pal.accent);
+  hd += ink('M50 5 C45 9 36 11 24 12 C14 13 6 12 2 9 C10 9 22 8 34 7 Z', pal.belly, 1.1);
+  hd += ink('M45 3.6 L46 7.4 L47.6 3.4 Z M39 4 L40 6.6 L41.4 3.9 Z', CREAM, 0.5);
+  const skull = 'M0 -10 C10 -16 22 -16 32 -12 C40 -9 48 -5 54 -1 C55 1 53 3 49 3 L30 4.5 C20 6 10 8 2 8 C-2 4 -2 -5 0 -10 Z';
+  hd += ink(skull, pal.belly, 1.5);
+  hd += `<path d="M0 -10 C10 -16 22 -16 32 -12 C40 -9 48 -5 54 -1 C44 -2 34 -2 24 -1 C14 0 6 2 -1 3 Z" fill="${pal.shade}"/>`;
+  hd += shadow('M0 -10 C10 -16 22 -16 32 -12 C22 -10 12 -6 1 -2 Z', pal.deep, 0.6, 'fine') + speckles(c, 20, -8, 12, 3, 6, pal.gold);
+  hd += `<path d="M8 -12 L15 -14 L18 -9 L11 -7 Z M18 -14 L25 -14 L26 -9 L19 -9 Z M38 -8 L44 -6 L43 -3 L37 -4 Z M2 -7 L8 -12 L11 -7 L5 -3 Z" fill="${pal.deep}" stroke="${INK}" stroke-width="0.5" opacity="0.85"/>`;
+  hd += line('M52 0 C44 1 34 2 26 3', 0.7, INK, ' opacity="0.6"');
   hd += ink(skull, 'none', 1.5);
   hd += ink('M24 -13 C26 -18 30 -22 36 -23 C34 -19 33 -15 34 -11 Z', pal.light, 1);
   hd += eyeA(30, -6, 4.2, pal.gold, { angle: 6, slit: true, open: 0.42 });
@@ -143,7 +143,7 @@ export const ophalia: Species = (c: DrawCtx) => {
   hd += `<ellipse cx="48" cy="-3" rx="1.4" ry="0.7" fill="${INK}" transform="rotate(20 48 -3)"/>`;
   hd += gild('M20 12 C18 20 22 28 16 36 M12 12 C8 20 12 26 6 32', 0.9);
   hd += rim('M0 -9 C8 -15 20 -16 30 -13 C38 -11 46 -7 52 -3', pal.glow, 1);
-  s += `<g transform="translate(144 30) rotate(200) scale(1.45 -1.3)">${hd}</g>`;
+  s += `<g transform="translate(144 30) rotate(200) scale(1.4 -1.4)">${hd}</g>`;
 
   s += sparkle(20, 40, 3.5, CREAM, false) + sparkle(214, 120, 3, pal.glow, false) + sparkle(200, 250, 2.6, CREAM, false);
   return s;

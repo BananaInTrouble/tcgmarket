@@ -93,7 +93,7 @@ function owlHead(c: DrawCtx, o: { tuft: number; open: number; glow: boolean; dow
 }
 
 /** Corps de profil frontal, ailes repliées, pattes emplumées sur un perchoir (y ≈ 198). */
-function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean }): string {
+function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean; wings?: boolean }): string {
   const { pal, stage } = c;
   const id = `hibouclipse-${stage}`;
   let s = '';
@@ -119,7 +119,12 @@ function perched(c: DrawCtx, o: { head: string; down: boolean; gold: boolean }):
     + `</g>` + ink(wing, 'none', 1.6);
   if (o.gold) w += gild('M66 120 C62 140 62 166 68 188', 1);
   w += rim('M74 98 C58 116 54 154 62 184', pal.glow, 1.1);
-  s += w + `<g transform="matrix(-1 0 0 1 ${CX * 2} 0)">${w.replace(/hibouclipse-(\d)-w/g, 'hibouclipse-$1-wr').replace(new RegExp(pal.glow.replace(/[()]/g, '\\$&'), 'g'), pal.shade)}</g>`;
+  if (o.wings === false) {
+    s += `<clipPath id="${id}-bd"><path d="${body}"/></clipPath><g clip-path="url(#${id}-bd)">${scales(56, 96, 92, 200, 7, 5, '#140F24', 0.5)}${scales(130, 96, 166, 200, 7, 5, '#140F24', 0.5)}`
+      + shadow('M150 96 C166 120 168 160 156 184 C148 198 132 206 120 208 L140 208 L170 208 L170 96 Z', pal.shade, 0.8, 'fine') + `</g>`;
+    s += rim('M72 96 C58 114 56 150 64 176', pal.glow, 1.1);
+  }
+  if (o.wings !== false) s += w + `<g transform="matrix(-1 0 0 1 ${CX * 2} 0)">${w.replace(/hibouclipse-(\d)-w/g, 'hibouclipse-$1-wr').replace(new RegExp(pal.glow.replace(/[()]/g, '\\$&'), 'g'), pal.shade)}</g>`;
   // Pattes emplumées et serres.
   for (const x of [100, 122]) {
     s += ink(`M${x - 8} 188 C${x - 9} 194 ${x - 8} 198 ${x - 6} 199 L${x + 6} 199 C${x + 8} 198 ${x + 9} 194 ${x + 8} 188 Z`, pal.belly, 1.1);
@@ -166,17 +171,17 @@ export const hibouclipse: Species = (c: DrawCtx) => {
   const { pal, stage } = c;
   if (stage <= 0) {
     // Poussin en duvet tapi au creux de l'arbre (le bord du creux passe devant).
-    let s = ink(fluff(CX, 160, 44, 46, 34, 0.07), pal.light, 1.6);
+    let s = '<g transform="translate(0 12)">' + ink(fluff(CX, 160, 44, 46, 34, 0.07), pal.light, 1.6);
     s += `<path d="${fluff(CX, 166, 26, 30, 22, 0.1)}" fill="${pal.belly}" opacity="0.9"/>` + shadow(fluff(CX + 22, 160, 22, 42, 20, 0.08), pal.shade, 0.55, 'fine');
     s += line('M84 150 q-6 12 -2 24 M138 150 q6 12 2 24', 0.8, pal.shade);
     const head = `<g transform="translate(111 96) rotate(-8) scale(0.92) translate(-111 -70)">${owlHead({ ...c, pal: { ...pal, body: pal.light } }, { tuft: 0, open: 0.32, glow: false, down: true })}</g>`;
-    s += head;
+    s += head + '</g>';
     // Lèvre du creux, devant.
     const bark = hsl(c.hue + 20, 22, 24);
-    s += ink('M24 236 L26 206 C40 188 76 180 111 182 C146 180 182 188 198 206 L200 236 Z', bark, 1.8);
-    s += line('M40 206 C70 194 100 192 120 194 M34 220 C70 210 140 208 190 216 M60 232 C90 224 130 224 170 230', 0.8, '#140F24', ' opacity="0.6"');
-    s += line('M70 192 c10 -4 20 -4 30 -2 M130 192 c10 0 20 2 28 6', 1.4, hsl(c.hue + 110, 35, 42));
-    s += rim('M42 195 C62 184 92 182 112 184', pal.glow, 1);
+    s += ink('M30 236 L32 214 C46 200 78 194 111 196 C144 194 176 200 192 214 L194 236 Z', bark, 1.8);
+    s += line('M44 214 C70 204 100 202 120 204 M40 226 C70 218 140 216 186 224', 0.8, '#140F24', ' opacity="0.6"');
+    s += line('M70 202 c10 -4 20 -4 30 -2 M130 202 c10 0 20 2 28 6', 1.4, hsl(c.hue + 110, 35, 42));
+    s += rim('M34 212 C50 200 80 194 111 196', pal.glow, 1);
     return s;
   }
   if (stage === 1) {
@@ -191,9 +196,9 @@ export const hibouclipse: Species = (c: DrawCtx) => {
   }
   // Stade 3 : éveillé, ailes levées.
   let s = aura(CX, 100, 96, pal.glow);
-  s += mirror(spreadWing(c));
+  s += `<g transform="translate(111 104) scale(0.86) translate(-111 -104)">${mirror(spreadWing(c))}</g>`;
   const head = owlHead(c, { tuft: 24, open: 0.6, glow: true, down: false });
-  s += `<g transform="translate(0 6)">${perched(c, { head, down: false, gold: true })}</g>`;
+  s += `<g transform="translate(0 6)">${perched(c, { head, down: false, gold: true, wings: false })}</g>`;
   s += gild('M100 38 a12 12 0 1 0 22 0 a9 9 0 1 1 -22 0 Z', 1.3);
   for (const [x, y, z] of [[30, 200, 3], [196, 200, 3], [111, 18, 4.5], [20, 30, 3], [204, 30, 3]] as const) s += sparkle(x, y, z, pal.gold, false);
   return s;
@@ -220,8 +225,7 @@ hibouclipse.scene = (c: DrawCtx, b: Bounds): string => {
     s += `<path d="${bark}" fill="none" stroke="#140F24" stroke-width="1.2" opacity="0.55"/><path d="${bark}" fill="none" stroke="${trunkLight}" stroke-width="0.6" opacity="0.5" transform="translate(2 0)"/>`;
     s += `<ellipse cx="${CX}" cy="150" rx="66" ry="80" fill="#0B0816" stroke="#140F24" stroke-width="2"/>`;
     s += `<ellipse cx="${CX}" cy="150" rx="66" ry="80" fill="none" stroke="${trunkLight}" stroke-width="5" opacity="0.6"/>`;
-    s += `<path d="M48 120 C50 90 70 70 90 66" fill="none" stroke="${hsl(hue + 100, 30, 40)}" stroke-width="7" stroke-linecap="round" opacity="0.6"/>`;
-    for (let i = 0; i < 16; i++) s += `<circle cx="${f(50 + i * 3 + c.r() * 4)}" cy="${f(118 - i * 3.2 + c.r() * 4)}" r="${f(1.5 + c.r() * 2)}" fill="${hsl(hue + 110, 35, 46)}" opacity="0.7"/>`;
+    for (let i = 0; i < 22; i++) { const a = Math.PI * (1.05 + i * 0.04); s += `<circle cx="${f(CX + Math.cos(a) * 68 + c.r() * 3)}" cy="${f(150 + Math.sin(a) * 82 + c.r() * 3)}" r="${f(1.6 + c.r() * 2.2)}" fill="${hsl(hue + 110, 35, 40)}" opacity="0.8"/>`; }
     for (const [x, y] of [[24, 40], [196, 70], [180, 30], [30, 228], [204, 210]] as const) s += glowDot(x, y, 7, hsl(hue + 60, 90, 75)) + `<circle cx="${x}" cy="${y}" r="1.4" fill="#FFF6D8"/>`;
   } else if (stage === 1) {
     // Crépuscule dans la canopée : cimes lointaines, croissant de lune, branche, phalène.

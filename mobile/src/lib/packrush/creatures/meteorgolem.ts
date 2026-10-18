@@ -1,187 +1,310 @@
-import { aura, eye, ground, ink, line, shadow, shine, sparkle, speckles, type DrawCtx, type Species } from './style.ts';
+import { constellation, eyeA, gild, hsl, ink, line, rim, sparkle, type Bounds, type DrawCtx, type Species } from './style.ts';
 
-/** Météorin → Cristallos → Astrolithe : golem de météorite et de cristal, cœur d'étoile. */
+/**
+ * Météorin → Cristallos → Astrolithe : golem de météorite et de cristal. Planche de « minéralogie vivante » :
+ * blocs de roche taillés en facettes (face sombre hachurée, arête éclairée), cratères d'impact, fissures où
+ * rougeoie un cœur d'étoile, cristaux prismatiques qui poussent sur les épaules. Le petit vient de tomber au fond
+ * d'un cratère encore fumant ; le jeune traverse une caverne de cristal, une géode en guise de lanterne ; l'adulte
+ * se dresse sur un astéroïde, bras ouverts, cœur embrasé.
+ */
 
-const f = (v: number) => v.toFixed(1);
-type Pt = [number, number];
+const f = (v: number) => +v.toFixed(1);
+type P2 = [number, number];
 
-/** Polygone aux coins arrondis (silhouette de roche). */
-function rockPath(q: Pt[], round = 0.5): string {
-  const m = (a: Pt, b: Pt, t: number): Pt => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
-  const n = q.length;
-  const k = round / 2;
-  let d = '';
-  for (let i = 0; i < n; i++) {
-    const a = q[(i - 1 + n) % n], b = q[i], e = q[(i + 1) % n];
-    const p0 = m(b, a, k), p1 = m(b, e, k);
-    d += `${i ? 'L' : 'M'}${f(p0[0])} ${f(p0[1])} Q${f(b[0])} ${f(b[1])} ${f(p1[0])} ${f(p1[1])} `;
+const poly = (q: P2[]) => q.map(([x, y], i) => `${i ? 'L' : 'M'}${f(x)} ${f(y)}`).join('') + 'Z';
+const clip = (id: string, d: string, inner: string) => `<clipPath id="${id}"><path d="${d}"/></clipPath><g clip-path="url(#${id})">${inner}</g>`;
+/** Petit décalage déterministe (-0.5..0.5) : irrégularité des blocs, identique d'une carte à l'autre. */
+const jit = (i: number, k: number) => (Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1 * 0.5;
+
+/**
+ * Bloc de roche à facettes : aplat, face à l'ombre (en bas à droite) hachurée, facette claire en haut à gauche,
+ * arêtes éclairées côté lumière, quelques cratères.
+ */
+function rock(c: DrawCtx, id: string, q: P2[], fill: string, o: { pits?: number; light?: string; depth?: number } = {}): string {
+  const { pal } = c;
+  const d = poly(q);
+  let cx = 0, cy = 0;
+  for (const [x, y] of q) { cx += x / q.length; cy += y / q.length; }
+  let size = 0;
+  for (const [x, y] of q) size = Math.max(size, Math.hypot(x - cx, y - cy));
+  const k = size * (o.depth ?? 0.28);
+  const lit = poly(q.map(([x, y]) => [x - k, y - k] as P2));
+  const top = poly(q.map(([x, y]) => [cx + (x - cx) * 0.55 - k * 0.9, cy + (y - cy) * 0.55 - k * 0.9] as P2));
+  let g = `<path d="${d}" fill="${pal.shade}"/><path d="${d}" fill="url(#xhatch)" opacity="0.7"/>`;
+  g += `<path d="${lit}" fill="${fill}"/><path d="${lit}" fill="url(#fine)" opacity="0.35"/>`;
+  g += `<path d="${top}" fill="${pal.light}" opacity="0.28"/>`;
+  for (let i = 0; i < (o.pits ?? 2); i++) {
+    const px = cx + jit(i, q.length) * size * 1.1, py = cy + jit(i + 7, q.length) * size * 1.1, r = size * (0.08 + Math.abs(jit(i, 3)) * 0.12);
+    g += `<ellipse cx="${f(px)}" cy="${f(py)}" rx="${f(r)}" ry="${f(r * 0.75)}" fill="${pal.deep}" opacity="0.6"/>`
+      + `<path d="M${f(px - r)} ${f(py)} A${f(r)} ${f(r * 0.75)} 0 0 1 ${f(px + r)} ${f(py)}" fill="none" stroke="#140F24" stroke-width="0.6"/>`
+      + `<path d="M${f(px - r * 0.8)} ${f(py + r * 0.3)} A${f(r)} ${f(r * 0.75)} 0 0 0 ${f(px + r * 0.8)} ${f(py + r * 0.3)}" fill="none" stroke="${pal.light}" stroke-width="0.6" opacity="0.7"/>`;
   }
-  return d + 'Z';
-}
-
-/** Rocher : aplat + ombre hachurée à droite/en bas + reflet + cratères. */
-function rock(c: DrawCtx, q: Pt[], fill: string, craters = 0, w = 2.6): string {
-  const xs = q.map((v) => v[0]), ys = q.map((v) => v[1]);
-  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2;
-  let s = ink(rockPath(q), fill, w);
-  // Ombre : la même roche rétrécie et décalée vers bas-droite, intersectée visuellement par un croissant.
-  const sh = q.map(([x, y]): Pt => [x, y]).filter(([x, y]) => (x - cx) / rx + (y - cy) / ry > 0.2);
-  if (sh.length >= 2) {
-    const first = sh[0];
-    s += shadow(`M${f(first[0])} ${f(first[1])} ${sh.slice(1).map((v) => `L${f(v[0])} ${f(v[1])}`).join(' ')} Q${f(cx + rx * 0.3)} ${f(cy + ry * 0.3)} ${f(first[0])} ${f(first[1])} Z`, c.pal.shade, 0.55);
+  let s = clip(id, d, g) + `<path d="${d}" fill="none" stroke="#140F24" stroke-width="1.6" stroke-linejoin="round"/>`;
+  // Arêtes tournées vers la lumière (haut-gauche).
+  let rl = '';
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    const nx = b[1] - a[1], ny = -(b[0] - a[0]);
+    if (nx + ny < 0) rl += `M${f(a[0])} ${f(a[1])}L${f(b[0])} ${f(b[1])}`;
   }
-  for (let i = 0; i < craters; i++) {
-    const x = cx + (c.r() - 0.5) * rx * 1.1, y = cy + (c.r() - 0.5) * ry * 1.1, r = 2.5 + c.r() * 3.5;
-    s += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(r)}" ry="${f(r * 0.75)}" fill="${c.pal.shade}" stroke="#1A1230" stroke-width="1.2"/>`;
-    s += line(`M${f(x - r * 0.6)} ${f(y - r * 0.3)} q${f(r * 0.6)} ${f(-r * 0.5)} ${f(r * 1.2)} 0`, 1, c.pal.light);
-  }
-  s += shine(`M${f(cx - rx * 0.62)} ${f(cy - ry * 0.35)} q${f(rx * 0.12)} ${f(-ry * 0.3)} ${f(rx * 0.35)} ${f(-ry * 0.42)}`, 2.2);
+  if (rl) s += rim(rl, o.light ?? pal.glow, 1.1);
   return s;
 }
 
-/** Cristal hexagonal pointu, base en (x, y), orienté selon `a` (radians, -π/2 = vers le haut). */
-function crystal(x: number, y: number, h: number, w: number, a: number, fill: string, light: string): string {
-  const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
-  const P = (t: number, o: number) => `${f(x + ux * h * t + nx * w * o)} ${f(y + uy * h * t + ny * w * o)}`;
-  const outer = `M${P(0, -1)} L${P(0.72, -1)} L${P(1, 0)} L${P(0.72, 1)} L${P(0, 1)} Z`;
-  const facet = `M${P(0, -0.15)} L${P(0.72, -0.15)} L${P(1, 0)} L${P(0.72, 0.4)} L${P(0, 0.4)} Z`;
-  return ink(outer, fill, 2) + `<path d="${facet}" fill="${light}" opacity="0.75"/>`
-    + line(`M${P(0.72, -1)} L${P(0.72, 0.4)} M${P(0, -0.15)} L${P(0.72, -0.15)}`, 1.1, '#1A1230', ' opacity="0.6"')
-    + shine(`M${P(0.12, -0.6)} L${P(0.55, -0.6)}`, 1.6);
+/** Bloc allongé entre deux articulations (membres). */
+function seg(A: P2, B: P2, wa: number, wb: number, i: number): P2[] {
+  const dx = B[0] - A[0], dy = B[1] - A[1], l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, ux = dx / l, uy = dy / l;
+  const P = (t: number, side: number, w: number, j: number): P2 => {
+    const x = A[0] + dx * t, y = A[1] + dy * t, ww = w * (1 + jit(i, j) * 0.25);
+    return [x + nx * ww * side, y + ny * ww * side];
+  };
+  return [
+    [A[0] - ux * wa * 0.5 + nx * wa * 0.4, A[1] - uy * wa * 0.5 + ny * wa * 0.4], P(0.05, 1, wa, 1), P(0.5, 1, (wa + wb) / 2 * 1.08, 2), P(0.95, 1, wb, 3),
+    [B[0] + ux * wb * 0.45 + nx * wb * 0.3, B[1] + uy * wb * 0.45 + ny * wb * 0.3], [B[0] + ux * wb * 0.4 - nx * wb * 0.4, B[1] + uy * wb * 0.4 - ny * wb * 0.4],
+    P(0.95, -1, wb, 4), P(0.5, -1, (wa + wb) / 2, 5), P(0.05, -1, wa, 6), [A[0] - ux * wa * 0.5 - nx * wa * 0.3, A[1] - uy * wa * 0.5 - ny * wa * 0.3],
+  ];
 }
 
-/** Grappe de cristaux. */
-function cluster(c: DrawCtx, x: number, y: number, s: number, a: number): string {
-  const { pal } = c;
-  return crystal(x - 6 * s, y + 2 * s, 22 * s, 6 * s, a - 0.45, pal.accent2, '#FFF6D8')
-    + crystal(x + 7 * s, y + 2 * s, 24 * s, 6.5 * s, a + 0.4, pal.accent2, '#FFF6D8')
-    + crystal(x, y, 38 * s, 8 * s, a, pal.accent, '#FFF6D8');
+/** Bloc arrondi autour d'un point (poing, genou, tête de petit). */
+function blob(x: number, y: number, rx: number, ry: number, n: number, i: number, rot = 0): P2[] {
+  return Array.from({ length: n }, (_, k) => {
+    const a = (k / n) * Math.PI * 2 + rot, r = 1 + jit(i, k) * 0.28;
+    return [x + Math.cos(a) * rx * r, y + Math.sin(a) * ry * r] as P2;
+  });
 }
 
-/** Cœur d'étoile : halo, étoile à 8 branches, fissures lumineuses. */
-function core(c: DrawCtx, x: number, y: number, r: number, cracks: number): string {
-  const { pal } = c;
-  let s = `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 2.2)}" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
-  for (let i = 0; i < cracks; i++) {
-    // Fissures irrégulières (zigzag alterné, longueurs variées) : pas de motif tournant régulier.
-    const a = (i / cracks) * Math.PI * 2 + 0.4 + [0, 0.25, -0.15, 0.1, -0.2, 0.18, -0.05][i % 7];
-    const l = r * [2.4, 1.9, 2.8, 2.1, 2.6, 1.8, 2.3][i % 7];
-    const b = i % 2 ? 0.16 : -0.14;
-    const pts: Pt[] = [[x + Math.cos(a) * r, y + Math.sin(a) * r], [x + Math.cos(a + b) * r * 1.55, y + Math.sin(a + b) * r * 1.55], [x + Math.cos(a - b * 0.5) * l, y + Math.sin(a - b * 0.5) * l]];
-    const d = `M${pts.map((v) => `${f(v[0])} ${f(v[1])}`).join(' L')}`;
-    s += line(d, 5, '#1A1230') + line(d, 2.6, pal.glow);
-  }
-  let d = '';
-  for (let i = 0; i < 16; i++) {
-    const a = -Math.PI / 2 + (i / 16) * Math.PI * 2, rr = i % 2 ? r * 0.45 : r * (i % 4 ? 0.8 : 1.1);
-    d += `${i ? 'L' : 'M'}${f(x + Math.cos(a) * rr)} ${f(y + Math.sin(a) * rr)} `;
-  }
-  s += ink(`M${f(x - r * 1.15)} ${f(y)} a${f(r * 1.15)} ${f(r * 1.15)} 0 1 0 ${f(r * 2.3)} 0 a${f(r * 1.15)} ${f(r * 1.15)} 0 1 0 ${f(-r * 2.3)} 0 Z`, pal.shade, 2.2);
-  s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 0.95)}" fill="${pal.glow}" opacity="0.55"/>`;
-  s += ink(d + 'Z', pal.glow, 1.4);
-  s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 0.3)}" fill="#FFF6D8"/>`;
+/** Cristal prismatique (pointe vers `ang` degrés) : facette claire, facette sombre, arête centrale. */
+function crystal(c: DrawCtx, x: number, y: number, ang: number, len: number, w: number, col: string): string {
+  const L = len, h = w / 2;
+  const out = `M0 ${-h} L${f(L * 0.78)} ${-h} L${L} 0 L${f(L * 0.78)} ${h} L0 ${h}Z`;
+  let s = `<path d="${out}" fill="${col}"/>`;
+  s += `<path d="M0 ${-h} L${f(L * 0.78)} ${-h} L${L} 0 L0 ${f(-h * 0.15)}Z" fill="#FFFFFF" opacity="0.38"/>`;
+  s += `<path d="M0 ${f(h * 0.25)} L${L} 0 L${f(L * 0.78)} ${h} L0 ${h}Z" fill="${c.pal.deep}" opacity="0.45"/>`;
+  s += `<path d="M0 ${f(h * 0.25)} L${L} 0" stroke="#140F24" stroke-width="0.6" opacity="0.7"/>`;
+  s += `<path d="M${f(L * 0.2)} ${f(-h * 0.5)} L${f(L * 0.6)} ${f(-h * 0.5)}" stroke="#FFFFFF" stroke-width="0.8" opacity="0.8"/>`;
+  s += `<path d="${out}" fill="none" stroke="#140F24" stroke-width="1.1" stroke-linejoin="round"/>`;
+  return `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})">${s}</g>`;
+}
+
+/** Grappe de cristaux en éventail. */
+function cluster(c: DrawCtx, x: number, y: number, base: number, sizes: number[], col: string, col2: string): string {
+  let s = `<circle cx="${f(x + Math.cos(base * Math.PI / 180) * sizes[0] * 0.5)}" cy="${f(y + Math.sin(base * Math.PI / 180) * sizes[0] * 0.5)}" r="${f(sizes[0] * 0.6)}" fill="${c.pal.glow}" opacity="0.35" filter="url(#soft)"/>`;
+  sizes.forEach((L, i) => {
+    const a = base + (i % 2 ? 1 : -1) * Math.ceil(i / 2) * 17;
+    s += crystal(c, x, y, a, L, L * 0.3, i % 2 ? col2 : col);
+  });
   return s;
 }
 
-function glowEye(x: number, y: number, r: number, c: DrawCtx): string {
-  return `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 1.6)}" fill="${c.pal.glow}" opacity="0.4"/>`
-    + ink(`M${f(x - r * 1.2)} ${f(y)} Q${f(x)} ${f(y - r * 1.2)} ${f(x + r * 1.2)} ${f(y)} Q${f(x)} ${f(y + r * 0.9)} ${f(x - r * 1.2)} ${f(y)} Z`, c.pal.glow, 1.8)
-    + `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r * 0.4)}" fill="#FFF6D8"/>`;
+/** Cœur d'étoile visible dans une cavité, fissures incandescentes rayonnantes. */
+function core(c: DrawCtx, x: number, y: number, r: number, cracks: P2[][]): string {
+  const { pal } = c;
+  let s = '';
+  for (const cr of cracks) {
+    const d = cr.map(([a, b], i) => `${i ? 'L' : 'M'}${f(a)} ${f(b)}`).join('');
+    s += `<path d="${d}" fill="none" stroke="${pal.glow}" stroke-width="2.6" opacity="0.6" filter="url(#glow)"/><path d="${d}" fill="none" stroke="#FFF6D8" stroke-width="0.9"/>`;
+  }
+  s += `<circle cx="${x}" cy="${y}" r="${f(r * 2.2)}" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
+  s += ink(poly(blob(x, y, r, r * 0.95, 9, 5)), pal.deep, 1.4);
+  s += `<circle cx="${x}" cy="${y}" r="${f(r * 0.7)}" fill="${pal.glow}" filter="url(#glow)"/><circle cx="${x}" cy="${y}" r="${f(r * 0.4)}" fill="#FFF6D8"/>`;
+  s += sparkle(x, y, r * 0.95, '#FFFFFF', false);
+  return s;
+}
+
+interface Pose {
+  chest: P2; ts: number; head: P2; hs: number;
+  sh: [P2, P2]; el: [P2, P2]; ha: [P2, P2]; hip: [P2, P2]; kn: [P2, P2]; ft: [P2, P2];
+  arm: number; leg: number; crystals: number;
+}
+
+/** Golem articulé : membres en blocs, torse massif, cœur, cristaux. Le membre « 1 » (droite du dessin) est derrière. */
+function golem(c: DrawCtx, id: string, P: Pose, extra: { hand0?: string } = {}): string {
+  const { pal } = c;
+  const col = pal.body, col2 = pal.accent2, col3 = pal.glow;
+  let s = '';
+  const limb = (k: 0 | 1, fill: string) => {
+    let t = '';
+    t += rock(c, `${id}-lt${k}`, seg(P.hip[k], P.kn[k], P.leg, P.leg * 0.9, 10 + k), fill, { pits: 1 });
+    t += rock(c, `${id}-ls${k}`, seg(P.kn[k], P.ft[k], P.leg * 0.85, P.leg * 0.95, 20 + k), fill, { pits: 1 });
+    const [fx, fy] = P.ft[k];
+    t += rock(c, `${id}-lf${k}`, [[fx - P.leg * 1.2, fy + 2], [fx - P.leg * 1.1, fy - P.leg * 0.5], [fx - P.leg * 0.2, fy - P.leg * 0.9], [fx + P.leg * 0.9, fy - P.leg * 0.6], [fx + P.leg * 1.2, fy + 2]], fill, { pits: 0 });
+    return t;
+  };
+  const arm = (k: 0 | 1, fill: string) => {
+    let t = '';
+    t += rock(c, `${id}-au${k}`, seg(P.sh[k], P.el[k], P.arm, P.arm * 0.85, 30 + k), fill, { pits: 1 });
+    t += rock(c, `${id}-af${k}`, seg(P.el[k], P.ha[k], P.arm * 0.85, P.arm * 1.1, 40 + k), fill, { pits: 1 });
+    t += rock(c, `${id}-ah${k}`, blob(P.ha[k][0], P.ha[k][1], P.arm * 1.15, P.arm * 1.05, 7, 50 + k), fill, { pits: 1 });
+    const [hx, hy] = P.ha[k];
+    t += line(`M${f(hx - P.arm * 0.6)} ${f(hy + P.arm * 0.2)} l${f(P.arm * 0.4)} ${f(P.arm * 0.4)} M${f(hx)} ${f(hy + P.arm * 0.4)} l0 ${f(P.arm * 0.5)} M${f(hx + P.arm * 0.6)} ${f(hy + P.arm * 0.2)} l${f(-P.arm * 0.3)} ${f(P.arm * 0.5)}`, 0.9);
+    return t;
+  };
+  const back = pal.shade;
+  // Membres arrière (plus sombres).
+  s += `<g opacity="0.92">${limb(1, back)}${arm(1, back)}</g>`;
+  // Bassin.
+  const [cx, cy] = P.chest, T = P.ts;
+  s += rock(c, `${id}-pv`, [[cx - 26 * T, cy + 36 * T], [cx + 26 * T, cy + 36 * T], [cx + 30 * T, cy + 54 * T], [cx, cy + 62 * T], [cx - 30 * T, cy + 54 * T]], col, { pits: 1 });
+  s += limb(0, col);
+  // Torse : gros bloc taillé.
+  const torso: P2[] = [[-41, -38], [-19, -48], [19, -48], [45, -36], [51, -4], [39, 32], [13, 44], [-15, 44], [-39, 32], [-49, -4]].map(([x, y]) => [cx + x * T, cy + y * T] as P2);
+  s += rock(c, `${id}-to`, torso, col, { pits: 3, depth: 0.2 });
+  s += line(`M${f(cx - 30 * T)} ${f(cy - 20 * T)} L${f(cx - 8 * T)} ${f(cy - 30 * T)} M${f(cx + 10 * T)} ${f(cy + 30 * T)} L${f(cx + 30 * T)} ${f(cy + 14 * T)}`, 0.8, '#140F24', ' opacity="0.7"');
+  s += core(c, cx, cy - 2 * T, 11 * T, [
+    [[cx, cy - 2 * T], [cx - 18 * T, cy - 10 * T], [cx - 34 * T, cy - 4 * T]],
+    [[cx, cy - 2 * T], [cx + 16 * T, cy - 18 * T], [cx + 30 * T, cy - 30 * T]],
+    [[cx, cy], [cx + 6 * T, cy + 20 * T], [cx - 4 * T, cy + 38 * T]],
+    [[cx, cy], [cx + 24 * T, cy + 6 * T], [cx + 42 * T, cy + 2 * T]],
+  ]);
+  // Épaulières + cristaux.
+  for (const k of [1, 0] as const) {
+    const [sx, sy] = P.sh[k];
+    s += rock(c, `${id}-sp${k}`, blob(sx, sy - 4, P.arm * 1.7, P.arm * 1.35, 7, 60 + k, 0.3), k ? back : col, { pits: 1 });
+    if (P.crystals > 0) s += cluster(c, sx + (k ? 4 : -4), sy - P.arm * 0.9, k ? -70 : -110, [34, 24, 22, 14].map((v) => v * P.crystals), k ? col3 : col2, k ? col2 : col3);
+  }
+  s += arm(0, col);
+  if (extra.hand0) s += extra.hand0;
+  // Tête : petit bloc enfoncé entre les épaules, arcade lourde, yeux de braise.
+  const [hx, hy] = P.head, H = P.hs;
+  const hq: P2[] = [[-16, -12], [-4, -20], [12, -16], [18, -2], [12, 12], [-6, 14], [-18, 4]].map(([x, y]) => [hx + x * H, hy + y * H] as P2);
+  s += rock(c, `${id}-hd`, hq, col, { pits: 1 });
+  s += `<path d="M${f(hx - 16 * H)} ${f(hy - 3 * H)} L${f(hx + 16 * H)} ${f(hy - 5 * H)} L${f(hx + 14 * H)} ${f(hy + 2 * H)} L${f(hx - 15 * H)} ${f(hy + 4 * H)}Z" fill="${pal.deep}" stroke="#140F24" stroke-width="1"/>`;
+  for (const ex of [-8, 7]) {
+    s += `<circle cx="${f(hx + ex * H)}" cy="${f(hy)}" r="${f(5 * H)}" fill="${pal.eye}" opacity="0.55" filter="url(#soft)"/>`;
+    s += eyeA(hx + ex * H, hy + 0.5 * H, 4 * H, pal.eye, { angle: ex < 0 ? 6 : -6, slit: false, open: 0.38 });
+  }
+  if (P.crystals > 0.6) s += cluster(c, hx + 4 * H, hy - 16 * H, -95, [16, 11, 10].map((v) => v * P.crystals), col3, col2);
+  return s;
 }
 
 export const meteorgolem: Species = (c) => {
   const { pal, stage } = c;
+  const id = `meteorgolem-${stage}`;
+  if (stage === 0) {
+    // Météorin, tout juste tombé : recroquevillé au fond de son cratère, encore fumant, il ouvre un œil.
+    let s = `<ellipse cx="112" cy="194" rx="60" ry="12" fill="#000" opacity="0.4"/>`;
+    // Volutes de vapeur.
+    for (const [x, k] of [[78, 1], [126, -1], [150, 1]] as const) s += line(`M${x} 140 c${k * 8} -10 ${k * -6} -20 ${k * 2} -32 c${k * 8} -10 ${k * -4} -20 ${k * 4} -30`, 1.2, '#FFF6D8', ' opacity="0.4"');
+    const shell: P2[] = [[64, 186], [62, 160], [76, 136], [100, 122], [132, 120], [156, 132], [168, 156], [164, 184], [140, 194], [90, 196]];
+    s += rock(c, `${id}-sh`, shell, pal.body, { pits: 4, depth: 0.22 });
+    s += core(c, 136, 150, 5, [[[136, 150], [150, 140], [160, 146]], [[136, 150], [128, 168], [134, 184]], [[136, 150], [112, 140], [96, 130]]]);
+    s += cluster(c, 110, 124, -80, [22, 15, 13], pal.accent2, pal.glow) + cluster(c, 150, 130, -50, [14, 10], pal.glow, pal.accent2);
+    // Petite tête rentrée, un œil entrouvert, une main posée sur le bord.
+    const hq: P2[] = [[56, 160], [66, 146], [86, 142], [100, 152], [100, 172], [86, 182], [64, 180]];
+    s += rock(c, `${id}-hd`, hq, pal.body, { pits: 1, depth: 0.2 });
+    s += `<path d="M58 158 L68 152 L98 154 L96 160 L66 161Z" fill="${pal.deep}" stroke="#140F24" stroke-width="0.9"/>`;
+    s += `<circle cx="72" cy="166" r="7" fill="${pal.eye}" opacity="0.6" filter="url(#soft)"/>` + eyeA(72, 166.5, 4.8, pal.eye, { slit: false, open: 0.42, angle: 4 });
+    s += line('M84 166 q5 3 10 0', 1.3) + line('M62 174 l8 1 M76 176 l6 -1', 0.7, '#140F24', ' opacity="0.7"');
+    s += rock(c, `${id}-hn`, blob(58, 186, 10, 8, 6, 9), pal.body, { pits: 0 });
+    // Lèvre avant du cratère (couvre le bas du corps).
+    const lip = `M10 236 L14 196 C40 184 70 194 112 196 C150 198 180 186 212 194 L214 236Z`;
+    s += `<path d="${lip}" fill="${hsl(235 + (c.hue - 200) * 0.1 + 10, 12, 24)}" stroke="#140F24" stroke-width="1.4"/>` + clip(`${id}-lp`, lip, `<path d="${lip}" fill="url(#xhatch)" opacity="0.45"/>`
+      + line('M30 200 l10 16 l-6 18 M180 200 l-8 18 l10 16 M100 204 l6 14', 0.8, '#140F24'));
+    s += rim('M14 196 C40 184 70 194 112 196 C150 198 180 186 212 194', pal.glow, 1.3);
+    for (let i = 0; i < 7; i++) s += `<circle cx="${f(40 + i * 24 + c.r() * 8)}" cy="${f(194 + c.r() * 6)}" r="${f(1 + c.r())}" fill="${pal.glow}" filter="url(#glow)"/>`;
+    return `<g transform="translate(111 200) scale(1.15) translate(-112 -196)">${s}</g>`;
+  }
+  if (stage === 1) {
+    // Cristallos traverse une caverne de cristal, une géode lumineuse brandie comme une lanterne.
+    const lantern = `<circle cx="44" cy="112" r="26" fill="${pal.glow}" opacity="0.45" filter="url(#soft)"/>` + cluster(c, 44, 122, -90, [26, 18, 18, 12], pal.glow, pal.accent2) + sparkle(44, 104, 5, '#FFFFFF', false);
+    const P: Pose = {
+      chest: [118, 104], ts: 0.78, head: [96, 66], hs: 0.95,
+      sh: [[90, 80], [146, 82]], el: [[66, 110], [160, 124]], ha: [[48, 128], [166, 160]],
+      hip: [[108, 150], [132, 150]], kn: [[96, 176], [140, 176]], ft: [[84, 202], [154, 202]],
+      arm: 11, leg: 11.5, crystals: 0.75,
+    };
+    const s = `<ellipse cx="118" cy="204" rx="62" ry="7" fill="#000" opacity="0.35"/>` + golem(c, id, P, { hand0: lantern });
+    return `<g transform="translate(111 204) scale(1.06) translate(-114 -204)">${s}</g>`;
+  }
+  // Astrolithe : debout sur un astéroïde, bras ouverts, le cœur embrasé.
+  const P: Pose = {
+    chest: [111, 106], ts: 1, head: [111, 50], hs: 1.05,
+    sh: [[62, 78], [160, 78]], el: [[38, 112], [184, 112]], ha: [[28, 150], [194, 150]],
+    hip: [[92, 160], [130, 160]], kn: [[82, 184], [140, 184]], ft: [[76, 206], [146, 206]],
+    arm: 14, leg: 15, crystals: 1.45,
+  };
+  let s = `<ellipse cx="111" cy="208" rx="70" ry="8" fill="#000" opacity="0.4"/>`;
+  s += `<circle cx="111" cy="104" r="70" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
+  // Le corps est symétrique : on dessine le membre arrière en miroir pour une pose frontale.
+  s += golem(c, id, P);
+  s += `<circle cx="111" cy="104" r="24" fill="none" stroke="${pal.gold}" stroke-width="0.9" stroke-dasharray="5 2 1 2"/>` + gild('M111 76 l3 5 l-3 5 l-3 -5Z M111 122 l3 5 l-3 5 l-3 -5Z', 1);
+  for (const [x, y, z] of [[20, 100, 3], [204, 96, 3.4], [111, 8, 3]] as const) s += sparkle(x, y, z, pal.glow, false);
+  if (stage >= 3) s += constellation([[20, 30], [40, 18], [58, 28]], pal.gold);
+  return `<g transform="translate(111 210) scale(0.98) translate(-111 -210)">${s}</g>`;
+};
+
+/* ---------- Décors : désert lunaire, caverne de cristal, champ d'astéroïdes ---------- */
+
+const grad = (id: string, stops: [number, string][]) =>
+  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
+
+function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, op = 0.85): string {
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (ymax - b.y0), r = 0.3 + c.r() * c.r() * 1.3;
+    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="#FFF6D8" opacity="${f(op * (0.4 + c.r() * 0.6))}"/>`;
+  }
+  return s;
+}
+
+/** Rocher lointain, peu contrasté (perspective atmosphérique). */
+function farRock(q: P2[], fill: string, op = 1): string {
+  return `<path d="${poly(q)}" fill="${fill}" stroke="#140F24" stroke-width="0.6" opacity="${op}"/><path d="${poly(q)}" fill="url(#fine)" opacity="${f(0.35 * op)}"/>`;
+}
+
+meteorgolem.scene = (c: DrawCtx, b: Bounds): string => {
+  const { stage, pal } = c;
+  const id = `meteorgolem-${stage}-bg`;
+  const W = b.x1 - b.x0, Hh = b.y1 - b.y0;
+  const S = 235 + (c.hue - 200) * 0.1;
   let s = '';
   if (stage === 0) {
-    // ---- Petit caillou animé ----
-    const cx = 111, cy = 146;
-    s += ground(cx, 204, 62);
-    // Pieds.
-    for (const d of [-1, 1]) s += rock(c, [[cx + d * 14, 190], [cx + d * 34, 188], [cx + d * 38, 202], [cx + d * 12, 204]], pal.shade, 0, 2.2);
-    // Petites pousses de cristal sur le dessus.
-    s += crystal(cx + 4, cy - 44, 42, 10, -Math.PI / 2 + 0.15, pal.accent, '#FFF6D8');
-    s += crystal(cx - 14, cy - 40, 26, 7, -Math.PI / 2 - 0.5, pal.accent2, '#FFF6D8');
-    // Bras-cailloux.
-    s += rock(c, [[cx - 54, 148], [cx - 70, 156], [cx - 68, 172], [cx - 52, 170]], pal.body, 0, 2.2);
-    s += rock(c, [[cx + 54, 146], [cx + 70, 150], [cx + 72, 166], [cx + 54, 168]], pal.body, 0, 2.2);
-    // Corps-caillou.
-    s += rock(c, [[cx - 40, cy - 46], [cx + 6, cy - 54], [cx + 46, cy - 40], [cx + 60, cy + 4], [cx + 48, cy + 46], [cx - 4, cy + 52], [cx - 50, cy + 42], [cx - 60, cy - 6]], pal.body, 0, 2.8);
-    s += `<ellipse cx="${cx + 38}" cy="${cy - 24}" rx="6" ry="4.5" fill="${pal.shade}" stroke="#1A1230" stroke-width="1.2"/><ellipse cx="${cx - 34}" cy="${cy + 26}" rx="5" ry="3.8" fill="${pal.shade}" stroke="#1A1230" stroke-width="1.2"/><ellipse cx="${cx + 30}" cy="${cy + 32}" rx="3.5" ry="2.6" fill="${pal.shade}" stroke="#1A1230" stroke-width="1"/>`;
-    // Petite fissure lumineuse.
-    s += line(`M${cx - 6} ${cy + 50} L${cx - 2} ${cy + 38} L${cx + 6} ${cy + 34}`, 3.6) + line(`M${cx - 6} ${cy + 50} L${cx - 2} ${cy + 38} L${cx + 6} ${cy + 34}`, 1.6, pal.glow);
-    s += eye(cx - 20, cy - 4, 13, pal.eye, 0.2) + eye(cx + 20, cy - 4, 13, pal.eye, 0.2);
-    s += line(`M${cx - 7} ${cy + 18} q7 6 14 0`, 1.8);
-    s += `<ellipse cx="${cx - 38}" cy="${cy + 12}" rx="6" ry="3.5" fill="#FF8FB1" opacity="0.6"/><ellipse cx="${cx + 38}" cy="${cy + 12}" rx="6" ry="3.5" fill="#FF8FB1" opacity="0.6"/>`;
-    s += sparkle(cx + 20, cy - 66, 4, pal.glow) + sparkle(40, 100, 3.5, pal.glow) + sparkle(186, 120, 3, pal.accent2);
+    // Désert lunaire : planète bleue au-dessus de l'horizon, traînée du météore, cratère au premier plan.
+    s += `<defs>${grad(`${id}-sky`, [[0, hsl(S, 45, 6)], [1, hsl(S, 30, 18)]])}</defs>`;
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>` + stars(c, b, 80, 130);
+    s += `<circle cx="168" cy="52" r="30" fill="${hsl(S - 30, 40, 50)}" opacity="0.25" filter="url(#soft)"/>`;
+    s += `<circle cx="168" cy="52" r="22" fill="${hsl(S - 30, 35, 42)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += clip(`${id}-pl`, 'M146 52 a22 22 0 1 0 44 0 a22 22 0 1 0 -44 0', `<path d="M146 46 q12 -6 22 2 t22 -2 M150 60 q14 4 26 -4" fill="none" stroke="#FFF6D8" stroke-width="2" opacity="0.4"/><circle cx="160" cy="62" r="24" fill="${hsl(S, 45, 8)}" opacity="0.6"/>`);
+    s += `<path d="M10 20 L96 120" stroke="${pal.glow}" stroke-width="3" opacity="0.35" filter="url(#glow)"/><path d="M10 20 L96 120" stroke="#FFF6D8" stroke-width="0.8" opacity="0.7"/>`;
+    s += farRock([[b.x0 - 10, 150], [20, 132], [44, 130], [60, 146], [100, 148], [120, 136], [150, 134], [170, 148], [b.x1 + 10, 146], [b.x1 + 10, 170], [b.x0 - 10, 170]], hsl(S, 12, 34), 0.9);
+    const plain = `M${b.x0 - 10} 158 C60 150 160 152 ${b.x1 + 10} 158 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
+    s += `<path d="${plain}" fill="${hsl(S + 10, 10, 30)}"/>`;
+    s += `<ellipse cx="112" cy="190" rx="100" ry="30" fill="${hsl(S + 10, 14, 16)}" stroke="#140F24" stroke-width="0.8"/>`;
+    s += `<ellipse cx="112" cy="190" rx="100" ry="30" fill="url(#xhatch)" opacity="0.4"/>`;
+    s += `<ellipse cx="112" cy="196" rx="60" ry="14" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
+    for (const [x, y, r] of [[30, 172, 8], [190, 166, 6], [170, 220, 9]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f(r * 0.35)}" fill="${hsl(S + 10, 12, 20)}" stroke="#140F24" stroke-width="0.6"/>`;
     return s;
   }
-
   if (stage === 1) {
-    // ---- Golem trapu ----
-    const cx = 111;
-    s += ground(cx, 204, 80);
-    // Jambes.
-    for (const d of [-1, 1]) s += rock(c, [[cx + d * 12, 170], [cx + d * 44, 168], [cx + d * 48, 204], [cx + d * 8, 205]], pal.shade, 0);
-    // Cristaux d'épaule (derrière).
-    s += cluster(c, cx + 44, 100, 0.9, -Math.PI / 2 + 0.45);
-    s += crystal(cx - 46, 102, 26, 6.5, -Math.PI / 2 - 0.5, pal.accent, '#FFF6D8');
-    // Torse.
-    s += rock(c, [[cx - 52, 104], [cx - 10, 92], [cx + 44, 98], [cx + 62, 132], [cx + 52, 178], [cx, 186], [cx - 50, 178], [cx - 62, 136]], pal.body, 2);
-    s += core(c, cx, 146, 10, 5);
-    // Bras.
-    for (const d of [-1, 1]) {
-      s += rock(c, [[cx + d * 54, 104], [cx + d * 80, 112], [cx + d * 82, 146], [cx + d * 60, 146]], pal.body, 0, 2.4);
-      s += rock(c, [[cx + d * 58, 144], [cx + d * 88, 142], [cx + d * 94, 176], [cx + d * 76, 186], [cx + d * 58, 176]], pal.light, 0, 2.4);
-      s += line(`M${f(cx + d * 66)} ${172} l${d * 6} 8 M${f(cx + d * 76)} ${170} l${d * 6} 8`, 1.4);
-    }
-    // Tête enfoncée dans les épaules.
-    s += crystal(cx + 6, 66, 24, 6, -Math.PI / 2 + 0.2, pal.accent2, '#FFF6D8');
-    s += rock(c, [[cx - 30, 70], [cx + 4, 60], [cx + 32, 70], [cx + 36, 98], [cx + 4, 110], [cx - 34, 100]], pal.body, 0);
-    s += line(`M${cx - 26} ${78} L${cx + 28} ${78}`, 2.4, pal.shade);
-    s += eye(cx - 13, 90, 9, pal.eye, 0.15) + eye(cx + 13, 90, 9, pal.eye, 0.15);
-    s += line(`M${cx - 22} ${80} L${cx - 5} ${84} M${cx + 22} ${80} L${cx + 5} ${84}`, 2.6);
-    s += line(`M${cx - 6} ${103} q6 3 12 0`, 1.6);
-    s += speckles(c, cx, 130, 40, 30, 6);
-    s += sparkle(30, 70, 4, pal.glow) + sparkle(194, 64, 3.5, pal.glow);
+    // Caverne de cristal : parois sombres, stalactites, grappes de cristaux luisants, rai de lumière.
+    s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="${hsl(S + 20, 30, 9)}"/>`;
+    s += `<ellipse cx="130" cy="110" rx="90" ry="80" fill="${pal.accent2}" opacity="0.18" filter="url(#soft)"/>`;
+    s += `<path d="M150 ${b.y0} L190 ${b.y0} L140 220 L100 220Z" fill="#FFF6D8" opacity="0.07"/>`;
+    s += farRock([[b.x0 - 10, b.y0 - 10], [b.x1 + 10, b.y0 - 10], [b.x1 + 10, 30], [190, 40], [176, 60], [164, 36], [140, 46], [124, 30], [100, 50], [86, 30], [60, 44], [44, 70], [30, 40], [b.x0 - 10, 50]], hsl(S + 20, 16, 18));
+    s += farRock([[b.x0 - 10, 40], [24, 60], [30, 120], [20, 200], [b.x0 - 10, 210]], hsl(S + 20, 16, 16));
+    s += farRock([[b.x1 + 10, 30], [196, 70], [204, 140], [196, 200], [b.x1 + 10, 214]], hsl(S + 20, 16, 16));
+    for (const [x, y, a, k] of [[30, 120, -40, 0.8], [200, 140, -140, 1], [180, 60, 120, 0.6], [60, 44, 80, 0.5], [120, 36, 95, 0.5]] as const) s += `<g opacity="0.75">${cluster(c, x, y, a, [26, 18, 16, 12].map((v) => v * k), pal.accent2, pal.accent)}</g>`;
+    const floor = `M${b.x0 - 10} 196 C50 190 170 192 ${b.x1 + 10} 198 L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10}Z`;
+    s += `<path d="${floor}" fill="${hsl(S + 20, 14, 20)}" stroke="#140F24" stroke-width="0.8"/><path d="${floor}" fill="url(#fine)" opacity="0.5"/>`;
+    s += `<ellipse cx="60" cy="214" rx="50" ry="8" fill="${pal.accent2}" opacity="0.18"/>`;
+    for (const [x, k] of [[190, 0.7], [16, 0.5]] as const) s += cluster(c, x, 210, -90, [20, 14, 12].map((v) => v * k), pal.accent, pal.accent2);
     return s;
   }
-
-  // ---- Stade 2+ : grand golem aux cristaux lumineux et cœur d'étoile ----
-  const cx = 111;
-  if (stage >= 3) s += aura(cx, 120, 100, pal.glow);
-  s += ground(cx, 206, 96);
-  // Grands cristaux dorsaux (derrière tout).
-  s += crystal(cx - 30, 80, 64, 11, -Math.PI / 2 - 0.35, pal.accent, '#FFF6D8');
-  s += crystal(cx + 32, 80, 70, 12, -Math.PI / 2 + 0.32, pal.accent, '#FFF6D8');
-  s += crystal(cx - 50, 92, 40, 8, -Math.PI / 2 - 0.75, pal.accent2, '#FFF6D8');
-  s += crystal(cx + 54, 92, 44, 8, -Math.PI / 2 + 0.75, pal.accent2, '#FFF6D8');
-  // Jambes massives.
-  for (const d of [-1, 1]) s += rock(c, [[cx + d * 10, 164], [cx + d * 48, 160], [cx + d * 54, 204], [cx + d * 6, 206]], pal.shade, 1);
-  // Torse colossal.
-  s += rock(c, [[cx - 66, 86], [cx - 20, 72], [cx + 24, 72], [cx + 68, 88], [cx + 74, 130], [cx + 56, 174], [cx, 182], [cx - 56, 174], [cx - 74, 130]], pal.body, 3, 3);
-  s += core(c, cx, 126, 15, 7);
-  s += speckles(c, cx, 130, 50, 36, 10);
-  // Bras : épaules en rochers, avant-bras, poings au sol.
-  for (const d of [-1, 1]) {
-    s += rock(c, [[cx + d * 66, 112], [cx + d * 92, 116], [cx + d * 96, 160], [cx + d * 72, 158]], pal.shade, 0, 2.4);
-    s += rock(c, [[cx + d * 70, 154], [cx + d * 100, 152], [cx + d * 106, 194], [cx + d * 88, 204], [cx + d * 66, 196]], pal.light, 0, 2.6);
-    s += line(`M${f(cx + d * 76)} 192 l${d * 4} 10 M${f(cx + d * 88)} 190 l${d * 4} 11`, 1.5);
-    // Fissure lumineuse sur l'avant-bras.
-    const cr = `M${f(cx + d * 78)} 162 L${f(cx + d * 86)} 172 L${f(cx + d * 82)} 182`;
-    s += line(cr, 3.6) + line(cr, 1.6, pal.glow);
-    s += rock(c, [[cx + d * 50, 86], [cx + d * 84, 82], [cx + d * 100, 104], [cx + d * 94, 124], [cx + d * 60, 122]], pal.body, 1, 2.6);
-    s += cluster(c, cx + d * 84, 92, 0.85, -Math.PI / 2 + d * 0.55);
+  // Champ d'astéroïdes devant une planète à anneaux, nébuleuse ; un gros astéroïde sert de piédestal.
+  s += `<defs>${grad(`${id}-sky`, [[0, hsl(S + 30, 50, 6)], [1, hsl(S, 40, 14)]])}</defs>`;
+  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${Hh}" fill="url(#${id}-sky)"/>`;
+  s += `<ellipse cx="60" cy="70" rx="90" ry="40" fill="${pal.accent}" opacity="0.2" filter="url(#soft)"/><ellipse cx="180" cy="150" rx="70" ry="50" fill="${pal.accent2}" opacity="0.16" filter="url(#soft)"/>`;
+  s += stars(c, b, 90, b.y1);
+  s += `<circle cx="178" cy="40" r="20" fill="${hsl(S + 140, 25, 40)}" stroke="#140F24" stroke-width="0.8"/><circle cx="184" cy="46" r="20" fill="${hsl(S, 40, 10)}" opacity="0.5"/>`;
+  s += `<ellipse cx="178" cy="40" rx="36" ry="7" fill="none" stroke="${hsl(S + 140, 25, 70)}" stroke-width="1.4" transform="rotate(-18 178 40)" opacity="0.8"/>`;
+  for (let i = 0; i < 12; i++) {
+    const x = b.x0 + c.r() * W, y = b.y0 + 20 + c.r() * 160, r = 3 + c.r() * 9;
+    if (Math.abs(x - 111) < 50 && y > 40) continue;
+    s += farRock(blob(x, y, r, r * 0.8, 7, i), hsl(S + 10, 12, 22 + r), 0.85);
   }
-  // Tête : bloc de roche avec couronne de cristaux.
-  s += crystal(cx - 14, 50, 22, 5.5, -Math.PI / 2 - 0.35, pal.accent2, '#FFF6D8');
-  s += crystal(cx + 14, 50, 22, 5.5, -Math.PI / 2 + 0.35, pal.accent2, '#FFF6D8');
-  s += crystal(cx, 46, 32, 7, -Math.PI / 2, pal.accent, '#FFF6D8');
-  s += rock(c, [[cx - 28, 54], [cx, 44], [cx + 28, 54], [cx + 32, 82], [cx, 94], [cx - 32, 82]], pal.body, 0);
-  s += shadow(`M${cx - 30} 70 L${cx + 30} 70 L${cx + 31} 76 L${cx - 31} 76 Z`, pal.shade, 0.8);
-  s += line(`M${cx - 30} 70 L${cx + 30} 70`, 2.4);
-  s += glowEye(cx - 13, 78, 6, c) + glowEye(cx + 13, 78, 6, c);
-  s += line(`M${cx - 8} 89 L${cx + 8} 89`, 2);
-  s += sparkle(cx, 10, 5, '#FFF6D8') + sparkle(22, 40, 4, pal.glow) + sparkle(200, 50, 4, pal.glow);
+  const ast: P2[] = [[b.x0 - 10, 216], [20, 204], [60, 200], [100, 206], [150, 202], [190, 206], [b.x1 + 10, 212], [b.x1 + 10, b.y1 + 10], [b.x0 - 10, b.y1 + 10]];
+  s += `<path d="${poly(ast)}" fill="${hsl(S + 10, 12, 22)}" stroke="#140F24" stroke-width="1"/>`;
+  s += clip(`${id}-as`, poly(ast), `<path d="${poly(ast)}" fill="url(#xhatch)" opacity="0.5"/>` + `<ellipse cx="50" cy="222" rx="16" ry="4" fill="${hsl(S, 20, 12)}"/><ellipse cx="170" cy="226" rx="20" ry="5" fill="${hsl(S, 20, 12)}"/>`);
+  s += rim(`M${b.x0 - 10} 216 L20 204 L60 200 L100 206 L150 202 L190 206 L${b.x1 + 10} 212`, pal.glow, 1);
   return s;
 };
