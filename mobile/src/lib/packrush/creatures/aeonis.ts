@@ -58,7 +58,7 @@ export const aeonis: Species = (c: DrawCtx) => {
       if (i % 4 === 0) s += sparkle(x, y, 2 + c.r() * 1.5, CREAM, false);
     }
   }
-  s += `<circle cx="${GX}" cy="${GY}" r="14" fill="${CREAM}" opacity="0.8" filter="url(#b8)"/>`;
+  s += `<circle cx="${GX}" cy="${GY}" r="14" fill="${CREAM}" opacity="0.8" filter="url(#b4)"/>`;
   s += `<ellipse cx="${GX}" cy="${GY}" rx="8" ry="4.5" fill="${CREAM}" transform="rotate(-8 ${GX} ${GY})"/>`;
 
   // ---------- Nageoire antérieure lointaine (relevée) ----------
@@ -154,7 +154,7 @@ export const aeonis: Species = (c: DrawCtx) => {
   s += line('M80 8 C74 9 70 12 68 16 M146 4 C152 6 156 10 158 14 M92 -12 C86 -14 80 -12 76 -8', 1, CREAM, ' opacity="0.8"');
   s += gild('M110 40 C111 30 111 22 110 14 M114 40 C114 32 114 24 113 16', 0.6);
   for (const [x, y] of [[80, 8], [146, 4], [92, -12], [140, -10], [68, 16], [158, 14], [76, -8], [124, 0], [100, 2]] as const) {
-    s += `<circle cx="${x}" cy="${y}" r="3.4" fill="${pal.glow}" opacity="0.6" filter="url(#b8)"/>` + `<circle cx="${x}" cy="${y}" r="1.4" fill="${CREAM}"/>`;
+    s += `<circle cx="${x}" cy="${y}" r="3.4" fill="${pal.glow}" opacity="0.6" filter="url(#b4)"/>` + `<circle cx="${x}" cy="${y}" r="1.4" fill="${CREAM}"/>`;
   }
 
   // ---------- Nageoire antérieure proche (en pleine brasse) ----------

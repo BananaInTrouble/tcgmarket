@@ -93,8 +93,8 @@ export const lunaphage: Species = (c: DrawCtx) => {
   s += tufts([[40, 196], [26, 206], [12, 204], [2, 192], [-2, 176]], 7, pal.deep, 1);
   s += `<defs><clipPath id="${id}-t"><path d="${tail}"/></clipPath></defs>${V(tail, pal.deep, { light: [0.7, 0.2], hi: TEAL, lo: '#05030C', rim: TEAL })}<g clip-path="url(#${id}-t)">`
     + `<ellipse cx="6" cy="160" rx="12" ry="34" fill="${pal.accent2}" opacity="0.45" filter="url(#b8)"/>`
-    + `<ellipse cx="22" cy="110" rx="12" ry="14" fill="${CREAM}" opacity="0.5" filter="url(#b8)"/>`
-    + `<ellipse cx="28" cy="198" rx="14" ry="10" fill="${pal.glow}" opacity="0.35" filter="url(#b8)"/>`
+    + `<ellipse cx="22" cy="110" rx="12" ry="14" fill="${CREAM}" opacity="0.5" filter="url(#b4)"/>`
+    + `<ellipse cx="28" cy="198" rx="14" ry="10" fill="${pal.glow}" opacity="0.35" filter="url(#b4)"/>`
     + speckles(c, 10, 156, 16, 46, 26)
     + line('M14 116 C2 138 0 166 14 190 M24 112 C12 136 10 164 26 192 M6 128 C-4 150 -2 172 6 188', 0.7, CREAM, ' opacity="0.35"')
     + `</g>` + ink(tail, 'none', 1.3);
@@ -212,7 +212,7 @@ export const lunaphage: Species = (c: DrawCtx) => {
 
   // Éclat de lune entre les crocs, lumière qui coule.
   const fr = hp(76, 38);
-  s += `<circle cx="${f(fr[0])}" cy="${f(fr[1])}" r="12" fill="${pal.glow}" opacity="0.55" filter="url(#b8)"/>`;
+  s += `<circle cx="${f(fr[0])}" cy="${f(fr[1])}" r="12" fill="${pal.glow}" opacity="0.55" filter="url(#b4)"/>`;
   s += ink(`M${f(fr[0] - 6)} ${f(fr[1] + 2)} C${f(fr[0] - 4)} ${f(fr[1] - 6)} ${f(fr[0] + 4)} ${f(fr[1] - 8)} ${f(fr[0] + 8)} ${f(fr[1] - 4)} C${f(fr[0] + 4)} ${f(fr[1] - 3)} ${f(fr[0] + 2)} ${f(fr[1] + 2)} ${f(fr[0] + 4)} ${f(fr[1] + 6)} C${f(fr[0])} ${f(fr[1] + 6)} ${f(fr[0] - 4)} ${f(fr[1] + 5)} ${f(fr[0] - 6)} ${f(fr[1] + 2)} Z`, CREAM, 1);
   const dr = hp(70, 52);
   s += line(`M${P(dr)} c1 6 -1 12 1 18 M${f(dr[0] + 6)} ${f(dr[1] - 1)} c1 5 0 9 2 13`, 1.1, CREAM, ' opacity="0.85"');
@@ -236,7 +236,7 @@ lunaphage.scene = (c: DrawCtx, b: Bounds) => {
   s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-sky)"/>`;
   // Voie lactée en écharpe et étoiles.
   s += `<ellipse cx="80" cy="70" rx="150" ry="22" fill="${pal.light}" opacity="0.13" filter="url(#b8)" transform="rotate(-38 80 70)"/>`;
-  s += `<ellipse cx="60" cy="96" rx="90" ry="10" fill="${pal.accent2}" opacity="0.12" filter="url(#b8)" transform="rotate(-38 60 96)"/>`;
+  s += `<ellipse cx="60" cy="96" rx="90" ry="10" fill="${pal.accent2}" opacity="0.12" filter="url(#b4)" transform="rotate(-38 60 96)"/>`;
   for (let i = 0; i < 70; i++) {
     const x = b.x0 + c.r() * W, y = b.y0 + c.r() * 240, r = 0.3 + c.r() * c.r() * 1.4;
     s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${CREAM}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
