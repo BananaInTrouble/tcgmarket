@@ -1,49 +1,42 @@
-import { bloom, eyeGlow, gloss, hsl, softShadow, sparkle as sparkleS, strands, vol, type Bounds, type DrawCtx, type Species } from './style.ts';
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { curve, ellipse, facetSky, facets, gem, hsl, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
-/* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
-type P = [number, number];
-const f = (v: number) => +v.toFixed(1);
-function cr(pts: P[], seg: number): P[] {
-  const out: P[] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+/* ---------- Géométrie (squelettes lissés → polygones pour les facettes) ---------- */
+type Fn = (t: number) => number;
+const f1 = (v: number) => v.toFixed(1);
+/** Interpolation linéaire dans une table [t, valeur]. */
+const tab = (t: [number, number][]): Fn => (x) => {
+  if (x <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, va] = t[i - 1], [b2, vb] = t[i]; return va + ((x - a) / (b2 - a)) * (vb - va); }
+  return t[t.length - 1][1];
+};
+/** Spline de Catmull-Rom échantillonnée (ouverte ou fermée). */
+function crs(pts: Pt[], seg: number, closed = false): Pt[] {
+  const N = pts.length, out: Pt[] = [];
+  const g = (i: number) => (closed ? pts[(i + N) % N] : pts[Math.max(0, Math.min(N - 1, i))]);
+  for (let i = 0; i < (closed ? N : N - 1); i++) {
+    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
     for (let k = 0; k < seg; k++) {
       const t = k / seg, t2 = t * t, t3 = t2 * t;
       const q = (j: 0 | 1) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
       out.push([q(0), q(1)]);
     }
   }
-  out.push(pts[pts.length - 1]);
+  if (!closed) out.push(pts[N - 1]);
   return out;
 }
-function smooth(pts: P[], closed = false): string {
-  const N = pts.length;
-  const g = (i: number) => (closed ? pts[(i + N) % N] : pts[Math.max(0, Math.min(N - 1, i))]);
-  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
-  for (let i = 0; i < (closed ? N : N - 1); i++) {
-    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
-    d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
-  }
-  return d + (closed ? ' Z' : '');
-}
-interface Fr { m: P[]; nr: P[] }
-function frame(spine: P[], seg = 8): Fr {
-  const m = cr(spine, seg);
+interface Fr { m: Pt[]; nr: Pt[] }
+function frame(spine: Pt[], seg = 6): Fr {
+  const m = crs(spine, seg);
   const nr = m.map((_, i) => {
-    const a = m[Math.max(0, i - 1)], b = m[Math.min(m.length - 1, i + 1)];
-    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
-    return [-dy / L, dx / L] as P;
+    const a = m[Math.max(0, i - 1)], b2 = m[Math.min(m.length - 1, i + 1)];
+    const dx = b2[0] - a[0], dy = b2[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    return [-dy / l, dx / l] as Pt;
   });
   return { m, nr };
 }
-const tab = (t: [number, number][]) => (x: number) => {
-  if (x <= t[0][0]) return t[0][1];
-  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, va] = t[i - 1], [b, vb] = t[i]; return va + ((x - a) / (b - a)) * (vb - va); }
-  return t[t.length - 1][1];
-};
-type Fn = (t: number) => number;
-function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): P[] {
-  const N = fr.m.length - 1, out: P[] = [];
+function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): Pt[] {
+  const N = fr.m.length - 1, out: Pt[] = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     if (t < t0 - 1e-6 || t > t1 + 1e-6) continue;
@@ -52,302 +45,143 @@ function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): P[] {
   }
   return out;
 }
-const strip = (fr: Fr, a: Fn, b: Fn, t0 = 0, t1 = 1) => smooth([...side(fr, a, t0, t1), ...side(fr, b, t0, t1).reverse()], true);
-const outline = (fr: Fr, w: Fn, t0 = 0, t1 = 1) => strip(fr, w, (t) => -w(t), t0, t1);
-const curve = (fr: Fr, fn: Fn, t0 = 0, t1 = 1) => smooth(side(fr, fn, t0, t1));
-function at(fr: Fr, t: number, o = 0): P {
+const strip = (fr: Fr, a: Fn, b2: Fn, t0 = 0, t1 = 1): Pt[] => [...side(fr, a, t0, t1), ...side(fr, b2, t0, t1).reverse()];
+const outline = (fr: Fr, w: Fn, t0 = 0, t1 = 1): Pt[] => strip(fr, w, (t) => -w(t), t0, t1);
+function at(fr: Fr, t: number, o = 0): Pt {
   const i = Math.round(t * (fr.m.length - 1));
   return [fr.m[i][0] + fr.nr[i][0] * o, fr.m[i][1] + fr.nr[i][1] * o];
 }
-const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
-const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
+/** Polygone plat (petits détails), cercle, constellation dorée. */
+const flat = (pts: Pt[], col: string, op = 1) => `<path d="M${pts.map((p) => `${f1(p[0])} ${f1(p[1])}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
+const disc = (x: number, y: number, r: number, col: string, op = 1) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r)}" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
+const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
+const constel = (pts: Pt[], s = 3) => `<polyline points="${pts.map((p) => `${f1(p[0])},${f1(p[1])}`).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.85"/>` + pts.map(([x, y]) => gem(x, y, s, '#FFFFFF', GOLD)).join('');
+/** Œil : pupille sombre, iris lumineux, reflet. */
+const eyeLP = (x: number, y: number, r: number, iris: string) => disc(x, y, r * 1.9, iris, 0.22) + disc(x, y, r * 1.25, iris) + disc(x + r * 0.1, y, r * 0.8, '#0B0618') + disc(x - r * 0.4, y - r * 0.45, r * 0.38, '#FFFFFF');
 
-/* ---------- Rendu « 3D » (V4) : les anciens outils d'encre sont redéfinis localement en volumes et lumières ---------- */
-const R4 = { id: 'x', k: 0, rimC: '#8FE8E0', light: [0.32, 0.22] as [number, number], hi: '' };
-const begin = (id: string, rimC: string, light: [number, number] = [0.32, 0.22]) => { R4.id = id; R4.k = 0; R4.rimC = rimC; R4.light = light; };
-const uid = () => `${R4.id}-v${R4.k++}`;
-/** Éclaircit / assombrit une couleur hsla (ou la laisse telle quelle). */
-function tone(col: string, dl: number, ds = 0): string {
-  const m = /hsla?\(([-\d.]+),([\d.]+)%,([\d.]+)%(?:,([\d.]+))?\)/.exec(col);
-  if (!m) return dl > 0 ? '#FFF6E6' : '#07040F';
-  return hsl(+m[1], Math.max(0, Math.min(100, +m[2] + ds)), Math.max(2, Math.min(97, +m[3] + dl)));
-}
-const INKS = ['#140F24', '#1A1230'];
-/** Volume modelé (remplace l'aplat cerné). Un remplissage `none` ne dessine plus rien (plus de contours). */
-const ink = (d: string, fillC: string, _w = 1, extra = '') => {
-  if (fillC === 'none') return '';
-  if (/opacity/.test(extra)) return `<path d="${d}" fill="${fillC}"${extra}/>`;
-  return vol(uid(), d, fillC, { light: R4.light, hi: tone(fillC, 26, 10), lo: tone(fillC, -30, 18), rim: R4.rimC, ao: 0.5 });
-};
-/** Trait : les traits d'encre deviennent des plis sombres très doux ; les traits colorés deviennent des filets de lumière. */
-const line = (d: string, w = 1, color = '#140F24', extra = '') => INKS.includes(color)
-  ? `<path d="${d}" fill="none" stroke="#07040F" stroke-width="${f(w * 0.9)}" stroke-linecap="round" opacity="0.28"${extra.replace(/opacity="[\d.]+"/, '')}/>`
-  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`;
-/** Ombre interne douce (plus de hachures). */
-const shadow = (d: string, color: string, op = 0.8, _h = '') => `<path d="${d}" fill="${tone(color, -6, 10)}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`;
-const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, _col = '', w = 0.8) => strands(c, x, y, len, angle, count, spread * 2, R4.hi || '#FFF6E6', w);
-const eyeA = (x: number, y: number, w: number, iris: string, o: { angle?: number; slit?: boolean; open?: number } = {}) => eyeGlow(`${R4.id}-e${R4.k++}`, x, y, w * 1.05, iris, o);
-const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
-const rim = (d: string, color: string, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`;
-const gild = (d: string, w = 1.1) => `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 2.6)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF1C4" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-const sparkle = (x: number, y: number, s: number, color = '#FFF6D8', _st = false) => bloom(x, y, s * 1.6, color, 0.6) + sparkleS(x, y, s * 0.9, '#FFFFFF', false);
-const aura = (x: number, y: number, r: number, color: string) => bloom(x, y, r * 0.8, color, 0.3);
-function constellation(pts: P[], color = '#FFF6D8'): string {
-  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.75"/>`
-    + pts.map(([x, y], i) => bloom(x, y, 3.2, color, 0.8) + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.3}" fill="#FFFFFF"/>`).join('');
-}
-/** Retire les cernes restants (traits d'encre littéraux, hachures) d'un fragment SVG. */
-const deink = (s: string) => s
-  .replace(/stroke="#140F24"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
-  .replace(/stroke="#1A1230"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
-  .replace(/fill="url\(#(fine|xhatch|hatch)\)"/g, 'fill="none"');
-
-/* ---------- Décor : petits outils ---------- */
-const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
-/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
-const vgrad = (id: string, stops: [number, string][]) =>
-  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
-/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
-function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
-  let s = '';
-  for (let i = 0; i < n; i++) {
-    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
-    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
-  }
-  return s;
-}
-/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
-function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
-  const pts: P[] = [];
-  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
-  const top = smooth(pts);
-  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
-    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
-}
-/** Halo flou (lumière d'ambiance). */
-const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
-  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
-
-/** Cétoile → Baleinelle → Nébulène → Abyssiale : baleine à bosse du vide (sillons ventraux, nageoires pectorales immenses), dont le flanc s'ouvre sur une nébuleuse au stade éveillé. */
-export const cetoile: Species = (c) => {
-  const { pal, stage } = c;
-  const st = Math.min(stage, 3);
-  const id = `cetoile-${st}`;
-  begin(id, ['#9FF2FF', '#FFD89A', '#9FC8FF', '#FFB8F0'][st], ([[0.5, 0.05], [0.3, 0.1], [0.4, 0.15], [0.4, 0.2]] as [number, number][])[st]);
-  R4.hi = tone(pal.body, 30, 6);
-  const S = [0.88, 0.95, 1, 1][st];
-  const fat = [1.12, 1.04, 1, 1][st];
-  const pecK = [0.7, 0.85, 1, 1.05][st];
-
-  const spine: P[] = [[14, 146], [40, 130], [74, 120], [110, 118], [142, 120], [166, 112], [182, 94], [188, 72], [186, 52]];
-  const fr = frame(spine, 8);
+/** Cétoile → Baleinelle → Nébulène → Abyssiale : baleine à bosse du vide (sillons ventraux, très longues pectorales) ; le flanc de l'éveillée s'ouvre sur une nébuleuse. */
+const draw = (c: DrawCtx): string => {
+  const st = Math.min(c.stage, 3), h = c.hue;
+  const base = hsl(h, 34, 44), deep = hsl(h + 10, 40, 20), belly = hsl(h - 10, 24, 78);
+  const L: Light = ([
+    { dir: [0.1, -0.9, 0.5], color: '#CFF8FF', shade: '#040A18', rim: '#7CF5E0' },
+    { dir: [-0.6, -0.6, 0.5], color: '#FFE3B8', shade: '#08081A', rim: '#FFC98A' },
+    { dir: [-0.2, -0.8, 0.5], color: '#BFD8FF', shade: '#03040E', rim: '#7CB8FF' },
+    { dir: [-0.3, -0.7, 0.6], color: '#FFE0F4', shade: '#06041A', rim: '#FF9EE0' },
+  ] as Light[])[st];
+  const far: Light = { ...L, color: mix(L.color, deep, 0.45), rim: undefined };
+  const S = [0.88, 0.95, 1, 1][st], fat = [1.12, 1.04, 1, 1][st], pecK = [0.7, 0.85, 1, 1.05][st];
+  const fr = frame([[14, 146], [40, 130], [74, 120], [110, 118], [142, 120], [166, 112], [182, 94], [188, 72], [186, 52]], 5);
   const W = tab([[0, 5], [0.04, 13 * fat], [0.12, 21 * fat], [0.26, 27 * fat], [0.42, 26 * fat], [0.58, 18 * fat], [0.72, 10.5], [0.86, 6], [1, 4]]);
-  const nW = (t: number) => -W(t);
-  const body = outline(fr, W);
-  let g = '';
-  if (st >= 3) g += aura(110, 108, 100, pal.glow);
-  if (st === 2) g += ground(100, 214, 60);
+  let s = '', seed = 10;
 
-  // Traînée de poussière d'étoiles (sillage).
-  if (st >= 2) {
-    for (let k = 0; k < (st >= 3 ? 26 : 12); k++) {
-      const u = c.r();
-      g += `<circle cx="${f(196 - u * 40 + (c.r() - 0.5) * 16)}" cy="${f(34 - u * 26 + c.r() * 16)}" r="${f(0.5 + c.r() * 1.2)}" fill="#FFF6D8" opacity="${f(0.4 + c.r() * 0.5)}"/>`;
-    }
-  }
-
-  // Nageoire pectorale éloignée (dépasse sous le ventre).
+  // Pectorales : longues, bord d'attaque festonné.
   const [px0, py0] = at(fr, 0.3, W(0.3) * 0.6);
-  const pec = (x: number, y: number, k: number, fill: string, far: boolean) => {
-    const pts: P[] = [[x, y], [x + 16 * k, y + 22 * k], [x + 38 * k, y + 40 * k], [x + 62 * k, y + 48 * k]];
-    const pfr = frame(pts, 6);
+  const pec = (x: number, y: number, k: number, col: string, li: Light) => {
+    const pf = frame([[x, y], [x + 16 * k, y + 22 * k], [x + 38 * k, y + 40 * k], [x + 62 * k, y + 48 * k]], 6);
     const pw = tab([[0, 8], [0.25, 9.5], [0.75, 5.5], [1, 1.4]]);
-    // Bord d'attaque festonné (tubercules).
-    const lead = side(pfr, (t) => -pw(t) - (t > 0.1 && t < 0.92 ? Math.abs(Math.sin(t * 34)) * 1.6 : 0));
-    const trail = side(pfr, pw);
-    const d = smooth([...trail, ...lead.reverse()], true);
-    let s = ink(d, fill, far ? 1.1 : 1.4);
-    if (!far) {
-      s += shadow(strip(pfr, (t) => pw(t) * 0.1, pw), pal.shade, 0.55, 'fine');
-      s += line(curve(pfr, (t) => -pw(t) * 0.35, 0.05, 0.9), 0.6, pal.deep, ' opacity="0.6"');
-    }
-    return s;
+    return facets(strip(pf, pw, (t) => -pw(t) - (t > 0.1 && t < 0.92 ? Math.abs(Math.sin(t * 34)) * 1.8 : 0)), col, li, { size: 4.5, relief: 0.6, seed: seed++ });
   };
-  g += pec(px0 + 22, py0 - 8, pecK * 0.62, pal.shade, true);
-
-  // Flukes (caudale vue de dessus, la queue se relève).
+  s += pec(px0 + 22, py0 - 8, pecK * 0.62, deep, far);
+  // Caudale (vue de dessus, la queue se relève).
   const [fx, fy] = fr.m[fr.m.length - 1];
   const fk = [0.85, 0.92, 1, 1.05][st];
-  const fl = (x: number, y: number) => `${f(fx + x * fk)} ${f(fy + y * fk)}`;
-  const fluke = `M${fl(-3, 6)} C${fl(-10, 0)} ${fl(-22, -2)} ${fl(-32, -12)} C${fl(-26, -16)} ${fl(-18, -14)} ${fl(-14, -12)} Q${fl(-10, -14)} ${fl(-8, -11)} Q${fl(-4, -12)} ${fl(0, -8)} Q${fl(4, -13)} ${fl(8, -12)} Q${fl(12, -15)} ${fl(16, -13)} C${fl(22, -16)} ${fl(28, -18)} ${fl(34, -16)} C${fl(26, -6)} ${fl(12, 0)} ${fl(3, 6)} Z`;
-  g += ink(fluke, pal.body, 1.6);
-  g += shadow(`M${fl(-3, 6)} C${fl(-10, 0)} ${fl(-22, -2)} ${fl(-32, -12)} C${fl(-20, -8)} ${fl(-8, -4)} ${fl(0, 0)} C${fl(10, -6)} ${fl(24, -12)} ${fl(34, -16)} C${fl(26, -6)} ${fl(12, 0)} ${fl(3, 6)} Z`, pal.shade, 0.7, 'fine');
-  g += `<path d="M${fl(-26, -13)} Q${fl(-12, -10)} ${fl(0, -6)} Q${fl(14, -12)} ${fl(30, -15)}" fill="none" stroke="${pal.belly}" stroke-width="1.1" opacity="0.7"/>`;
-
-  // Corps.
-  g += ink(body, pal.body, 1.8);
-  g += `<defs><clipPath id="${id}-b"><path d="${body}"/></clipPath></defs><g clip-path="url(#${id}-b)">`;
-  // Dos sombre, ventre clair à sillons.
-  g += `<path d="${strip(fr, nW, (t) => -W(t) * 0.2 + Math.sin(t * 40) * 1.5, 0, 1)}" fill="${pal.shade}" opacity="0.55"/>`;
-  const belly = strip(fr, (t) => W(t) * (0.22 + t * 0.4), (t) => W(t) * 1.1, 0.01, 0.62);
-  g += `<path d="${belly}" fill="${pal.belly}" opacity="0.9"/>`;
-  const pleats = st === 0 ? 5 : 8;
-  for (let k = 0; k < pleats; k++) {
-    const o = 0.42 + (k / pleats) * 0.58;
-    g += line(curve(fr, (t) => W(t) * (o + (1 - o) * t * 0.5), 0.03 + k * 0.006, 0.5 - k * 0.012), 0.55, pal.deep, ' opacity="0.65"');
+  const F = (x: number, y: number): Pt => [fx + x * fk, fy + y * fk];
+  s += facets(curve(F(-3, 6), [[F(-10, 0), F(-22, -2), F(-32, -12)], [F(-24, -16), F(-12, -14), F(0, -8)], [F(12, -15), F(26, -18), F(34, -16)], [F(26, -6), F(12, 0), F(3, 6)]], 3), base, L, { size: 4.5, relief: 0.7, seed: seed++, base2: deep });
+  // Corps : dos sombre, ventre clair.
+  s += facets(outline(fr, W), base, L, { size: 7, relief: 1.6, seed: seed++, base2: mix(base, deep, 0.3) });
+  s += facets(strip(fr, (t) => -W(t) * 0.98, (t) => -W(t) * 0.25, 0.02, 0.98), deep, L, { size: 7, relief: 0.4, seed: seed++, opacity: 0.45 });
+  s += facets(strip(fr, (t) => W(t) * (0.22 + t * 0.4), (t) => W(t) * 0.98, 0.01, 0.62), belly, L, { size: 5, relief: 0.4, seed: seed++, opacity: 0.85 });
+  // Sillons ventraux : fines bandes sombres.
+  for (let k = 0; k < (st === 0 ? 4 : 7); k++) {
+    const o = 0.45 + (k / 7) * 0.5, t1 = 0.48 - k * 0.012;
+    s += flat(strip(fr, (t) => W(t) * (o + (1 - o) * t * 0.5), (t) => W(t) * (o + (1 - o) * t * 0.5) + 0.8, 0.04 + k * 0.006, t1), deep, 0.45);
   }
-  g += shadow(strip(fr, (t) => W(t) * 0.55, (t) => W(t) * 1.1, 0.03, 1), pal.shade, 0.55, 'fine');
-  g += shadow(strip(fr, (t) => W(t) * 0.85, (t) => W(t) * 1.1, 0.1, 0.8), pal.deep, 0.35, 'xhatch');
-  // Nébuleuse intérieure (éveil) : le flanc s'ouvre sur le cosmos.
+  // Éveil : le flanc s'ouvre sur une nébuleuse.
   if (st >= 3) {
-    const lo = (t: number) => W(t) * (0.1 + Math.sin(t * 12) * 0.12);
-    const win = strip(fr, (t) => lo(t) + (-W(t) * 1.1 - lo(t)) * Math.min(1, Math.max(0, (t - 0.3) / 0.16)) ** 0.6, lo, 0.3, 1);
-    g += `<defs><clipPath id="${id}-n"><path d="${win}"/></clipPath></defs><g clip-path="url(#${id}-n)">`;
-    g += `<path d="${win}" fill="${pal.deep}"/>`;
-    for (const [t, o, rx, ry, col, a] of [[0.44, -0.5, 26, 16, pal.accent, 0.9], [0.6, -0.1, 20, 14, pal.accent2, 0.85], [0.4, 0.0, 12, 9, '#FFF6D8', 0.55], [0.72, -0.3, 14, 12, pal.glow, 0.7], [0.52, -0.9, 18, 8, pal.eye, 0.45], [0.86, 0, 10, 10, pal.accent, 0.7]] as const) {
-      const [x, y] = at(fr, t, W(t) * o);
-      g += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${rx}" ry="${ry}" fill="${col}" opacity="${a}" filter="url(#soft)"/>`;
-    }
-    for (let k = 0; k < 40; k++) {
-      const t = 0.35 + c.r() * 0.62, [x, y] = at(fr, t, W(t) * (c.r() * 1.8 - 1));
-      g += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(0.4 + c.r() * 1.1)}" fill="#FFF6D8" opacity="${f(0.5 + c.r() * 0.5)}"/>`;
-    }
-    g += `</g>`;
-    g += gild(curve(fr, lo, 0.3, 0.98), 1);
-    g += gild(curve(fr, (t) => -W(t) * 0.62, 0.05, 0.3), 0.9);
-    g += constellation([at(fr, 0.4, -10), at(fr, 0.48, -2), at(fr, 0.56, -12), at(fr, 0.66, -4), at(fr, 0.74, -8)], pal.gold);
+    const lo: Fn = (t) => W(t) * (0.1 + Math.sin(t * 12) * 0.12);
+    const win = strip(fr, (t) => lo(t) + (-W(t) * 0.95 - lo(t)) * Math.min(1, Math.max(0, (t - 0.3) / 0.16)) ** 0.6, lo, 0.3, 0.97);
+    s += facets(win, hsl(h + 40, 40, 18), { dir: [0, 0, 1], color: hsl(h + 60, 70, 60), shade: '#05030F' }, { size: 6, relief: 0.6, seed: seed++, jitter: 0.6, base2: hsl(h + 140, 50, 30) });
+    const rr = prng(h + 3);
+    for (let k = 0; k < 26; k++) { const t = 0.36 + rr() * 0.58, [x, y] = at(fr, t, W(t) * (rr() * 1.4 - 0.9)); s += k % 5 ? disc(x, y, 0.5 + rr() * 0.8, '#FFF6E0', 0.85) : gem(x, y, 2.4, '#FFFFFF', hsl(h + 60, 70, 70)); }
+    s += constel([at(fr, 0.4, -10), at(fr, 0.48, -2), at(fr, 0.56, -12), at(fr, 0.66, -4), at(fr, 0.74, -8)]);
   }
-  g += `</g>`;
-  // Nageoire dorsale (petite bosse).
-  const [dx, dy] = at(fr, 0.62, -W(0.62) + 1);
-  g += ink(`M${f(dx - 10)} ${f(dy + 2)} C${f(dx - 4)} ${f(dy - 2)} ${f(dx + 2)} ${f(dy - 8)} ${f(dx + 6)} ${f(dy - 9)} C${f(dx + 5)} ${f(dy - 4)} ${f(dx + 6)} ${f(dy)} ${f(dx + 10)} ${f(dy + 2)}`, pal.shade, 1.3);
-  // Bouche, œil, tubercules, évent.
-  const mouth = curve(fr, (t) => W(t) * (0.15 + t * 2.2), 0.005, 0.17);
-  g += line(mouth, 1.2);
-  const [ex, ey] = at(fr, 0.19, W(0.19) * 0.32);
-  g += eyeA(ex, ey, 3.6, pal.eye, { angle: -6, slit: false, open: 0.55 });
-  g += line(`M${f(ex - 5)} ${f(ey + 4)} Q${f(ex)} ${f(ey + 6)} ${f(ex + 5)} ${f(ey + 3)}`, 0.6, pal.deep, ' opacity="0.7"');
-  if (st >= 1) {
-    for (let k = 0; k < 7; k++) {
-      const t = 0.03 + k * 0.022, [x, y] = at(fr, t, -W(t) * 0.55 + (k % 2) * 3);
-      g += `<circle cx="${f(x)}" cy="${f(y)}" r="1.3" fill="${pal.light}" stroke="#140F24" stroke-width="0.5"/>`;
-    }
-    // Bernacles-étoiles.
-    for (const [t, o] of [[0.07, 0.5], [0.1, 0.65], [0.28, -0.3], [0.5, 0.4]] as const) {
-      const [x, y] = at(fr, t, W(t) * o);
-      g += sparkle(x, y, st >= 2 ? 2.8 : 2.2, st >= 2 ? pal.gold : '#FFF6D8', false);
-    }
-  }
+  // Nageoire dorsale, bouche, œil, tubercules, évent.
+  { const [dx, dy] = at(fr, 0.62, -W(0.62) + 1); s += facets([[dx - 10, dy + 2], [dx + 4, dy - 9], [dx + 10, dy + 2]], base, L, { size: 3, relief: 0.4, seed: seed++ }); }
+  s += flat(strip(fr, (t) => W(t) * (0.15 + t * 2.2), (t) => W(t) * (0.15 + t * 2.2) + 1.2, 0.005, 0.17), '#0A0618', 0.7);
+  { const [ex, ey] = at(fr, 0.19, W(0.19) * 0.32); s += eyeLP(ex, ey, 2.2, '#FFD27A'); }
+  if (st >= 1) for (let k = 0; k < 7; k++) { const t = 0.03 + k * 0.022, [x, y] = at(fr, t, -W(t) * 0.55 + (k % 2) * 3); s += facets(ellipse(x, y, 1.8, 1.6, 6), belly, L, { size: 2, seed: seed++ }); }
+  if (st >= 1) for (const [t, o] of [[0.07, 0.5], [0.1, 0.65], [0.28, -0.3], [0.5, 0.4]] as const) { const [x, y] = at(fr, t, W(t) * o); s += gem(x, y, st >= 2 ? 3 : 2.3, '#FFFFFF', st >= 2 ? GOLD : CRYSTAL); }
   const [bx, by] = at(fr, 0.2, -W(0.2) + 1.5);
-  g += line(`M${f(bx - 3)} ${f(by)} q3 1.5 6 0`, 0.9);
-  g += rim(curve(fr, nW, 0.02, 0.7), pal.glow, 1.3);
-  { const [gx, gy] = at(fr, 0.12, -W(0.12) * 0.55); g += gloss(gx, gy, 12, 3.5, -14, 0.35); }
-  g += `<path d="${body}" fill="none" stroke="#140F24" stroke-width="1.8"/>`;
-  // Souffle d'étoiles (éveil) ou petit souffle de brume.
-  if (st >= 2) {
-    const n = st >= 3 ? 9 : 5;
-    for (let k = 0; k < n; k++) {
-      const a = -Math.PI / 2 + (k / (n - 1) - 0.5) * 1.1, L2 = 22 + (k % 2) * 8;
-      g += line(`M${f(bx)} ${f(by - 3)} Q${f(bx + Math.cos(a) * L2 * 0.5)} ${f(by - 3 + Math.sin(a) * L2 * 0.6)} ${f(bx + Math.cos(a) * L2)} ${f(by - 3 + Math.sin(a) * L2 + 6)}`, 0.7, pal.glow, ' opacity="0.7"');
-      if (st >= 3) g += sparkle(bx + Math.cos(a) * L2, by - 3 + Math.sin(a) * L2 + 6, 1.8, pal.gold, false);
-    }
-  }
+  // Souffle : éclats de brume (2), gerbe d'étoiles (3).
+  if (st >= 2) for (let k = 0; k < (st >= 3 ? 9 : 6); k++) { const a = -Math.PI / 2 + (k / 5 - 0.5) * 1.1, l = 18 + (k % 3) * 7; s += gem(bx + Math.cos(a) * l, by - 3 + Math.sin(a) * l, st >= 3 ? 2.6 : 1.8, '#FFFFFF', st >= 3 ? GOLD : CRYSTAL); }
+  s += pec(px0, py0, pecK, belly, L);
+  if (st >= 2) s += constel([[px0 + 12, py0 + 16], [px0 + 26, py0 + 30], [px0 + 44, py0 + 40]], 2.4);
+  if (st >= 3) s += constel([[22, 40], [40, 30], [58, 38], [72, 24]]);
 
-  // Nageoire pectorale proche.
-  g += pec(px0, py0, pecK, pal.belly, false);
-  if (st >= 2) g += gild(`M${f(px0 + 12)} ${f(py0 + 16)} q14 16 32 24`, 0.9);
-
-  // Ornements.
-  if (st >= 3) {
-    g += constellation([[22, 40], [40, 30], [58, 38], [72, 24]], pal.gold);
-    for (const [x, y] of [[30, 180], [96, 30], [150, 190], [124, 54]] as const) g += sparkle(x, y, 3.2, pal.glow, false);
-  } else if (st === 2) {
-    g += sparkle(40, 50, 2.8, pal.glow, false) + sparkle(150, 186, 2.4, pal.glow, false);
-  } else {
-    g += sparkle(48, 60, 2.4, pal.glow, false);
-  }
-  let out = `<g transform="translate(104 124) scale(${S}) translate(-104 -124)">${g}</g>`;
-  // 1 : le jeune sonde depuis la surface : corps qui plonge, caudale encore dressée hors de l'eau.
+  let out = `<g transform="translate(104 124) scale(${S}) translate(-104 -124)">${s}</g>`;
+  // 1 : le jeune sonde : corps qui plonge, caudale encore dressée hors de l'eau dans une gerbe d'écume.
   if (st === 1) {
     out = `<g transform="translate(0 10) rotate(-22 110 130)">${out}</g>`;
-    let sp = `<path d="M128 62 C134 52 142 58 148 50 C152 58 160 50 166 58 C172 52 180 60 186 62 C170 70 140 70 128 62 Z" fill="${pal.light}" opacity="0.9" stroke="#140F24" stroke-width="0.9"/>`;
-    for (let k = 0; k < 12; k++) { const a = Math.PI * (0.15 + 0.7 * (k / 11)), r = 26 + (k % 3) * 6; sp += `<circle cx="${f(157 - Math.cos(a) * r)}" cy="${f(60 - Math.sin(a) * r * 0.6)}" r="${f(0.8 + (k % 3) * 0.5)}" fill="${pal.light}" stroke="#140F24" stroke-width="0.4"/>`; }
-    out += sp;
+    out += facets([[128, 62], [134, 52], [142, 58], [148, 50], [152, 58], [160, 50], [166, 58], [172, 52], [180, 60], [186, 62], [170, 70], [140, 70]], '#E6F6FF', { ...L, rim: undefined }, { size: 4, relief: 0.6, seed: 77 });
+    for (let k = 0; k < 12; k++) { const a = Math.PI * (0.15 + 0.7 * (k / 11)), rr = 26 + (k % 3) * 6; out += disc(157 - Math.cos(a) * rr, 60 - Math.sin(a) * rr * 0.6, 0.8 + (k % 3) * 0.5, '#E6F6FF', 0.9); }
   }
-  return deink(out);
+  return out;
 };
 
-/* ---------- Décor : océan d'étoiles (0 près de sa mère sous la surface, 1 saut au crépuscule, 2 chant dans l'abysse, 3 vol au-dessus d'une planète-océan) ---------- */
-function starFish(x: number, y: number, s: number, col: string): string {
-  return `<g transform="translate(${f(x)} ${f(y)}) scale(${s})"><path d="M-4 0 C-2 -2.4 2 -2.4 4 0 L7 -2.4 L6.4 2.4 L4 0 C2 2.4 -2 2.4 -4 0 Z" fill="${col}" stroke="#140F24" stroke-width="${f(0.5 / s)}"/></g>`;
-}
-function jelly(x: number, y: number, r: number, col: string): string {
-  let s = glowAt(x, y, r * 1.6, r * 1.4, col, 0.35);
-  s += `<path d="M${x - r} ${y} A${r} ${r * 0.8} 0 0 1 ${x + r} ${y} Q${x} ${y + r * 0.35} ${x - r} ${y} Z" fill="${col}" opacity="0.75" stroke="#140F24" stroke-width="0.5"/>`;
-  for (let k = 0; k < 4; k++) { const tx = x - r * 0.6 + k * r * 0.4; s += `<path d="M${f(tx)} ${f(y + 1)} q${f(r * 0.3)} ${f(r)} 0 ${f(r * 2)} t0 ${f(r * 1.4)}" fill="none" stroke="${col}" stroke-width="0.6" opacity="0.7"/>`; }
-  return s;
-}
-function whaleShape(x: number, y: number, k: number, col: string): string {
-  return `<path transform="translate(${x} ${y}) scale(${k})" d="M0 0 C10 -16 50 -22 90 -18 C120 -15 140 -8 160 -12 L176 -26 L172 -8 L190 -2 L168 0 C140 4 120 10 90 14 C50 18 14 14 0 0 Z" fill="${col}"/>`;
-}
-const cetoileScene = (c: DrawCtx, b: Bounds): string => {
-  const { pal, stage, hue } = c;
-  const st = Math.min(stage, 3);
-  const id = `cetoile-${st}-bg`;
-  begin(id, '#9FF2FF');
+/* ---------- Décor : océan d'étoiles (0 près de sa mère sous la surface, 1 plongée au crépuscule, 2 chant dans l'abysse, 3 vol au-dessus d'une planète-océan) ---------- */
+const scene = (c: DrawCtx, b: Bounds): string => {
+  const st = Math.min(c.stage, 3), h = c.hue, r = prng(91 + st * 7 + h);
   const W2 = b.x1 - b.x0;
+  const ray = (x: number, w: number, op: number, y0 = b.y0, dx = 20) => flat([[x - 6, y0], [x + 6, y0], [x + dx + w, b.y1 - 60], [x + dx - w, b.y1 - 60]], '#DFFBFF', op);
+  const fish = (x: number, y: number, k: number, col: string) => flat([[x, y], [x + 7 * k, y - 3 * k], [x + 10 * k, y], [x + 7 * k, y + 3 * k]], col, 0.85) + flat([[x + 10 * k, y], [x + 14 * k, y - 3 * k], [x + 14 * k, y + 3 * k]], col, 0.6);
+  const motes = (n: number) => { let o = ''; for (let i = 0; i < n; i++) o += disc(b.x0 + r() * W2, b.y0 + r() * (b.y1 - b.y0), 0.5 + r() * 0.9, '#DFFBFF', 0.6); return o; };
+  const whaleSil = (x: number, y: number, k: number, col: string, li: Light, sd: number) => facets(curve([x, y], [[[x + 10 * k, y - 16 * k], [x + 50 * k, y - 22 * k], [x + 90 * k, y - 18 * k]], [[x + 120 * k, y - 15 * k], [x + 140 * k, y - 8 * k], [x + 160 * k, y - 12 * k]], [[x + 170 * k, y - 20 * k], [x + 176 * k, y - 26 * k], [x + 190 * k, y - 2 * k]], [[x + 140 * k, y + 4 * k], [x + 90 * k, y + 14 * k], [x + 40 * k, y + 16 * k]], [[x + 20 * k, y + 12 * k], [x + 4 * k, y + 6 * k], [x, y]]], 8), col, li, { size: 14 * k + 4, relief: 0.8, seed: sd });
   let s = '';
   if (st === 0) {
-    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(185 + hue * 0.12, 40, 42)], [0.4, hsl(200 + hue * 0.12, 44, 22)], [1, hsl(220 + hue * 0.1, 50, 9)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
-    s += `<path d="M${b.x0} ${b.y0 + 12} Q${b.x0 + W2 * 0.25} ${b.y0 + 6} ${b.x0 + W2 * 0.5} ${b.y0 + 12} T${b.x1} ${b.y0 + 12} L${b.x1} ${b.y0} L${b.x0} ${b.y0} Z" fill="${hsl(185 + hue * 0.12, 40, 62)}" opacity="0.5"/>`;
-    for (const [x, w2, o] of [[60, 50, 0.14], [120, 36, 0.1], [180, 44, 0.12]] as const) s += `<path d="M${x - 8} ${b.y0} L${x + 8} ${b.y0} L${x + 20 + w2} ${b.y1} L${x + 20 - w2} ${b.y1} Z" fill="#FFF6D8" opacity="${o}"/>`;
-    s += stars(c, b, 50, b.y1, hsl(hue + 180, 60, 85));
-    // La mère, immense, dans le bleu (plan lointain).
-    s += whaleShape(-40, 196, 1.45, hsl(210 + hue * 0.1, 30, 30)) + `<path d="M40 206 q20 20 54 26 q-30 -2 -60 -18 Z" fill="${hsl(210 + hue * 0.1, 26, 38)}"/>`;
-    s += `<path d="M30 206 q30 18 70 22" fill="none" stroke="${hsl(hue + 200, 30, 34)}" stroke-width="1" opacity="0.7"/>`;
-    s += `<circle cx="36" cy="190" r="2" fill="${hsl(hue + 200, 30, 40)}"/>`;
-    // Banc de poissons-étoiles.
-    for (let k = 0; k < 16; k++) s += starFish(150 + c.r() * 66, 26 + c.r() * 50, 0.8 + c.r() * 0.5, hsl(hue + 170, 50, 70));
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, [hsl(185 + h * 0.12, 44, 44), hsl(200 + h * 0.12, 46, 26), hsl(215 + h * 0.1, 50, 14), '#040814'], 41, 24);
+    const li: Light = { dir: [0.1, -0.9, 0.5], color: '#7FB8D8', shade: '#020610' };
+    s += ray(60, 46, 0.08) + ray(120, 34, 0.06) + ray(180, 40, 0.07);
+    s += whaleSil(-40, 200, 1.45, hsl(210 + h * 0.1, 30, 24), li, 3) + facets([[40, 208], [70, 226], [100, 236], [64, 222]], hsl(210 + h * 0.1, 26, 34), li, { size: 6, seed: 4 });
+    for (let k = 0; k < 16; k++) s += fish(150 + r() * 66, 26 + r() * 50, 0.8 + r() * 0.4, hsl(h + 170, 50, 72));
+    s += motes(18);
   } else if (st === 1) {
     const sy = 64;
-    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(262, 30, 30)], [0.2, hsl(hue + 20, 55, 62)], [0.27, hsl(hue + 30, 60, 72)], [0.28, hsl(195 + hue * 0.15, 40, 36)], [1, hsl(215 + hue * 0.1, 46, 10)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
-    s += stars(c, { ...b, y1: sy }, 20, sy - 14);
-    s += glowAt(50, sy - 4, 50, 12, '#FFE3A0', 0.7) + `<path d="M38 ${sy} a12 12 0 0 1 24 0 Z" fill="#FFF0C8"/>`;
-    // Surface vue d'en dessous : houle, reflet du soleil, rayons.
-    let d = `M${b.x0 - 4} ${sy}`;
-    for (let x = b.x0 - 4; x < b.x1 + 8; x += 14) d += ` q3.5 -3 7 0 t7 0`;
-    s += line(d, 1, '#140F24', ' opacity="0.6"');
-    for (let k = 0; k < 5; k++) s += line(`M${f(30 + k * 5)} ${f(sy + 4 + k * 4)} h${f(26 - k * 4)}`, 1, '#FFE3A0', ' opacity="0.5"');
-    for (const [x, w2, o] of [[50, 60, 0.14], [100, 40, 0.08], [10, 40, 0.1]] as const) s += `<path d="M${x - 8} ${sy} L${x + 8} ${sy} L${x + 30 + w2} ${b.y1} L${x + 30 - w2} ${b.y1} Z" fill="#FFE3A0" opacity="${o}"/>`;
-    s += stars(c, { ...b, y0: sy + 4 }, 50, b.y1, hsl(hue + 180, 60, 85));
-    for (let k = 0; k < 10; k++) s += starFish(10 + c.r() * 60, 180 + c.r() * 50, 0.8 + c.r() * 0.4, hsl(hue + 170, 50, 70));
+    s += facetSky(b.x0, b.y0, b.x1, sy, ['#3A2A58', '#B0607A', '#FFC48A'], 42, 20);
+    s += facetSky(b.x0, sy, b.x1, b.y1, [hsl(195 + h * 0.15, 40, 34), hsl(210 + h * 0.1, 44, 18), '#050A16'], 43, 24);
+    s += disc(50, sy - 4, 24, '#FFE3A0', 0.3) + gem(50, sy - 6, 12, '#FFF4DA', '#FFC48A');
+    const wv: Light = { dir: [-0.6, -0.6, 0.5], color: '#FFD8A8', shade: '#0A1020' };
+    const crest: Pt[] = [[b.x0 - 4, sy + 4]];
+    for (let x = b.x0; x <= b.x1 + 8; x += 14) crest.push([x, sy - 2], [x + 7, sy + 2]);
+    s += facets([...crest, [b.x1 + 8, sy + 8], [b.x0 - 4, sy + 8]], hsl(200 + h * 0.15, 40, 40), wv, { size: 6, relief: 0.6, seed: 44 });
+    s += ray(50, 50, 0.12, sy, 30) + ray(100, 30, 0.07, sy, 30) + ray(10, 30, 0.08, sy, 30);
+    for (let k = 0; k < 10; k++) s += fish(10 + r() * 60, 180 + r() * 50, 0.8 + r() * 0.4, hsl(h + 170, 50, 72));
+    s += motes(14);
   } else if (st === 2) {
-    s += `<defs>${vgrad(`${id}-w`, [[0, hsl(215, 40, 22)], [0.5, hsl(228, 46, 11)], [1, hsl(240, 50, 5)]])}</defs>${fill(b, `url(#${id}-w)`)}`;
-    for (const [x, w2, o] of [[90, 60, 0.08], [150, 40, 0.06]] as const) s += `<path d="M${x - 10} ${b.y0} L${x + 10} ${b.y0} L${x + w2} ${b.y1} L${x - w2} ${b.y1} Z" fill="${pal.glow}" opacity="${o}"/>`;
-    s += stars(c, b, 70, b.y1, hsl(hue + 180, 50, 80));
-    s += whaleShape(150, 40, 0.4, hsl(222, 30, 24)) + whaleShape(176, 58, 0.26, hsl(222, 30, 22));
-    // Le chant : ondes gravées qui partent de la tête.
-    for (let k = 1; k <= 4; k++) s += `<path d="M${f(30 - k * 10)} ${f(110 - k * 16)} A${k * 22} ${k * 22} 0 0 0 ${f(30 - k * 10)} ${f(170 + k * 12)}" fill="none" stroke="#E9C25B" stroke-width="${f(1.1 - k * 0.15)}" opacity="${f(0.7 - k * 0.12)}" stroke-dasharray="${k > 2 ? '2 4' : 'none'}"/>`;
-    s += jelly(196, 170, 8, pal.accent2) + jelly(30, 40, 6, pal.accent) + jelly(206, 104, 5, pal.accent);
-    s += ridge(c, b, 226, 6, 6, hsl(hue + 220, 30, 12), 0.7);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#16244A', '#0C1430', '#070A1C', '#03040C'], 45, 24);
+    const li: Light = { dir: [-0.2, -0.8, 0.5], color: '#4A6AA8', shade: '#020308' };
+    s += ray(90, 50, 0.05) + ray(150, 34, 0.04);
+    s += whaleSil(150, 40, 0.4, '#1E2A50', li, 46) + whaleSil(176, 58, 0.26, '#1A2446', li, 47);
+    // Le chant : arcs de petites gemmes dorées qui s'éloignent de la tête.
+    for (let k = 1; k <= 4; k++) for (let i = 0; i <= 6; i++) { const a = Math.PI * (0.62 + (i / 6) * 0.76), R = k * 22; s += gem(34 + Math.cos(a) * R, 130 + Math.sin(a) * R * 1.2, 2.2 - k * 0.3, '#FFFFFF', GOLD); }
+    const jelly = (x: number, y: number, rr: number, col: string) => {
+      let o = disc(x, y, rr * 1.8, col, 0.15) + facets([...ellipse(x, y, rr, rr * 0.8, 12).filter((p) => p[1] <= y + 0.1)], col, { dir: [0, -1, 0.6], color: '#FFFFFF', shade: '#1A0A2A' }, { size: 3, relief: 0.8, seed: Math.round(x) });
+      for (let k = 0; k < 4; k++) { const tx = x - rr * 0.6 + k * rr * 0.4; o += flat([[tx - 0.6, y], [tx + 0.6, y], [tx + 1.5, y + rr * 3], [tx + 0.6, y + rr * 3]], col, 0.5); }
+      return o;
+    };
+    s += jelly(196, 170, 8, hsl(h + 195, 60, 66)) + jelly(30, 40, 6, hsl(h + 150, 50, 60)) + jelly(206, 104, 5, hsl(h + 150, 50, 60));
+    s += facets([[b.x0, 226], [60, 220], [140, 228], [b.x1, 222], [b.x1, b.y1], [b.x0, b.y1]], '#0A1028', li, { size: 18, relief: 0.4, seed: 48 });
+    s += motes(24);
   } else {
-    s += fill(b, hsl(hue + 230, 46, 7));
-    s += glowAt(40, 50, 80, 50, pal.accent, 0.35) + glowAt(190, 40, 60, 40, pal.accent2, 0.3) + glowAt(120, 20, 70, 20, pal.glow, 0.2);
-    s += stars(c, b, 120, b.y1);
-    // Aurore en rideaux.
-    for (let k = 0; k < 12; k++) { const x = 10 + k * 18; s += `<path d="M${x} 20 q6 30 0 70" fill="none" stroke="${pal.accent2}" stroke-width="5" opacity="0.12" filter="url(#soft)"/>`; }
-    // Planète-océan en contrebas, limbe lumineux.
-    s += `<defs><clipPath id="${id}-p"><circle cx="111" cy="520" r="330"/></clipPath></defs>`;
-    s += glowAt(111, 196, 150, 18, pal.glow, 0.45);
-    s += `<circle cx="111" cy="520" r="330" fill="${hsl(hue + 190, 46, 26)}"/>`;
-    s += `<g clip-path="url(#${id}-p)">`;
-    for (const [x, y, rx] of [[40, 214, 30], [150, 206, 40], [200, 224, 20], [90, 230, 26]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${f(rx * 0.22)}" fill="${hsl(hue + 120, 20, 40)}" opacity="0.7"/>`;
-    for (let k = 0; k < 5; k++) s += `<path d="M${-20 + k * 40} ${200 + k * 4} q30 -6 60 0" fill="none" stroke="#FFF6D8" stroke-width="0.8" opacity="0.5"/>`;
-    s += shadow('M-20 210 C60 196 160 196 260 214 L260 300 L-20 300 Z', hsl(hue + 220, 50, 8), 0.4, 'fine');
-    s += `</g><circle cx="111" cy="520" r="330" fill="none" stroke="${pal.glow}" stroke-width="1.6" opacity="0.8"/>`;
-    // Comète.
-    s += `<path d="M210 12 L150 40" stroke="#FFF6D8" stroke-width="1.5" opacity="0.5" filter="url(#soft)"/>` + sparkle(206, 14, 3, '#FFF6D8', false);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#05030F', hsl(h + 40, 45, 22), hsl(h + 110, 40, 18), hsl(h, 40, 12), '#06040E'], 49, 22);
+    for (let k = 0; k < 10; k++) { const x = 10 + k * 20; s += flat([[x, 20], [x + 8, 20], [x + 4, 90], [x - 4, 90]], hsl(h + 195, 70, 70), 0.06); }
+    const pl: Light = { dir: [-0.3, -0.8, 0.5], color: '#BFF6FF', shade: '#02060E', rim: '#FF9EE0' };
+    s += disc(111, 520, 336, '#BFF6FF', 0.15) + facets(ellipse(111, 520, 330, 330, 60).filter((p) => p[1] < b.y1 + 40), hsl(190 + h * 0.2, 46, 28), pl, { size: 20, relief: 1.2, seed: 50 });
+    for (const [x, y, rx] of [[40, 214, 30], [150, 206, 40], [200, 226, 20], [90, 232, 26]] as const) s += facets(ellipse(x, y, rx, rx * 0.22, 12), hsl(h + 120, 22, 36), pl, { size: 8, relief: 0.4, seed: x });
+    s += disc(206, 14, 6, '#FFF6D8', 0.25) + gem(206, 14, 4, '#FFFFFF', '#FFF6D8') + flat([[204, 12], [150, 40], [152, 42], [206, 16]], '#FFF6D8', 0.35);
+    for (let i = 0; i < 30; i++) s += disc(b.x0 + r() * W2, b.y0 + r() * 190, 0.4 + r() * 0.9, '#FFF6E0', 0.75);
   }
-  return deink(s);
+  return s;
 };
-cetoile.scene = cetoileScene;
+
+export const cetoile: Species = Object.assign(draw, { scene });

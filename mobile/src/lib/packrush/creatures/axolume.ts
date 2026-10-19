@@ -66,8 +66,7 @@ function crystal(x: number, y: number, ang: number, L: number, w: number, seed: 
   const a = (ang * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
   const P = (u: number, v: number): Pt => [x + u * c - v * s, y + u * s + v * c];
   const poly = [P(0, 0), P(L * 0.22, -w), P(L * 0.8, -w * 0.75), P(L, 0), P(L * 0.8, w * 0.75), P(L * 0.22, w)];
-  return disc(x + L * 0.6 * c, y + L * 0.6 * s, L * 0.55, CRYSTAL, 0.18)
-    + facets(poly, CRYSTAL, { dir: [-0.5, -0.7, 0.6], color: '#FFFFFF', shade: '#3A5BC0' }, { size: Math.max(2.5, w * 0.9), relief: 0.5, seed });
+  return facets(poly, CRYSTAL, { dir: [-0.5, -0.7, 0.6], color: '#FFFFFF', shade: '#3A5BC0' }, { size: Math.max(2.5, w * 0.9), relief: 0.5, seed });
 }
 
 /** Axolume → Branchiluz → Cristaxolo : axolotl aux branchies de cristal. */
@@ -75,11 +74,11 @@ const draw = (c: DrawCtx): string => {
   const st = Math.min(c.stage, 2), h = c.hue;
   const base = hsl(h, 32, 56), deep = hsl(h + 12, 38, 26), belly = hsl(h - 10, 30, 74), finC = hsl(h + 20, 30, 64);
   const gillC = hsl(h + 150, 42, 56), gillD = hsl(h + 150, 40, 30);
-  const L: Light = [
+  const L: Light = ([
     { dir: [0.3, -0.9, 0.5], color: '#DDE6FF', shade: '#08122A', rim: '#7CF5E0' },
     { dir: [0.6, -0.6, 0.6], color: '#FFE3B8', shade: '#1A0E1E', rim: '#FFC98A' },
     { dir: [-0.3, -0.7, 0.6], color: '#D8FBFF', shade: '#0A0820', rim: '#7CF5E0' },
-  ][st];
+  ] as Light[])[st];
   const far: Light = { ...L, color: mix(L.color, deep, 0.45), rim: undefined };
   const S = [0.95, 0.98, 1][st], bodyK = [0.82, 0.92, 1][st], headK = [1.18, 1.06, 1][st];
   const fr = frame([[24, 146], [48, 139], [76, 145], [104, 159], [134, 167], [162, 163], [186, 150], [201, 128], [205, 104], [199, 82], [186, 68]], 5);
@@ -177,8 +176,8 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     s += disc(160, b.y0 + 8, 34, '#DFFBFF', 0.15) + gem(160, b.y0 + 10, 10, '#FFFFFF', '#BFE8FF');
     s += ray(150, 40, 0.08) + ray(180, 26, 0.06) + ray(118, 22, 0.05);
     for (let k = 0; k < 8; k++) s += weed(b.x0 + 10 + k * 28 + r() * 10, 90 + r() * 90, hsl(h + 30, 22, 22), { ...li, color: hsl(h + 30, 20, 40) }, 10, 6);
-    s += facets([[b.x0, 214], [60, 208], [140, 216], [b.x1, 210], [b.x1, b.y1], [b.x0, b.y1]], hsl(h + 25, 28, 14), li, { size: 18, relief: 0.4, seed: 5 });
-    for (let k = 0; k < 10; k++) s += facets(ellipse(b.x0 + r() * W2, 216 + r() * 20, 5 + r() * 6, 3 + r() * 2, 8), hsl(h + 20, 20, 30), li, { size: 4, relief: 0.6, seed: 60 + k });
+    s += facets([[b.x0, 214], [60, 208], [140, 216], [b.x1, 210], [b.x1, b.y1], [b.x0, b.y1]], hsl(h + 25, 28, 14), { ...li, color: hsl(h + 20, 25, 30) }, { size: 18, relief: 0.4, seed: 5, base2: '#04060C' });
+    for (let k = 0; k < 10; k++) s += facets(ellipse(b.x0 + r() * W2, 216 + r() * 20, 5 + r() * 6, 3 + r() * 2, 8), hsl(h + 20, 20, 24), { ...li, color: hsl(h + 20, 25, 44) }, { size: 4, relief: 0.6, seed: 60 + k });
     for (const [x, hh] of [[8, 160], [26, 110], [198, 170], [214, 120], [184, 90]] as const) {
       s += weed(x, hh, hsl(h + 150, 30, 30), li, 14, 7);
       for (const u of [0.4, 0.65, 0.88]) s += disc(x + (u * 10) % 6 - 3, b.y1 - hh * u, 4, hsl(h + 195, 60, 70), 0.25) + gem(x + (u * 10) % 6 - 3, b.y1 - hh * u, 2.4, '#FFFFFF', hsl(h + 195, 60, 70));
@@ -200,7 +199,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     const li: Light = { dir: [-0.3, -0.7, 0.6], color: '#BFF6FF', shade: '#05040C' };
     for (let k = 0; k < 9; k++) { const x = b.x0 + k * 27 + r() * 12, w = 8 + r() * 8, hh = 18 + r() * 34; s += facets([[x - w, b.y0 - 2], [x + w, b.y0 - 2], [x, b.y0 + hh]], hsl(h + 210, 20, 20), li, { size: 8, relief: 0.6, seed: 40 + k }); }
     const cluster = (x: number, y: number, k: number, op: number) => {
-      let o = disc(x, y - 20 * k, 28 * k, CRYSTAL, 0.1 * op * 2);
+      let o = '';
       for (const [a, len, w] of [[-28, 34, 6], [-8, 46, 7.5], [14, 30, 5.5], [34, 22, 4.5], [-46, 20, 4]] as const) o += `<g opacity="${op}">` + crystal(x, y, a - 90, len * k, w * k, Math.round(x + a)) + `</g>`;
       return o;
     };

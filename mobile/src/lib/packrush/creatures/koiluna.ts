@@ -1,194 +1,119 @@
-import { bloom, gloss, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { along, band, f, frames, grad, lum, P, soften, starfish, tube, type Pt } from './legendkit.ts';
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { ellipse, facetSky, facets, gem, hsl, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
- * Koiluna : deux carpes koï célestes, l'une d'ivoire, l'autre d'encre et d'or, qui tournent sans fin autour d'une
- * lune gravée (composition en yin-yang). Carpes de profil, dos vers l'extérieur, ventre éclairé par la lune.
+ * Koiluna (low-poly) : deux carpes koï célestes, l'une d'ivoire, l'autre d'encre et d'or, qui tournent sans fin
+ * autour d'une lune (composition en yin-yang), dans un bassin céleste la nuit.
  */
 const CX = 111, CY = 112;
 
-function koi(c: DrawCtx, tag: string, base: string, patch: string, patch2: string, dark: boolean): string {
-  const { pal } = c;
-  const id = `koiluna-${c.stage}-${tag}`;
-  const { ink, body: vbody, line, shadow, rim, gild, eyeA } = lum(`${id}-l`, c, [0.5, 0.5], '#FFF6D8');
-  // Ligne médiane : arc autour de la lune, légère ondulation.
-  const spine: Pt[] = [];
-  for (let i = 0; i <= 60; i++) {
-    const u = i / 60, a = ((166 + 138 * u) * Math.PI) / 180, R = 64 + Math.sin(u * Math.PI * 1.4) * 5;
-    spine.push([CX + Math.cos(a) * R, CY + Math.sin(a) * R]);
-  }
-  // Côté extérieur (dos) = -normale ici ; on travaille en « dos » (wd) et « ventre » (wv).
-  const prof = (u: number) => (u < 0.1 ? 6 + Math.sqrt(u / 0.1) * 10 : u < 0.34 ? 16 + ((u - 0.1) / 0.24) * 2.5 : 18.5 - Math.pow((u - 0.34) / 0.52, 1.25) * 14.5);
-  const wd = (u: number) => prof(u) * 1.05, wv = (u: number) => prof(u) * 0.9;
-  const fr = frames(spine);
-  const out = (u: number, k: number): Pt => { const { p, n } = along(spine, u); return [p[0] - n[0] * k, p[1] - n[1] * k]; };
-  const tan = (u: number) => along(spine, u).t;
+/** Squelette en arc autour de la lune : point, tangente et normale extérieure à u ∈ [0,1]. */
+function frame(u: number): { p: Pt; t: Pt; o: Pt } {
+  const at = (v: number): Pt => {
+    const a = ((166 + 138 * v) * Math.PI) / 180, R = 64 + Math.sin(v * Math.PI * 1.4) * 5;
+    return [CX + Math.cos(a) * R, CY + Math.sin(a) * R];
+  };
+  const p = at(u), q = at(u + 0.01), l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+  const t: Pt = [(q[0] - p[0]) / l, (q[1] - p[1]) / l];
+  const o: Pt = [p[0] - CX, p[1] - CY], ol = Math.hypot(o[0], o[1]);
+  return { p, t, o: [o[0] / ol, o[1] / ol] };
+}
+/** Point du corps : u le long, k décalage vers l'extérieur (dos) si positif. */
+const at = (u: number, k: number): Pt => { const { p, o } = frame(u); return [p[0] + o[0] * k, p[1] + o[1] * k]; };
+const prof = (u: number) => (u < 0.1 ? 6 + Math.sqrt(u / 0.1) * 10 : u < 0.34 ? 16 + ((u - 0.1) / 0.24) * 2.5 : 18.5 - Math.pow((u - 0.34) / 0.52, 1.25) * 14.5);
 
-  let o = '';
-  // Nageoire caudale voilée : deux lobes ondulants.
-  const tb = 0.86, [bx, by] = out(tb, 0), [tx, ty] = tan(tb);
-  const nX = (k: number): Pt => { const { n } = along(spine, tb); return [-n[0] * k, -n[1] * k]; };
+function koi(c: DrawCtx, base: string, patch: string, patch2: string, fin: string, dark: boolean, seed: number): string {
+  const light: Light = { dir: [0, 0, 1], color: '#FFF6E0', shade: dark ? '#02010A' : '#3A3A70', rim: dark ? '#C9B8FF' : '#BFF6FF' };
+  // Lumière venant de la lune (vers l'intérieur de l'arc) : direction locale selon la position du poisson.
+  const mid = frame(0.4).o;
+  light.dir = [-mid[0] * 0.8, -mid[1] * 0.8, 0.6];
+  const tb = 0.86;
+  let s = '';
+  // Nageoire caudale voilée : deux lobes.
+  const { p: bp, t: bt, o: bo } = frame(tb);
   for (const sg of [1, -1]) {
-    const q = (a: number, b: number): Pt => [bx + tx * a + nX(b * sg)[0], by + ty * a + nX(b * sg)[1]];
-    const d = `M${P(q(-2, 3))} C${P(q(10, 10))} ${P(q(20, 30))} ${P(q(36, 38))} C${P(q(44, 42))} ${P(q(52, 40))} ${P(q(56, 34))} C${P(q(48, 32))} ${P(q(44, 26))} ${P(q(46, 18))} C${P(q(47, 12))} ${P(q(42, 8))} ${P(q(36, 7))} C${P(q(30, 5))} ${P(q(26, 1))} ${P(q(22, 0))} C${P(q(14, 0))} ${P(q(6, 0))} ${P(q(-2, 0))} Z`;
-    o += `<path d="${d}" fill="${dark ? pal.deep : base}" opacity="0.92"/>`;
-    o += `<path d="${d}" fill="${patch}" opacity="${dark ? 0.25 : 0.35}"/>`;
-    for (let k = 1; k < 6; k++) {
-      const e = q(30 + k * 4, 6 + k * 6);
-      o += `<path d="M${P(q(0, 1 + k * 0.4))} Q${P(q(20, 3 + k * 3))} ${P(e)}" fill="none" stroke="${dark ? pal.gold : pal.shade}" stroke-width="0.5" opacity="0.6"/>`;
-    }
-    o += `<path d="${d}" fill="none" stroke="${pal.ink}" stroke-width="1"/>`;
+    const q = (a: number, b: number): Pt => [bp[0] + bt[0] * a + bo[0] * b * sg, bp[1] + bt[1] * a + bo[1] * b * sg];
+    s += facets([q(-2, 0), q(8, 9), q(20, 26), q(36, 38), q(52, 40), q(56, 34), q(46, 22), q(44, 10), q(30, 4), q(18, 0)], fin, light, { size: 7.8, relief: 0.4, seed: seed + (sg > 0 ? 1 : 2), opacity: 0.92 });
   }
-  // Nageoires pectorales longues (côté ventre, sous la tête) et pelviennes.
-  for (const [u, len, wid] of [[0.17, 26, 9], [0.46, 13, 5], [0.66, 10, 4]] as [number, number, number][]) {
-    const b0 = out(u, -wv(u) * 0.7), t0 = tan(u), { n } = along(spine, u);
-    const tip: Pt = [b0[0] + t0[0] * len * 0.85 + n[0] * len * 0.55, b0[1] + t0[1] * len * 0.85 + n[1] * len * 0.55];
-    const d = `M${P(b0)} C${P([b0[0] + n[0] * wid, b0[1] + n[1] * wid])} ${P([tip[0] - t0[0] * 6, tip[1] - t0[1] * 6])} ${P(tip)} C${P([tip[0] - t0[0] * 4 - n[0] * 4, tip[1] - t0[1] * 4 - n[1] * 4])} ${P([b0[0] + t0[0] * wid, b0[1] + t0[1] * wid])} ${P([b0[0] + t0[0] * wid * 1.2, b0[1] + t0[1] * wid * 1.2])} Z`;
-    o += ink(d, dark ? pal.shade : pal.belly, 0.9, ' opacity="0.95"');
-    o += line(`M${P(b0)} L${P([tip[0] * 0.8 + b0[0] * 0.2, tip[1] * 0.8 + b0[1] * 0.2])}`, 0.5, dark ? pal.gold : pal.shade, ' opacity="0.6"');
+  // Nageoires pectorales (côté ventre, vers la lune) et dorsale.
+  for (const [u, len, wid] of [[0.17, 26, 9], [0.46, 13, 5], [0.66, 10, 4]] as const) {
+    const b0 = at(u, -prof(u) * 0.75), { t, o } = frame(u);
+    const tip: Pt = [b0[0] + t[0] * len * 0.85 - o[0] * len * 0.55, b0[1] + t[1] * len * 0.85 - o[1] * len * 0.55];
+    s += facets([b0, [b0[0] - o[0] * wid + t[0] * 4, b0[1] - o[1] * wid + t[1] * 4], tip, [b0[0] + t[0] * wid * 1.3, b0[1] + t[1] * wid * 1.3]], fin, light, { size: 5.2, relief: 0.3, seed: seed + 10 + u * 10 });
   }
-  // Nageoire dorsale (dos) avec rayons.
-  {
-    const pts: Pt[] = [];
-    for (let i = 0; i <= 10; i++) { const u = 0.28 + i * 0.034; pts.push(out(u, wd(u) - 1)); }
-    const tips: Pt[] = [];
-    for (let i = 0; i <= 10; i++) { const u = 0.29 + i * 0.034; tips.push(out(u + 0.02, wd(u) + 12 - i * 0.8 + Math.sin(i * 1.3) * 1.2)); }
-    const d = `M${pts.map(P).join(' L')} L${tips.reverse().map(P).join(' L')} Z`;
-    o += ink(d, dark ? pal.deep : base, 0.9);
-    o += `<path d="${d}" fill="${patch}" opacity="0.3"/>`;
-    for (let i = 0; i <= 10; i += 2) {
-      const u = 0.28 + i * 0.034;
-      o += line(`M${P(out(u, wd(u)))} L${P(out(u + 0.03, wd(u) + 10 - i * 0.7))}`, 0.5, dark ? pal.gold : pal.shade, ' opacity="0.7"');
-    }
-  }
+  const dors: Pt[] = [];
+  for (let i = 0; i <= 8; i++) { const u = 0.28 + i * 0.042; dors.push(at(u, prof(u) - 1)); }
+  for (let i = 8; i >= 0; i--) { const u = 0.3 + i * 0.042; dors.push(at(u + 0.02, prof(u) + 12 - i * 0.9)); }
+  s += facets(dors, fin, light, { size: 6.5, relief: 0.3, seed: seed + 20 });
   // Corps.
-  const bodyPts = spine.filter((_, i) => i <= Math.round(tb * 60));
-  const body = tube(bodyPts, (u) => -0 + wv(u * tb), (u) => wd(u * tb));
-  o += `<defs><clipPath id="${id}"><path d="${body}"/></clipPath></defs>`;
-  let inner = vbody(body, base, { light: [0.5, 0.5], hi: dark ? pal.shade : '#FFFFFF', lo: dark ? '#05030C' : pal.shade, rim: dark ? pal.glow : '#FFF6D8', ao: 0.7 });
-  // Motifs de koï (taches), clippés au corps.
-  for (const [u, k, rx, ry, col] of [[0.07, 4, 10, 7, patch], [0.3, 6, 16, 11, patch], [0.5, -4, 11, 9, patch2], [0.62, 7, 9, 6, patch], [0.43, 12, 6, 5, patch2]] as [number, number, number, number, string][]) {
-    const [x, y] = out(u, k), t0 = tan(u);
-    inner += `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${rx}" ry="${ry}" fill="${col}" opacity="0.8" transform="rotate(${f((Math.atan2(t0[1], t0[0]) * 180) / Math.PI)} ${f(x)} ${f(y)})"/>`;
+  const body: Pt[] = [];
+  for (let i = 0; i <= 24; i++) { const u = (i / 24) * tb; body.push(at(u, prof(u) * 1.05)); }
+  for (let i = 24; i >= 0; i--) { const u = (i / 24) * tb; body.push(at(u, -prof(u) * 0.9)); }
+  body.push(at(-0.012, 0));
+  s += facets(body, base, light, { size: 7.8, relief: 1.4, seed: seed + 30 });
+  // Taches de koï (facettes plates translucides).
+  for (const [u, k, rx, ry, col] of [[0.07, 3, 9, 6, patch], [0.3, 6, 15, 10, patch], [0.5, -3, 10, 8, patch2], [0.62, 6, 8, 5, patch], [0.42, 12, 5, 4, patch2]] as [number, number, number, number, string][]) {
+    const [x, y] = at(u, k), { t } = frame(u);
+    s += facets(ellipse(x, y, rx, ry, 10, Math.atan2(t[1], t[0])), col, light, { size: 5.2, relief: 0.5, seed: seed + 40 + u * 100, opacity: 0.85 });
   }
-  // Ombre du dos (extérieur, loin de la lune) et lumière lunaire au ventre.
-  inner += shadow(band(bodyPts, (u) => wd(u * tb), -1.05, -0.35), dark ? '#000' : pal.shade, dark ? 0.45 : 0.45, 'fine');
-  inner += `<path d="${band(bodyPts, (u) => wv(u * tb), 1.05, 0.6)}" fill="#FFF6D8" opacity="${dark ? 0.18 : 0.3}"/>`;
-  // Écailles : arcs ouverts vers la tête, en rangs décalés.
-  for (let i = 0; i < 18; i++) {
-    const u = 0.17 + i * 0.037;
-    for (let j = -2; j <= 2; j++) {
-      const k = (j + (i % 2) * 0.5) * prof(u) * 0.36;
-      if (Math.abs(k) > prof(u) * 0.8) continue;
-      const [x, y] = out(u, k), t0 = tan(u), { n } = along(spine, u), r = Math.max(1.6, prof(u) * 0.2);
-      inner += `<path d="M${f(x - n[0] * r)} ${f(y - n[1] * r)} Q${f(x + t0[0] * r * 1.4)} ${f(y + t0[1] * r * 1.4)} ${f(x + n[0] * r)} ${f(y + n[1] * r)}" fill="none" stroke="${dark ? pal.gold : pal.ink}" stroke-width="0.45" opacity="${dark ? 0.55 : 0.4}"/>`;
-    }
-  }
-  // Ligne latérale.
-  inner += `<path d="M${bodyPts.filter((_, i) => i > 8 && i % 3 === 0).map(({ 0: x, 1: y }, i) => { const u = (9 + i * 3) / 60; const [a, b] = out(u, 1); return `${f(a)} ${f(b)}`; }).join(' L')}" fill="none" stroke="${dark ? pal.light : pal.shade}" stroke-width="0.5" stroke-dasharray="1.5 2" opacity="0.6"/>`;
-  if (dark) inner += speckles(c, ...out(0.45, 0), 30, 12, 10);
-  o += `<g clip-path="url(#${id})">${inner}</g>`;
-  for (const u of [0.2, 0.32, 0.44]) { const [gx, gy] = out(u, wd(u) * 0.45), t0 = tan(u); o += gloss(gx, gy, 6, 1.6, (Math.atan2(t0[1], t0[0]) * 180) / Math.PI, dark ? 0.3 : 0.55); }
-  o += `<path d="${body}" fill="none" stroke="${pal.ink}" stroke-width="1.6" stroke-linejoin="round"/>`;
-  // Lumière de lune sur le ventre.
-  o += rim(`M${fr.filter(({ u }) => u > 0.05 && u < 0.75).filter((_, i) => i % 2 === 0).map(({ u }) => P(out(u, -wv(u) + 1))).join(' L')}`, '#FFF6D8', 1);
-  // Tête : opercule, œil, bouche et barbillons.
-  const g0 = out(0.13, wd(0.13) * 0.85), g1 = out(0.14, 0), g2 = out(0.13, -wv(0.13) * 0.85);
-  o += line(`M${P(g0)} Q${P(g1)} ${P(g2)}`, 0.9, pal.ink, ' opacity="0.8"');
-  const e = out(0.06, 3.5), te = tan(0.06);
-  o += `<circle cx="${f(e[0])}" cy="${f(e[1])}" r="3.8" fill="${dark ? pal.shade : pal.belly}" stroke="${pal.ink}" stroke-width="0.6"/>`;
-  o += eyeA(e[0], e[1], 3, pal.eye, { angle: (Math.atan2(te[1], te[0]) * 180) / Math.PI + 180, slit: false, open: 0.7 });
-  const m = out(0.0, -2), t0 = tan(0), nn = along(spine, 0).n;
-  for (const sg of [1, -1.6]) {
-    o += line(`M${P(m)} q${f(-t0[0] * 5 + nn[0] * sg * 2)} ${f(-t0[1] * 5 + nn[1] * sg * 2)} ${f(-t0[0] * 6 + nn[0] * sg * 8)} ${f(-t0[1] * 6 + nn[1] * sg * 8)}`, 0.8, dark ? pal.gold : pal.ink);
-  }
-  o += line(`M${P(out(0.0, 1))} L${P(out(0.02, -3))}`, 0.9);
-  // Filet d'or le long du dos (marque céleste).
-  o += gild(`M${[0.12, 0.2, 0.28].map((u) => P(out(u, wd(u) * 0.55))).join(' L')}`, 0.8);
-  return o;
+  // Œil (petit cercle sombre + reflet), barbillons.
+  const [ex, ey] = at(0.06, 3.5);
+  s += `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="3" fill="${dark ? '#E9C25B' : '#FFB86B'}"/><circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="1.8" fill="#0B0618"/><circle cx="${(ex - 0.8).toFixed(1)}" cy="${(ey - 0.8).toFixed(1)}" r="0.7" fill="#FFFFFF"/>`;
+  const m = at(0, -2), { t: t0, o: o0 } = frame(0);
+  for (const sg of [1, -1.4]) s += `<path d="M${m[0].toFixed(1)} ${m[1].toFixed(1)} L${(m[0] - t0[0] * 7 + o0[0] * sg * 5).toFixed(1)} ${(m[1] - t0[1] * 7 + o0[1] * sg * 5).toFixed(1)} L${(m[0] - t0[0] * 2).toFixed(1)} ${(m[1] - t0[1] * 2).toFixed(1)} Z" fill="${dark ? '#E9C25B' : mix(base, '#3A2A50', 0.4)}"/>`;
+  // Perles d'or le long du dos.
+  for (const u of [0.14, 0.22, 0.3]) { const [x, y] = at(u, prof(u) * 0.55); s += gem(x, y, 2, '#FFFFFF', '#E9C25B'); }
+  return s;
 }
 
-export const koiluna: Species = (c) => {
-  const { pal } = c;
-  const id = `koiluna-${c.stage}`;
-  const { rim, shadow, constellation } = lum(`${id}-l`, c);
+const draw = (c: DrawCtx): string => {
+  const h = c.hue;
   let s = '';
-  // Courants célestes : cercles gravés.
-  s += `<circle cx="${CX}" cy="${CY}" r="58" fill="${pal.glow}" opacity="0.18" filter="url(#soft)"/>`;
-  for (const [r, w, op, dash] of [[100, 0.6, 0.35, '1 4'], [86, 0.5, 0.3, ''], [44, 0.7, 0.5, '2 3']] as [number, number, number, string][]) {
-    s += `<circle cx="${CX}" cy="${CY}" r="${r}" fill="none" stroke="${pal.gold}" stroke-width="${w}" opacity="${op}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
-  }
-  // Lune gravée : mers, cratères, terminateur hachuré.
-  const R = 31;
-  s += `<defs><clipPath id="${id}-m"><circle cx="${CX}" cy="${CY}" r="${R}"/></clipPath></defs>`;
-  let moon = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="#F3EBD3"/>`;
-  for (const [x, y, rx, ry] of [[-10, -8, 12, 8], [6, 8, 10, 7], [10, -14, 6, 4], [-14, 12, 6, 5]] as const) {
-    moon += `<ellipse cx="${CX + x}" cy="${CY + y}" rx="${rx}" ry="${ry}" fill="${pal.light}" opacity="0.65"/>`;
-  }
-  for (const [x, y, r] of [[-16, -16, 3.6], [12, 16, 2.6], [-4, 18, 2], [16, -4, 2.2], [-20, 4, 1.6], [2, -22, 1.8]] as const) {
-    moon += `<circle cx="${CX + x}" cy="${CY + y}" r="${r}" fill="none" stroke="${pal.ink}" stroke-width="0.5" opacity="0.6"/>`
-      + `<path d="M${f(CX + x - r * 0.7)} ${f(CY + y + r * 0.4)} a${r} ${r} 0 0 0 ${f(r * 1.4)} 0" fill="none" stroke="${pal.shade}" stroke-width="0.8" opacity="0.6"/>`;
-  }
-  moon += shadow(`M${CX + 6} ${CY - R - 1} A${R} ${R} 0 0 1 ${CX + 6} ${CY + R + 1} A${R * 0.62} ${R} 0 0 0 ${CX + 6} ${CY - R - 1} Z`, pal.shade, 0.55, 'fine');
-  moon += shadow(`M${CX + 16} ${CY - R} A${R} ${R} 0 0 1 ${CX + 16} ${CY + R} A${R * 0.4} ${R} 0 0 0 ${CX + 16} ${CY - R} Z`, pal.deep, 0.5, 'xhatch');
-  s += `<circle cx="${CX}" cy="${CY}" r="${R + 6}" fill="#FFF6D8" opacity="0.35" filter="url(#soft)"/>`;
-  s += bloom(CX, CY, 46, '#FFF6D8', 0.35);
-  s += `<g clip-path="url(#${id}-m)">${moon}</g>`;
-  s += gloss(CX - 12, CY - 14, 9, 5, -35, 0.35);
-  s += `<circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="${pal.ink}" stroke-width="1.4"/>`;
-  s += `<circle cx="${CX}" cy="${CY}" r="${R + 4}" fill="none" stroke="${pal.gold}" stroke-width="0.8"/>`;
-  s += rim(`M${CX - 22} ${CY - 22} A${R} ${R} 0 0 1 ${CX + 4} ${CY - R}`, '#FFFFFF', 1.2);
-
-  // Les deux carpes (la seconde = rotation de 180°).
-  s += koi(c, 'a', '#F1E6CE', pal.accent, pal.gold, false);
-  s += `<g transform="rotate(180 ${CX} ${CY})">${koi(c, 'b', pal.deep, pal.gold, pal.light, true)}</g>`;
-
-  // Bulles d'étoiles et constellation.
-  s += constellation([[22, 30], [34, 22], [46, 28]], pal.gold) + constellation([[176, 200], [190, 192], [202, 200]], pal.gold);
-  for (const [x, y, z] of [[196, 30, 3.4], [24, 196, 3], [111, 18, 2.2], [111, 210, 2.2]] as const) s += sparkle(x, y, z, pal.glow, false);
-  return soften(s, pal.deep);
+  // Lune facettée : disque crème, mers plus sombres, cratères.
+  const moonL: Light = { dir: [-0.5, -0.5, 0.7], color: '#FFFFFF', shade: hsl(h + 20, 25, 50) };
+  s += `<circle cx="${CX}" cy="${CY}" r="44" fill="#FFF6D8" opacity="0.12"/><circle cx="${CX}" cy="${CY}" r="36" fill="#FFF6D8" opacity="0.18"/>`;
+  s += facets(ellipse(CX, CY, 31, 31, 24), '#F1E8D0', moonL, { size: 9.1, relief: 1.4, seed: 3 });
+  for (const [x, y, rx, ry] of [[-10, -8, 11, 7], [6, 8, 9, 6], [10, -14, 5, 3.5], [-13, 12, 5, 4]] as const) s += facets(ellipse(CX + x, CY + y, rx, ry, 10), hsl(h, 20, 74), moonL, { size: 5.2, relief: 0.3, seed: x + 50, opacity: 0.75 });
+  for (const [x, y, rr] of [[-16, -16, 3.2], [12, 16, 2.4], [16, -4, 2], [-20, 4, 1.5]] as const) s += `<circle cx="${CX + x}" cy="${CY + y}" r="${rr}" fill="${hsl(h + 10, 18, 62)}" opacity="0.8"/><circle cx="${CX + x - rr * 0.3}" cy="${CY + y - rr * 0.3}" r="${rr * 0.55}" fill="#FFFDF0" opacity="0.7"/>`;
+  // Les deux carpes.
+  s += koi(c, '#F1E6CE', hsl(h + 150, 60, 52), '#E9C25B', hsl(h + 140, 40, 80), false, 100);
+  s += `<g transform="rotate(180 ${CX} ${CY})">${koi(c, hsl(h + 20, 40, 16), '#E9C25B', hsl(h, 35, 62), hsl(h + 20, 35, 30), true, 200)}</g>`;
+  // Constellations d'or.
+  const cst = (pts: Pt[]) => `<polyline points="${pts.map((p) => p.join(',')).join(' ')}" fill="none" stroke="#E9C25B" stroke-width="0.7" opacity="0.85"/>` + pts.map(([x, y]) => gem(x, y, 2.6, '#FFFFFF', '#E9C25B')).join('');
+  s += cst([[22, 30], [34, 22], [46, 28]]) + cst([[176, 200], [190, 192], [202, 200]]);
+  return s;
 };
 
-/**
- * Décor : un bassin céleste vu d'en haut, la nuit. Eau d'encre où se reflètent les étoiles, ondes concentriques,
- * nénuphars et lotus d'or aux coins, alevins-étoiles, et quelques pétales qui dérivent.
- */
-koiluna.scene = (c: DrawCtx, b: Bounds) => {
-  const { pal } = c;
-  const id = `koiluna-${c.stage}-bg`;
-  const wh = c.hue * 0.3 + 215 * 0.7;
-  const W = b.x1 - b.x0, H = b.y1 - b.y0;
-  let s = `<defs><radialGradient id="${id}-w" cx="0.5" cy="0.47" r="0.62">`
-    + `<stop offset="0" stop-color="${hsl(wh, 40, 30)}"/><stop offset="0.55" stop-color="${hsl(wh + 10, 45, 15)}"/><stop offset="1" stop-color="${hsl(wh + 20, 45, 7)}"/></radialGradient></defs>`;
-  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-w)"/>`;
-  // Reflets d'étoiles (petits traits tremblés horizontaux) et voie lactée reflétée.
-  s += `<path d="M${b.x0} 40 C60 60 160 150 ${b.x1} 200" fill="none" stroke="${pal.accent2}" stroke-width="40" opacity="0.08" filter="url(#soft)"/>`;
-  for (let i = 0; i < 44; i++) {
-    const x = b.x0 + c.r() * W, y = b.y0 + c.r() * H, l = 1 + c.r() * 3;
-    s += `<path d="M${f(x - l)} ${f(y)} h${f(l * 2)}" stroke="#FFF6D8" stroke-width="${f(0.4 + c.r() * 0.6)}" stroke-linecap="round" opacity="${f(0.25 + c.r() * 0.45)}"/>`;
-  }
-  // Ondes concentriques autour de la ronde des carpes.
-  for (const r of [92, 104, 118]) s += `<circle cx="111" cy="112" r="${r}" fill="none" stroke="${pal.light}" stroke-width="0.5" opacity="${f(0.35 - (r - 92) * 0.008)}"/>`;
-  // Nénuphars (feuilles fendues, nervures) et lotus.
-  const pad = (x: number, y: number, r: number, rot: number) => {
-    let o = `<g transform="translate(${x} ${y}) rotate(${rot})">`;
-    o += `<path d="M0 0 L${f(r * 0.96)} ${f(-r * 0.26)} A${r} ${r * 0.82} 0 1 1 ${f(r * 0.96)} ${f(r * 0.26)} Z" fill="${hsl(150 * 0.75 + wh * 0.25, 26, 26)}" stroke="#140F24" stroke-width="0.7"/>`;
-    o += `<path d="M0 0 L${f(r * 0.96)} ${f(-r * 0.26)} A${r} ${r * 0.82} 0 0 0 ${f(-r)} 0 Z" fill="url(#fine)" opacity="0.5"/>`;
-    for (let k = 0; k < 7; k++) { const a = 0.5 + k * 0.78; o += `<path d="M0 0 L${f(Math.cos(a) * r * 0.85)} ${f(Math.sin(a) * r * 0.7)}" stroke="${pal.light}" stroke-width="0.4" opacity="0.35"/>`; }
-    return o + `</g>`;
+/** Décor : bassin céleste la nuit vu d'en haut, reflets d'étoiles, nénuphars facettés, lotus, alevins. */
+const scene = (c: DrawCtx, b: Bounds): string => {
+  const r = prng(55 + c.stage);
+  let s = facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A1A33', '#0E2A48', '#123A55', '#0C2440', '#06101F'], 13, 24);
+  // Ondes concentriques et reflet de lune.
+  s += `<circle cx="${CX}" cy="${CY}" r="98" fill="#BFF6FF" opacity="0.05"/><circle cx="${CX}" cy="${CY}" r="72" fill="#FFF6D8" opacity="0.06"/>`;
+  for (const rr of [92, 106, 120]) s += `<circle cx="${CX}" cy="${CY}" r="${rr}" fill="none" stroke="#BFF6FF" stroke-width="0.6" opacity="${(0.22 - (rr - 92) * 0.005).toFixed(2)}"/>`;
+  for (let i = 0; i < 30; i++) { const x = b.x0 + r() * (b.x1 - b.x0), y = b.y0 + r() * (b.y1 - b.y0); s += `<path d="M${(x - 2).toFixed(1)} ${y.toFixed(1)} h4 l-2 0.8 Z" fill="#DFFBFF" opacity="${(0.3 + r() * 0.5).toFixed(2)}"/>`; }
+  // Nénuphars (disque échancré) et lotus.
+  const padL: Light = { dir: [-0.5, -0.5, 0.7], color: '#BFF6C8', shade: '#02100C' };
+  const pad = (x: number, y: number, rr: number, rot: number, seed: number) => {
+    const pts: Pt[] = [[x, y]];
+    for (let i = 0; i <= 16; i++) { const a = rot + 0.35 + (i / 16) * (Math.PI * 2 - 0.7); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.85]); }
+    return facets(pts, '#1E5A46', padL, { size: Math.max(5, rr / 3), relief: 0.5, seed });
   };
   const lotus = (x: number, y: number, k: number) => {
-    let o = `<g transform="translate(${x} ${y}) scale(${k})">`;
-    for (let i = 0; i < 8; i++) o += `<path d="M0 0 C-3 -5 -2 -11 0 -13 C2 -11 3 -5 0 0 Z" fill="${i % 2 ? '#F6E8D4' : pal.light}" stroke="#140F24" stroke-width="0.5" transform="rotate(${i * 45})"/>`;
-    for (let i = 0; i < 8; i++) o += `<path d="M0 0 C-2 -3 -1.4 -7 0 -8 C1.4 -7 2 -3 0 0 Z" fill="#FFF6D8" stroke="#140F24" stroke-width="0.4" transform="rotate(${i * 45 + 22})"/>`;
-    o += `<circle r="2.4" fill="${pal.gold}" stroke="#140F24" stroke-width="0.4"/><circle r="9" fill="${pal.glow}" opacity="0.25" filter="url(#soft)"/>`;
-    return o + `</g>`;
+    let o = '';
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; o += `<path d="M${x} ${y} L${(x + Math.cos(a - 0.25) * 6 * k).toFixed(1)} ${(y + Math.sin(a - 0.25) * 6 * k).toFixed(1)} L${(x + Math.cos(a) * 13 * k).toFixed(1)} ${(y + Math.sin(a) * 13 * k).toFixed(1)} Z" fill="${i % 2 ? '#F6E2EE' : '#E8B8D8'}"/><path d="M${x} ${y} L${(x + Math.cos(a + 0.25) * 6 * k).toFixed(1)} ${(y + Math.sin(a + 0.25) * 6 * k).toFixed(1)} L${(x + Math.cos(a) * 13 * k).toFixed(1)} ${(y + Math.sin(a) * 13 * k).toFixed(1)} Z" fill="${i % 2 ? '#D9A6C8' : '#C58AB6'}"/>`; }
+    return o + gem(x, y, 4 * k, '#FFF6D8', '#E9C25B');
   };
-  s += pad(b.x0 + 16, b.y0 + 22, 28, 30) + pad(b.x0 + 52, b.y0 + 8, 15, 200) + lotus(b.x0 + 24, b.y0 + 34, 1.1);
-  s += pad(b.x1 - 16, b.y1 - 22, 30, 210) + pad(b.x1 - 54, b.y1 - 8, 16, 20) + pad(b.x1 - 8, b.y1 - 62, 12, 140) + lotus(b.x1 - 26, b.y1 - 34, 1.2);
-  s += pad(b.x1 - 8, b.y0 + 34, 16, 160) + pad(b.x0 + 8, b.y1 - 40, 18, -20) + lotus(b.x0 + 12, b.y1 - 46, 0.7);
-  // Alevins-étoiles et pétales qui dérivent.
-  for (const [x, y, a] of [[190, 70, 120], [198, 80, 130], [184, 84, 110], [30, 150, -60], [24, 140, -50]] as const) s += starfish(x, y, 0.55, a, hsl(wh, 30, 66), pal.glow);
-  for (const [x, y, a] of [[60, 210, 30], [150, 20, -20], [206, 150, 70]] as const) s += `<path d="M0 0 C-2 -3 -1 -7 0 -8 C1 -7 2 -3 0 0 Z" fill="#F6E8D4" stroke="#140F24" stroke-width="0.4" transform="translate(${x} ${y}) rotate(${a})"/>`;
-  return soften(s, pal.deep);
+  s += pad(b.x0 + 18, b.y0 + 24, 28, 0.5, 1) + pad(b.x0 + 54, b.y0 + 8, 15, 3.4, 2) + lotus(b.x0 + 24, b.y0 + 34, 1.1);
+  s += pad(b.x1 - 18, 214, 30, 3.6, 3) + pad(b.x1 - 56, 236, 16, 0.3, 4) + pad(b.x1 - 8, 172, 12, 2.4, 5) + lotus(b.x1 - 28, 206, 1.2);
+  s += pad(b.x1 - 8, b.y0 + 36, 16, 2.8, 6) + pad(b.x0 + 8, 196, 18, -0.3, 7) + lotus(b.x0 + 14, 190, 0.7);
+  s += pad(60, 268, 26, 1, 8) + pad(170, 290, 22, 2, 9);
+  // Alevins-étoiles.
+  for (const [x, y, a] of [[190, 70, 120], [198, 80, 130], [184, 84, 110], [30, 150, -60], [24, 140, -50]] as const) {
+    const rad = (a * Math.PI) / 180, dx = Math.cos(rad), dy = Math.sin(rad);
+    s += `<path d="M${x} ${y} L${(x - dx * 6 - dy * 2).toFixed(1)} ${(y - dy * 6 + dx * 2).toFixed(1)} L${(x - dx * 6 + dy * 2).toFixed(1)} ${(y - dy * 6 - dx * 2).toFixed(1)} Z" fill="#BFF6FF" opacity="0.8"/><circle cx="${(x - dx * 7).toFixed(1)}" cy="${(y - dy * 7).toFixed(1)}" r="1.2" fill="#FFE27A"/>`;
+  }
+  return s;
 };
+
+export const koiluna: Species = Object.assign(draw, { scene });

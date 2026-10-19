@@ -1,49 +1,42 @@
-import { bloom, eyeGlow, gloss, hsl, softShadow, sparkle as sparkleS, strands, vol, type Bounds, type DrawCtx, type Species } from './style.ts';
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
-/* ---------- Géométrie : squelette lissé + largeurs (anatomie par « tubes ») ---------- */
-type P = [number, number];
-const f = (v: number) => +v.toFixed(1);
-function cr(pts: P[], seg: number): P[] {
-  const out: P[] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+/* ---------- Géométrie (squelettes lissés → polygones pour les facettes) ---------- */
+type Fn = (t: number) => number;
+const f1 = (v: number) => v.toFixed(1);
+/** Interpolation linéaire dans une table [t, valeur]. */
+const tab = (t: [number, number][]): Fn => (x) => {
+  if (x <= t[0][0]) return t[0][1];
+  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, va] = t[i - 1], [b2, vb] = t[i]; return va + ((x - a) / (b2 - a)) * (vb - va); }
+  return t[t.length - 1][1];
+};
+/** Spline de Catmull-Rom échantillonnée (ouverte ou fermée). */
+function crs(pts: Pt[], seg: number, closed = false): Pt[] {
+  const N = pts.length, out: Pt[] = [];
+  const g = (i: number) => (closed ? pts[(i + N) % N] : pts[Math.max(0, Math.min(N - 1, i))]);
+  for (let i = 0; i < (closed ? N : N - 1); i++) {
+    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
     for (let k = 0; k < seg; k++) {
       const t = k / seg, t2 = t * t, t3 = t2 * t;
       const q = (j: 0 | 1) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3);
       out.push([q(0), q(1)]);
     }
   }
-  out.push(pts[pts.length - 1]);
+  if (!closed) out.push(pts[N - 1]);
   return out;
 }
-function smooth(pts: P[], closed = false): string {
-  const N = pts.length;
-  const g = (i: number) => (closed ? pts[(i + N) % N] : pts[Math.max(0, Math.min(N - 1, i))]);
-  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
-  for (let i = 0; i < (closed ? N : N - 1); i++) {
-    const p0 = g(i - 1), p1 = g(i), p2 = g(i + 1), p3 = g(i + 2);
-    d += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
-  }
-  return d + (closed ? ' Z' : '');
-}
-interface Fr { m: P[]; nr: P[] }
-function frame(spine: P[], seg = 8): Fr {
-  const m = cr(spine, seg);
+interface Fr { m: Pt[]; nr: Pt[] }
+function frame(spine: Pt[], seg = 6): Fr {
+  const m = crs(spine, seg);
   const nr = m.map((_, i) => {
-    const a = m[Math.max(0, i - 1)], b = m[Math.min(m.length - 1, i + 1)];
-    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1;
-    return [-dy / L, dx / L] as P;
+    const a = m[Math.max(0, i - 1)], b2 = m[Math.min(m.length - 1, i + 1)];
+    const dx = b2[0] - a[0], dy = b2[1] - a[1], l = Math.hypot(dx, dy) || 1;
+    return [-dy / l, dx / l] as Pt;
   });
   return { m, nr };
 }
-const tab = (t: [number, number][]) => (x: number) => {
-  if (x <= t[0][0]) return t[0][1];
-  for (let i = 1; i < t.length; i++) if (x <= t[i][0]) { const [a, va] = t[i - 1], [b, vb] = t[i]; return va + ((x - a) / (b - a)) * (vb - va); }
-  return t[t.length - 1][1];
-};
-type Fn = (t: number) => number;
-function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): P[] {
-  const N = fr.m.length - 1, out: P[] = [];
+function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): Pt[] {
+  const N = fr.m.length - 1, out: Pt[] = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
     if (t < t0 - 1e-6 || t > t1 + 1e-6) continue;
@@ -52,87 +45,22 @@ function side(fr: Fr, fn: Fn, t0 = 0, t1 = 1): P[] {
   }
   return out;
 }
-const strip = (fr: Fr, a: Fn, b: Fn, t0 = 0, t1 = 1) => smooth([...side(fr, a, t0, t1), ...side(fr, b, t0, t1).reverse()], true);
-const outline = (fr: Fr, w: Fn, t0 = 0, t1 = 1) => strip(fr, w, (t) => -w(t), t0, t1);
-const curve = (fr: Fr, fn: Fn, t0 = 0, t1 = 1) => smooth(side(fr, fn, t0, t1));
-function at(fr: Fr, t: number, o = 0): P {
+const strip = (fr: Fr, a: Fn, b2: Fn, t0 = 0, t1 = 1): Pt[] => [...side(fr, a, t0, t1), ...side(fr, b2, t0, t1).reverse()];
+const outline = (fr: Fr, w: Fn, t0 = 0, t1 = 1): Pt[] => strip(fr, w, (t) => -w(t), t0, t1);
+function at(fr: Fr, t: number, o = 0): Pt {
   const i = Math.round(t * (fr.m.length - 1));
   return [fr.m[i][0] + fr.nr[i][0] * o, fr.m[i][1] + fr.nr[i][1] * o];
 }
-const tube = (pts: P[], w: [number, number][]) => outline(frame(pts, 6), tab(w));
-const G = (x: number, y: number, a: number, s: string) => `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(a)})">${s}</g>`;
+/** Polygone plat (petits détails), cercle, constellation dorée. */
+const flat = (pts: Pt[], col: string, op = 1) => `<path d="M${pts.map((p) => `${f1(p[0])} ${f1(p[1])}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
+const disc = (x: number, y: number, r: number, col: string, op = 1) => `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r)}" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
+const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
+const constel = (pts: Pt[], s = 3) => `<polyline points="${pts.map((p) => `${f1(p[0])},${f1(p[1])}`).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.85"/>` + pts.map(([x, y]) => gem(x, y, s, '#FFFFFF', GOLD)).join('');
+/** Œil : pupille sombre, iris lumineux, reflet. */
+const eyeLP = (x: number, y: number, r: number, iris: string) => disc(x, y, r * 1.9, iris, 0.22) + disc(x, y, r * 1.25, iris) + disc(x + r * 0.1, y, r * 0.8, '#0B0618') + disc(x - r * 0.4, y - r * 0.45, r * 0.38, '#FFFFFF');
 
-/* ---------- Rendu « 3D » (V4) : les anciens outils d'encre sont redéfinis localement en volumes et lumières ---------- */
-const R4 = { id: 'x', k: 0, rimC: '#8FE8E0', light: [0.32, 0.22] as [number, number], hi: '' };
-const begin = (id: string, rimC: string, light: [number, number] = [0.32, 0.22]) => { R4.id = id; R4.k = 0; R4.rimC = rimC; R4.light = light; };
-const uid = () => `${R4.id}-v${R4.k++}`;
-/** Éclaircit / assombrit une couleur hsla (ou la laisse telle quelle). */
-function tone(col: string, dl: number, ds = 0): string {
-  const m = /hsla?\(([-\d.]+),([\d.]+)%,([\d.]+)%(?:,([\d.]+))?\)/.exec(col);
-  if (!m) return dl > 0 ? '#FFF6E6' : '#07040F';
-  return hsl(+m[1], Math.max(0, Math.min(100, +m[2] + ds)), Math.max(2, Math.min(97, +m[3] + dl)));
-}
-const INKS = ['#140F24', '#1A1230'];
-/** Volume modelé (remplace l'aplat cerné). Un remplissage `none` ne dessine plus rien (plus de contours). */
-const ink = (d: string, fillC: string, _w = 1, extra = '') => {
-  if (fillC === 'none') return '';
-  if (/opacity/.test(extra)) return `<path d="${d}" fill="${fillC}"${extra}/>`;
-  return vol(uid(), d, fillC, { light: R4.light, hi: tone(fillC, 26, 10), lo: tone(fillC, -30, 18), rim: R4.rimC, ao: 0.5 });
-};
-/** Trait : les traits d'encre deviennent des plis sombres très doux ; les traits colorés deviennent des filets de lumière. */
-const line = (d: string, w = 1, color = '#140F24', extra = '') => INKS.includes(color)
-  ? `<path d="${d}" fill="none" stroke="#07040F" stroke-width="${f(w * 0.9)}" stroke-linecap="round" opacity="0.28"${extra.replace(/opacity="[\d.]+"/, '')}/>`
-  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"${extra}/>`;
-/** Ombre interne douce (plus de hachures). */
-const shadow = (d: string, color: string, op = 0.8, _h = '') => `<path d="${d}" fill="${tone(color, -6, 10)}" opacity="${f(op * 0.55)}" filter="url(#b2)"/>`;
-const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, _col = '', w = 0.8) => strands(c, x, y, len, angle, count, spread * 2, R4.hi || '#FFF6E6', w);
-const eyeA = (x: number, y: number, w: number, iris: string, o: { angle?: number; slit?: boolean; open?: number } = {}) => eyeGlow(`${R4.id}-e${R4.k++}`, x, y, w * 1.05, iris, o);
-const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
-const rim = (d: string, color: string, w = 1.4) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.5" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.6)}" stroke-linecap="round" opacity="0.85"/>`;
-const gild = (d: string, w = 1.1) => `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 2.6)}" stroke-linecap="round" opacity="0.55" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF1C4" stroke-width="${f(w * 0.7)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-const sparkle = (x: number, y: number, s: number, color = '#FFF6D8', _st = false) => bloom(x, y, s * 1.6, color, 0.6) + sparkleS(x, y, s * 0.9, '#FFFFFF', false);
-const aura = (x: number, y: number, r: number, color: string) => bloom(x, y, r * 0.8, color, 0.3);
-function constellation(pts: P[], color = '#FFF6D8'): string {
-  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.75"/>`
-    + pts.map(([x, y], i) => bloom(x, y, 3.2, color, 0.8) + `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 0.9 : 1.3}" fill="#FFFFFF"/>`).join('');
-}
-/** Retire les cernes restants (traits d'encre littéraux, hachures) d'un fragment SVG. */
-const deink = (s: string) => s
-  .replace(/stroke="#140F24"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
-  .replace(/stroke="#1A1230"/g, `stroke="${R4.rimC}" stroke-opacity="0.16"`)
-  .replace(/fill="url\(#(fine|xhatch|hatch)\)"/g, 'fill="none"');
-
-/* ---------- Décor : petits outils ---------- */
-const fill = (b: Bounds, color: string, extra = '') => `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="${color}"${extra}/>`;
-/** Dégradé vertical (id unique), arrêts [position 0..1, couleur]. */
-const vgrad = (id: string, stops: [number, string][]) =>
-  `<linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient>`;
-/** Ciel / eau étoilé : points fins, quelques étoiles à branches. */
-function stars(c: DrawCtx, b: Bounds, n: number, yMax: number, color = '#FFF6D8'): string {
-  let s = '';
-  for (let i = 0; i < n; i++) {
-    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (yMax - b.y0), r = 0.3 + c.r() ** 3 * 1.3;
-    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${color}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
-  }
-  return s;
-}
-/** Ligne d'horizon irrégulière (collines, dunes, rochers) fermée vers le bas de la fenêtre. */
-function ridge(c: DrawCtx, b: Bounds, y: number, amp: number, n: number, color: string, stroke = 0.9, extra = ''): string {
-  const pts: P[] = [];
-  for (let i = 0; i <= n; i++) pts.push([b.x0 - 10 + (i / n) * (b.x1 - b.x0 + 20), y + (c.r() - 0.5) * 2 * amp]);
-  const top = smooth(pts);
-  return `<path d="${top} L${b.x1 + 10} ${b.y1 + 10} L${b.x0 - 10} ${b.y1 + 10} Z" fill="${color}"${extra}/>`
-    + (stroke ? `<path d="${top}" fill="none" stroke="#140F24" stroke-width="${stroke}" opacity="0.7"/>` : '');
-}
-/** Halo flou (lumière d'ambiance). */
-const glowAt = (x: number, y: number, rx: number, ry: number, color: string, op = 0.5) =>
-  `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(rx)}" ry="${f(ry)}" fill="${color}" opacity="${op}" filter="url(#soft)"/>`;
-
-/* ---------- Lièvre lunaire ---------- */
-const cl = (pts: P[]) => smooth(pts, true);
-const op = (pts: P[]) => smooth(pts);
-const mv = (pts: P[], dx: number, dy: number): P[] => pts.map(([x, y]) => [x + dx, y + dy]);
-
+/* ---------- Lièvre lunaire : poses par stade ---------- */
+type P = Pt;
 interface Pose {
   body: P[]; belly: P[]; haunch: P[]; shadeB: P[];
   head: P[]; jaw: P[]; eye: P; eyeAng: number; nose: P; earN: P[]; earF: P[];
@@ -190,190 +118,115 @@ const POSES: Pose[] = [
   },
 ];
 
-/** Lapinova → Lunalièvre → Sélénalto : lièvre lunaire. Levraut tapi, jeune assis aux aguets, adulte dressé vers la lune. */
-export const lapinova: Species = (c) => {
-  const { pal, stage } = c;
-  const st = Math.min(stage, 2);
-  const id = `lapinova-${st}`;
-  begin(id, ['#DDE6FF', '#FFB8C8', '#FFF1C8'][st], ([[0.7, 0.15], [0.3, 0.2], [0.6, 0.3]] as [number, number][])[st]);
-  R4.hi = tone(pal.body, 30, 6);
-  const p = POSES[st];
+
+/** Lapinova → Lunalièvre → Sélénalto : lièvre lunaire. Levraut endormi au gîte, jeune assis aux aguets, adulte dressé vers la lune. */
+const draw = (c: DrawCtx): string => {
+  const st = Math.min(c.stage, 2), h = c.hue, p = POSES[st];
+  const base = hsl(h, 30, 50), deep = hsl(h + 10, 36, 24), belly = hsl(h - 10, 22, 80), inner = mix(hsl(h, 30, 50), '#E8A0A8', 0.45);
+  const L: Light = ([
+    { dir: [0.5, -0.7, 0.6], color: '#DDE6FF', shade: '#080A20', rim: '#9FB8FF' },
+    { dir: [-0.5, -0.6, 0.6], color: '#FFE3D0', shade: '#120A20', rim: '#FF9EB8' },
+    { dir: [0.3, -0.5, 0.4], color: '#FFF1D8', shade: '#0A0818', rim: '#FFF1C8' },
+  ] as Light[])[st];
+  const far: Light = { ...L, color: mix(L.color, deep, 0.45), rim: undefined };
   const S = [1.16, 1, 0.94][st];
-  let g = '';
+  const sm = (pts: Pt[]) => crs(pts, 3, true);
+  let s = '', seed = 10;
 
-  if (st >= 2) {
-    g += aura(120, 70, 80, pal.glow);
-  }
-  g += ground(124, 205, st === 0 ? 70 : 74);
-
-  // Oreille éloignée.
-  const ear = (pts: P[], far: boolean) => {
-    const d = cl(pts);
-    let s = ink(d, far ? pal.shade : pal.body, far ? 1.2 : 1.5);
-    s += `<defs><clipPath id="${id}-e${far ? 'f' : 'n'}"><path d="${d}"/></clipPath></defs><g clip-path="url(#${id}-e${far ? 'f' : 'n'})">`;
-    // Intérieur sombre et pointe noire.
-    const mid = Math.floor(pts.length / 2);
-    const tip = pts[mid - 1];
-    const base0 = pts[0], base1 = pts[pts.length - 1];
-    s += `<path d="M${f((base0[0] + base1[0]) / 2)} ${f((base0[1] + base1[1]) / 2)} Q${f((base0[0] + tip[0]) / 2 + 3)} ${f((base0[1] + tip[1]) / 2)} ${f(tip[0])} ${f(tip[1])} L${f(pts[mid][0])} ${f(pts[mid][1])} Q${f((base1[0] + tip[0]) / 2 + 2)} ${f((base1[1] + tip[1]) / 2 + 2)} ${f(base1[0])} ${f(base1[1])} Z" fill="${pal.deep}" opacity="${far ? 0.5 : 0.35}"/>`;
-    s += `<circle cx="${f(tip[0])}" cy="${f(tip[1])}" r="9" fill="#140F24" opacity="0.85"/>`;
-    if (!far) s += shadow(d, pal.shade, 0, 'fine');
-    s += `</g>${ink(d, 'none', far ? 1.2 : 1.5)}`;
-    return s;
+  const ear = (pts: Pt[], isFar: boolean) => {
+    const poly = sm(pts);
+    let o = facets(poly, isFar ? deep : base, isFar ? far : L, { size: 4.5, relief: 0.6, seed: seed++ });
+    const cx = poly.reduce((a, q) => a + q[0], 0) / poly.length, cy = poly.reduce((a, q) => a + q[1], 0) / poly.length;
+    o += facets(poly.map(([x, y]) => [x + (cx - x) * 0.5, y + (cy - y) * 0.42 + 3] as Pt), isFar ? mix(inner, deep, 0.5) : inner, isFar ? far : L, { size: 4, relief: 0.3, seed: seed++, opacity: 0.8 });
+    const tip = pts[Math.floor(pts.length / 2) - 1];
+    o += flat(poly.filter((q) => Math.hypot(q[0] - tip[0], q[1] - tip[1]) < 11), '#0E0818', 0.9);
+    return o;
   };
-  g += ear(p.earF, true);
+  const limbP = (pts: Pt[], w0: number, w1: number, col: string, li: Light) => facets(limb(crs(pts, 3), crs(pts, 3).map((_, i, a) => w0 + (w1 - w0) * (i / (a.length - 1)))), col, li, { size: 4, relief: 0.6, seed: seed++ });
 
-  // Membres éloignés.
-  const limb = (pts: P[], w0: number, w1: number, fill: string, lw = 1.3) => ink(tube(pts, [[0, w0], [0.45, w1 * 1.1], [0.8, w1 * 0.9], [1, w1 * 1.15]]), fill, lw);
-  g += limb(p.foreF, 5, 3.4, pal.shade, 1.1);
-  if (p.footF) g += ink(cl(p.footF), pal.shade, 1.1);
-
-  // Corps.
-  const body = cl(p.body);
-  g += ink(body, pal.body, 1.7);
-  g += `<defs><clipPath id="${id}-b"><path d="${body}"/></clipPath></defs><g clip-path="url(#${id}-b)">`;
-  g += `<path d="${cl(p.belly)}" fill="${pal.belly}" opacity="0.85"/>`;
-  g += shadow(cl(p.shadeB), pal.shade, 0.75, 'fine');
-  // « Mers » lunaires sur le pelage.
-  const [hx, hy] = p.haunch[2];
-  g += `<ellipse cx="${f(hx + 6)}" cy="${f(hy + 12)}" rx="14" ry="9" fill="${pal.deep}" opacity="0.18"/>`;
-  g += `<ellipse cx="${f(hx - 14)}" cy="${f(hy - 8)}" rx="8" ry="5" fill="${pal.deep}" opacity="0.15"/>`;
-  g += `</g>`;
-  g += line(op(p.haunch), 1.1, '#140F24', ' opacity="0.85"');
-  // Poils : touffes sur la cuisse, le dos et le poitrail.
-  const [b1, b2] = [p.body[2], p.body[4]];
-  g += fur(c, b1[0] - 2, b1[1] + 6, 8, 120, 4, 6) + fur(c, b2[0] - 6, b2[1] + 4, 9, 110, 4, 7);
-  g += fur(c, p.haunch[2][0] + 4, p.haunch[2][1] + 10, 9, 100, 5, 8);
-  g += fur(c, p.belly[1][0] + 4, p.belly[1][1] + 4, 7, 100, 4, 4, pal.shade);
-  g += rim(op(p.body.slice(0, 5)), pal.glow, 1.3);
-  // Queue (scut blanc).
-  g += ink(`M${p.tail[0]} ${p.tail[1]} c6 -6 14 -4 14 3 c0 7 -8 10 -14 6 Z`, pal.belly, 1.2);
-
-  // Pied arrière.
-  g += ink(cl(p.foot), pal.body, 1.4);
-  g += shadow(`M${f(p.foot[0][0])} ${f(p.foot[0][1] + 4)} L${f(p.foot[3][0])} ${f(p.foot[3][1] + 3)} L${f(p.foot[4][0])} ${f(p.foot[4][1])} L${f(p.foot[6][0])} ${f(p.foot[6][1])} Z`, pal.shade, 0.6, 'fine');
-  g += line(`M${f(p.foot[4][0] + 3)} ${f(p.foot[4][1] - 1)} l3 -1 M${f(p.foot[4][0] + 8)} ${f(p.foot[4][1])} l3 -1`, 0.7);
-
-  // Patte avant proche.
-  g += limb(p.foreN, 5.5, 3.6, pal.body);
-  g += shadow(tube(p.foreN, [[0, 2], [1, 1.4]]), pal.shade, 0.4, 'fine');
-
-  // Oreille proche, tête.
-  g += ear(p.earN, false);
-  const head = cl(p.head);
-  g += ink(head, pal.body, 1.7);
-  g += `<defs><clipPath id="${id}-h"><path d="${head}"/></clipPath></defs><g clip-path="url(#${id}-h)">`;
-  g += `<path d="${cl(p.jaw)}" fill="${pal.belly}" opacity="0.9"/>`;
+  s += ear(p.earF, true);
+  s += limbP(p.foreF, 10, 7, deep, far);
+  if (p.footF) s += facets(sm(p.footF), deep, far, { size: 5, relief: 0.5, seed: seed++ });
+  // Corps : facettes plus fines, poitrail et ventre clairs, cuisse marquée.
+  s += facets(sm(p.body), base, L, { size: 7, relief: 1.4, seed: seed++, base2: mix(base, deep, 0.35) });
+  s += facets(sm(p.belly), belly, L, { size: 5, relief: 0.5, seed: seed++, opacity: 0.85 });
+  const hp = crs(p.haunch, 3);
+  s += facets([...hp, [hp[hp.length - 1][0] - 4, hp[hp.length - 1][1] + 14], [hp[0][0] + 20, hp[0][1]]], mix(base, deep, 0.15), L, { size: 6, relief: 1, seed: seed++ });
+  s += facets(ellipse(p.tail[0] + 7, p.tail[1] + 1, 7, 6, 10), '#F4EEE4', L, { size: 3, relief: 0.8, seed: seed++ });
+  s += facets(sm(p.foot), base, L, { size: 5, relief: 0.6, seed: seed++, base2: deep });
+  s += limbP(p.foreN, 11, 7.5, base, L);
+  // Tête.
+  s += ear(p.earN, false);
+  s += facets(sm(p.head), base, L, { size: 4.5, relief: 1.1, seed: seed++, base2: mix(base, deep, 0.2) });
+  s += facets(sm(p.jaw), belly, L, { size: 3.5, relief: 0.4, seed: seed++, opacity: 0.9 });
   const [ex, ey] = p.eye;
-  // Joue : ombre fine sous l'œil, arcade claire.
-  g += shadow(`M${f(ex - 4)} ${f(ey + 12)} Q${f(ex + 10)} ${f(ey + 8)} ${f(ex + 26)} ${f(ey + 16)} L${f(ex + 30)} ${f(ey + 30)} L${f(ex - 4)} ${f(ey + 30)} Z`, pal.shade, 0.3, 'fine');
-  g += `</g>`;
-  // Le levraut dort : paupière close, cils fins.
-  if (st === 0) g += line(`M${f(ex - 6)} ${f(ey)} Q${f(ex)} ${f(ey + 4)} ${f(ex + 6)} ${f(ey - 1)}`, 1.4) + line(`M${f(ex - 3)} ${f(ey + 2)} l-1 3 M${f(ex)} ${f(ey + 2.6)} l0 3 M${f(ex + 3)} ${f(ey + 2)} l1 3`, 0.6);
-  else g += eyeA(ex, ey, 6, pal.eye, { angle: p.eyeAng, slit: false, open: 0.6 });
-  g += `<path d="M${f(ex - 9)} ${f(ey + 2)} Q${f(ex)} ${f(ey + 9)} ${f(ex + 9)} ${f(ey + 1)}" fill="none" stroke="${pal.light}" stroke-width="1" opacity="0.7"/>`;
+  if (st === 0) s += flat([[ex - 6, ey], [ex, ey + 3.2], [ex + 6, ey - 1], [ex, ey + 1.8]], '#0E0818', 0.9);
+  else s += eyeLP(ex, ey, 3.4, '#E8A84A');
   const [nx, ny] = p.nose;
-  g += `<path d="M${f(nx)} ${f(ny - 2)} q3 -1 4 1.5 q-2 2 -4 1 Z" fill="#140F24"/>`;
-  g += line(`M${f(nx + 2)} ${f(ny + 1)} q0 4 -1 6 M${f(nx + 1)} ${f(ny + 7)} q4 3 9 1`, 0.9);
-  // Moustaches.
-  for (const [dx, dy] of [[-22, -4], [-24, 2], [-20, 7]] as const) g += line(`M${f(nx + 8)} ${f(ny + 4)} q${f(dx * 0.5)} ${f(dy * 0.4 - 2)} ${f(dx)} ${f(dy)}`, 0.5, '#FFF6D8', ' opacity="0.75"');
-  g += fur(c, p.head[0][0] - 4, p.head[0][1] + 10, 6, 100, 4, 5);
-  g += rim(op(p.head.slice(1, 6)), pal.glow, 1.1);
-
-  // Ornements.
-  if (st >= 1) {
-    const [fx, fy] = [ex + 6, ey - 12];
-    if (st >= 2) g += gild(`M${f(fx - 3)} ${f(fy - 4)} a4.5 4.5 0 1 0 6 7 a3.5 3.5 0 1 1 -6 -7 Z`, 1);
-    else g += sparkle(fx, fy, 2.4, pal.gold, false);
-  }
+  s += flat([[nx, ny - 2], [nx + 4, ny - 1], [nx + 1, ny + 1.5]], '#2A1420') + flat([[nx + 2, ny + 1], [nx + 2.6, ny + 6], [nx + 1.4, ny + 6]], '#2A1420', 0.6);
+  for (const [dx, dy] of [[-22, -4], [-24, 2], [-20, 7]] as const) s += flat([[nx + 8, ny + 4], [nx + 8 + dx, ny + dy], [nx + 8, ny + 4.6]], '#FFFFFF', 0.45);
+  // Marques lunaires.
+  if (st === 1) s += gem(ex + 6, ey - 12, 2.6, '#FFFFFF', GOLD);
   if (st >= 2) {
-    g += constellation([[124, 120], [134, 136], [128, 152], [140, 168]], pal.gold);
-    g += gild('M150 156 c6 8 8 18 4 28', 0.9);
-    for (const [x, y, z] of [[30, 30, 3.2], [24, 96, 2.4], [196, 160, 2.8], [60, 150, 2]] as const) g += sparkle(x, y, z, pal.glow, false);
-  } else if (st === 1) {
-    g += sparkle(150, 40, 2.6, pal.glow, false) + sparkle(40, 130, 2, pal.glow, false);
-  } else {
-    g += sparkle(60, 100, 2.2, pal.glow, false) + sparkle(170, 120, 2.6, pal.glow, false);
+    s += flat(crs([[ex + 3, ey - 16], [ex + 9, ey - 13], [ex + 9, ey - 6], [ex + 6, ey - 10]], 3, true), GOLD, 0.95);
+    s += constel([[124, 120], [134, 136], [128, 152], [140, 168]]);
   }
-  return deink(`<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${g}</g>`);
+  const sh = flat(ellipse(124, 205, st === 0 ? 70 : 74, 7, 20), '#05030C', 0.4);
+  return `${sh}<g transform="translate(111 205) scale(${S}) translate(-111 -205)">${s}</g>`;
 };
 
 /* ---------- Décor : prairies lunaires (0 gîte d'herbes d'argent la nuit, 1 crête au crépuscule, 2 cercle de pierres sous la pleine lune) ---------- */
-function blade(x: number, y: number, h: number, bend: number, col: string, w = 1.6): string {
-  return `<path d="M${f(x - w)} ${f(y)} Q${f(x + bend * 0.4)} ${f(y - h * 0.6)} ${f(x + bend)} ${f(y - h)} Q${f(x + bend * 0.4 + w)} ${f(y - h * 0.55)} ${f(x + w)} ${f(y)} Z" fill="${col}"/>`;
-}
-function grassBand(c: DrawCtx, b: Bounds, y: number, n: number, h: number, col: string, ink2 = false): string {
-  let s = '';
-  for (let i = 0; i < n; i++) {
-    const x = b.x0 - 4 + c.r() * (b.x1 - b.x0 + 8), hh = h * (0.5 + c.r() * 0.7);
-    s += blade(x, y + c.r() * 6, hh, (c.r() - 0.4) * hh * 0.5, col, 1 + c.r());
-    if (ink2 && i % 3 === 0) s += line(`M${f(x)} ${f(y + 4)} q${f(2)} ${f(-hh * 0.5)} ${f(hh * 0.15)} ${f(-hh * 0.9)}`, 0.5, '#140F24', ' opacity="0.5"');
-  }
-  return s;
-}
-function moonFlower(x: number, y: number, h: number, glow: string): string {
-  return line(`M${x} ${y} q-2 ${-h * 0.6} ${2} ${-h}`, 0.8, '#140F24', ' opacity="0.7"')
-    + `<circle cx="${x + 2}" cy="${y - h}" r="6" fill="${glow}" opacity="0.35" filter="url(#soft)"/>`
-    + `<path d="M${x - 1} ${y - h} q3 -6 6 0 q-3 4 -6 0 Z" fill="${glow}" stroke="#140F24" stroke-width="0.5"/>`;
-}
-const lapinovaScene = (c: DrawCtx, b: Bounds): string => {
-  const { pal, stage, hue } = c;
-  const st = Math.min(stage, 2);
-  const id = `lapinova-${st}-bg`;
-  begin(id, '#DDE6FF');
+const scene = (c: DrawCtx, b: Bounds): string => {
+  const st = Math.min(c.stage, 2), h = c.hue, r = prng(71 + st * 13 + h);
+  const W2 = b.x1 - b.x0;
+  const starsAt = (n: number, yMax: number) => { let o = ''; for (let i = 0; i < n; i++) { const x = b.x0 + r() * W2, y = b.y0 + r() * (yMax - b.y0); o += i % 6 ? disc(x, y, 0.5 + r() * 0.8, '#FFF6E0', 0.7) : gem(x, y, 1.5 + r() * 2, '#FFFFFF', '#BFD7FF'); } return o; };
+  const grass = (y: number, n: number, hh: number, col: string, col2: string) => { let o = ''; for (let i = 0; i < n; i++) { const x = b.x0 - 4 + r() * (W2 + 8), g = hh * (0.5 + r() * 0.7), bend = (r() - 0.4) * g * 0.5; o += flat([[x - 1.6, y + r() * 6], [x + bend, y - g], [x + 1.6, y + r() * 6]], i % 2 ? col : col2); } return o; };
+  const flower = (x: number, y: number, hh: number, col: string) => flat([[x - 0.5, y], [x + 1.5, y - hh], [x + 0.5, y]], '#2A3A3A') + disc(x + 2, y - hh, 5, col, 0.25) + gem(x + 2, y - hh, 3, '#FFFFFF', col);
+  const crescent = (x: number, y: number, rr: number) => {
+    const pts: Pt[] = [];
+    for (let i = 0; i <= 16; i++) { const t = Math.PI / 3 + (i / 16) * (Math.PI * 4 / 3); pts.push([x + Math.cos(t) * rr, y + Math.sin(t) * rr]); }
+    for (let i = 0; i <= 12; i++) { const t = (Math.PI * 3) / 2 - (i / 12) * Math.PI; pts.push([x + rr * 0.5 + Math.cos(t) * rr * 0.866, y + Math.sin(t) * rr * 0.866]); }
+    return disc(x, y, rr * 1.8, '#FFF6D8', 0.1) + facets(pts, '#FFF3D0', { dir: [-0.5, -0.5, 0.7], color: '#FFFFFF', shade: '#B8A890' }, { size: 4, relief: 0.6, seed: 5 });
+  };
   let s = '';
   if (st === 0) {
-    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 10, 40, 9)], [0.7, hsl(hue, 34, 20)], [1, hsl(hue - 10, 30, 24)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
-    s += stars(c, b, 80, 140);
-    // Fin croissant bas sur l'horizon.
-    s += glowAt(180, 60, 26, 26, '#FFF6D8', 0.35);
-    s += `<path d="M186 44 A18 18 0 1 0 192 76 A14 14 0 1 1 186 44 Z" fill="#FFF3D0" stroke="#140F24" stroke-width="0.6"/>`;
-    s += ridge(c, b, 140, 4, 6, hsl(hue + 10, 22, 22), 0.6);
-    s += grassBand(c, b, 150, 70, 30, hsl(hue + 20, 18, 30));
-    s += ridge(c, b, 178, 3, 5, hsl(hue + 10, 24, 18), 0.7);
-    s += grassBand(c, b, 186, 60, 46, hsl(hue + 30, 16, 38), true);
-    // Le gîte : creux d'herbe couchée.
-    s += `<ellipse cx="116" cy="206" rx="94" ry="18" fill="${hsl(hue + 20, 22, 16)}" stroke="#140F24" stroke-width="0.8"/>`;
-    for (let k = 0; k < 20; k++) { const a = Math.PI * (k / 19), x = 116 - Math.cos(a) * 92, y = 206 - Math.sin(a) * 12; s += blade(x, y + 6, 18 + c.r() * 10, -Math.cos(a) * 14, hsl(hue + 30, 18, 46)); }
-    for (const [x, y, h] of [[16, 196, 30], [204, 200, 36], [190, 208, 22], [30, 214, 20]] as const) s += moonFlower(x, y, h, pal.glow);
-    for (let k = 0; k < 9; k++) { const x = 20 + c.r() * 190, y = 90 + c.r() * 90; s += `<circle cx="${f(x)}" cy="${f(y)}" r="1.2" fill="${pal.glow}"/>` + glowAt(x, y, 4, 4, pal.glow, 0.5); }
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, [hsl(h + 10, 40, 8), hsl(h, 36, 16), hsl(h - 10, 32, 22), hsl(h, 30, 12), '#06060C'], 21, 24);
+    s += starsAt(50, 140) + crescent(184, 58, 16);
+    const li: Light = { dir: [0.5, -0.7, 0.5], color: hsl(h, 25, 50), shade: '#04040A' };
+    s += facets([[b.x0, 146], [60, 136], [130, 144], [b.x1, 134], [b.x1, 190], [b.x0, 190]], hsl(h + 10, 24, 20), li, { size: 18, relief: 0.4, seed: 5 });
+    s += grass(150, 50, 30, hsl(h + 20, 16, 30), hsl(h + 20, 18, 24));
+    s += facets([[b.x0, 180], [80, 174], [160, 180], [b.x1, 176], [b.x1, b.y1], [b.x0, b.y1]], hsl(h + 10, 24, 16), li, { size: 18, relief: 0.4, seed: 6, base2: '#05050A' });
+    s += facets(ellipse(116, 206, 94, 16, 20), hsl(h + 20, 22, 14), { ...li, dir: [-0.5, 0.7, 0.5] }, { size: 12, relief: 0.6, seed: 7 });
+    for (let k = 0; k < 22; k++) { const a = Math.PI * (k / 21), x = 116 - Math.cos(a) * 92, y = 206 - Math.sin(a) * 12, g = 18 + r() * 10; s += flat([[x - 1.6, y + 6], [x - Math.cos(a) * 14, y + 6 - g], [x + 1.6, y + 6]], k % 2 ? hsl(h + 30, 18, 46) : hsl(h + 30, 16, 38)); }
+    for (const [x, y, hh] of [[16, 196, 30], [204, 200, 36], [190, 208, 22], [30, 214, 20]] as const) s += flower(x, y, hh, hsl(h + 50, 80, 75));
+    for (let k = 0; k < 9; k++) { const x = 20 + r() * 190, y = 90 + r() * 90; s += disc(x, y, 3.5, '#FFE9A0', 0.25) + disc(x, y, 1.1, '#FFF6D0'); }
   } else if (st === 1) {
-    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(232, 44, 14)], [0.45, hsl(262, 30, 30)], [0.62, hsl(hue + 330, 40, 52)], [0.7, hsl(hue + 340, 40, 60)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
-    s += stars(c, b, 60, 110);
-    s += `<path d="M40 30 A14 14 0 1 0 50 56 A11 11 0 1 1 40 30 Z" fill="#FFF3D0" stroke="#140F24" stroke-width="0.6"/>`;
-    // Vallée : collines successives (perspective atmosphérique).
-    s += ridge(c, b, 150, 6, 5, hsl(262, 18, 50), 0, ' opacity="0.8"');
-    s += glowAt(111, 150, 140, 10, '#FFF6D8', 0.3);
-    s += ridge(c, b, 162, 7, 6, hsl(250, 18, 40), 0.5);
-    s += ridge(c, b, 176, 6, 5, hsl(240, 20, 30), 0.6);
-    // Crête au premier plan.
-    s += `<path d="M${b.x0 - 4} 230 C20 210 60 200 120 199 C170 199 200 206 ${b.x1 + 4} 214 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z" fill="${hsl(hue + 100, 16, 20)}" stroke="#140F24" stroke-width="0.9"/>`;
-    s += grassBand(c, { ...b, x0: b.x0 }, 206, 50, 18, hsl(hue + 100, 18, 30), true);
-    s += `<path d="M184 208 C182 196 192 188 204 190 C214 192 218 202 214 210 Z" fill="${hsl(240, 10, 40)}" stroke="#140F24" stroke-width="0.8"/>` + shadow('M204 190 C214 192 218 202 214 210 L200 210 C206 204 206 196 204 190 Z', hsl(240, 30, 14), 0.6, 'fine');
-    for (const [x, y, h] of [[14, 214, 22], [34, 222, 16], [200, 224, 18]] as const) s += moonFlower(x, y, h, pal.glow);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#121636', '#2E2A5A', '#6A4A7A', '#E08A8A', '#3A2A48', '#100C1A'], 22, 24);
+    s += starsAt(30, 100) + crescent(42, 42, 13);
+    const li: Light = { dir: [-0.5, -0.6, 0.6], color: '#F0A8B8', shade: '#08060E' };
+    s += facets([[b.x0, 152], [50, 142], [110, 150], [170, 140], [b.x1, 148], [b.x1, 200], [b.x0, 200]], '#6A5A8A', li, { size: 20, relief: 0.3, seed: 5 });
+    s += facets([[b.x0, 166], [70, 158], [150, 168], [b.x1, 160], [b.x1, 210], [b.x0, 210]], '#4A3E6A', li, { size: 20, relief: 0.3, seed: 6 });
+    s += facets([[b.x0, 180], [60, 176], [140, 182], [b.x1, 178], [b.x1, 220], [b.x0, 220]], '#34294E', li, { size: 20, relief: 0.4, seed: 7 });
+    s += facets([[b.x0 - 4, 230], [20, 210], [60, 200], [120, 199], [170, 199], [200, 206], [b.x1 + 4, 214], [b.x1 + 4, b.y1], [b.x0 - 4, b.y1]], hsl(h + 100, 18, 22), li, { size: 16, relief: 0.6, seed: 8, base2: '#06080A' });
+    s += grass(206, 40, 18, hsl(h + 100, 18, 32), hsl(h + 100, 16, 26));
+    s += facets([[184, 208], [184, 196], [194, 188], [206, 190], [214, 200], [214, 210]], '#5A566A', li, { size: 6, relief: 1, seed: 9 });
+    for (const [x, y, hh] of [[14, 214, 22], [34, 222, 16], [200, 224, 18]] as const) s += flower(x, y, hh, hsl(h + 50, 80, 75));
   } else {
-    s += `<defs>${vgrad(`${id}-s`, [[0, hsl(hue + 10, 44, 8)], [0.6, hsl(hue, 34, 18)], [1, hsl(hue - 10, 30, 22)]])}</defs>${fill(b, `url(#${id}-s)`)}`;
-    s += stars(c, b, 90, 200);
-    // Pleine lune gravée (mers, cratères, terminateur hachuré), voilée de nuages.
-    const mx = 128, my = 100, mr = 72;
-    s += glowAt(mx, my, mr + 20, mr + 20, '#FFF6D8', 0.25);
-    s += `<circle cx="${mx}" cy="${my}" r="${mr}" fill="${hsl(45, 16, 82)}"/>`;
-    s += `<defs><clipPath id="${id}-m"><circle cx="${mx}" cy="${my}" r="${mr}"/></clipPath></defs><g clip-path="url(#${id}-m)">`;
-    for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) s += `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${pal.shade}" opacity="0.35"/>`;
-    for (const [x, y, r] of [[176, 92, 5], [86, 104, 4], [138, 44, 3.5], [184, 132, 3]] as const) s += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${pal.deep}" stroke-width="0.6" opacity="0.6"/>`;
-    s += shadow(`M${mx + 20} ${my - mr - 4} A${mr} ${mr} 0 0 1 ${mx + 20} ${my + mr + 4} L${mx + mr + 6} ${my + mr + 6} L${mx + mr + 6} ${my - mr - 6} Z`, pal.shade, 0.3, 'fine');
-    s += `</g><circle cx="${mx}" cy="${my}" r="${mr}" fill="none" stroke="#E9C25B" stroke-width="1.3"/>`;
-    s += `<circle cx="${mx}" cy="${my}" r="${mr + 5}" fill="none" stroke="#E9C25B" stroke-width="0.6" stroke-dasharray="1 4" opacity="0.8"/>`;
-    // Bandes de nuages.
-    for (const [y, x, w] of [[62, -10, 90], [136, 140, 100], [150, -20, 70]] as const) s += `<path d="M${x} ${y} q${w * 0.2} -8 ${w * 0.4} -2 q${w * 0.2} -10 ${w * 0.4} 0 q${w * 0.15} 2 ${w * 0.2} 6 Z" fill="${hsl(hue, 22, 30)}" stroke="#140F24" stroke-width="0.6" opacity="0.9"/>`;
-    // Cercle de pierres levées sur le sommet.
-    const stone = (x: number, w: number, h: number, col: string) => `<path d="M${x - w} 196 L${x - w * 0.8} ${196 - h} Q${x} ${190 - h - 6} ${x + w * 0.9} ${196 - h + 2} L${x + w} 196 Z" fill="${col}" stroke="#140F24" stroke-width="0.8"/>`
-      + shadow(`M${x + w * 0.2} ${190 - h} Q${x + w * 0.6} ${193 - h} ${x + w * 0.9} ${196 - h + 2} L${x + w} 196 L${x + w * 0.3} 196 Z`, hsl(hue, 40, 10), 0.7, 'fine');
-    s += stone(22, 10, 54, hsl(hue + 10, 12, 30)) + stone(52, 7, 34, hsl(hue + 10, 12, 26)) + stone(196, 11, 60, hsl(hue + 10, 12, 30)) + stone(176, 7, 30, hsl(hue + 10, 12, 26));
-    s += `<path d="M${b.x0 - 4} 214 C30 198 80 196 120 197 C170 197 200 200 ${b.x1 + 4} 208 L${b.x1 + 4} ${b.y1 + 4} L${b.x0 - 4} ${b.y1 + 4} Z" fill="${hsl(hue + 10, 18, 20)}" stroke="#140F24" stroke-width="0.9"/>`;
-    s += `<path d="M84 207 L92 198 L160 198 L168 207 Z" fill="${hsl(hue + 10, 12, 34)}" stroke="#140F24" stroke-width="0.8"/>`;
-    s += grassBand(c, b, 214, 30, 14, hsl(hue + 20, 16, 30), true);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, [hsl(h + 10, 44, 8), hsl(h, 34, 16), hsl(h - 10, 30, 20), hsl(h, 30, 10), '#05050A'], 23, 24);
+    s += starsAt(40, 200);
+    // Pleine lune facettée (mers, cratères), voilée de nuages.
+    const ml: Light = { dir: [-0.4, -0.5, 0.7], color: '#FFFFFF', shade: '#3A3A5A' };
+    s += disc(128, 100, 92, '#FFF6D8', 0.1) + facets(ellipse(128, 100, 72, 72, 32), '#E8E2D2', ml, { size: 14, relief: 1, seed: 31 });
+    for (const [x, y, rx, ry] of [[100, 70, 22, 14], [150, 120, 26, 16], [160, 66, 12, 9], [104, 140, 14, 8]] as const) s += flat(ellipse(x, y, rx, ry, 12), '#A8A2B4', 0.5);
+    for (const [y, x, w] of [[62, -10, 90], [136, 140, 100], [150, -20, 70]] as const) s += facets([[x, y], [x + w * 0.2, y - 8], [x + w * 0.4, y - 3], [x + w * 0.6, y - 10], [x + w, y], [x + w * 0.9, y + 5], [x + w * 0.1, y + 5]], hsl(h, 22, 26), { dir: [0.2, -0.8, 0.5], color: '#B8B0C8', shade: '#08060E' }, { size: 10, relief: 0.4, seed: Math.round(x + y) });
+    const stoneL: Light = { dir: [0.5, -0.5, 0.4], color: '#D8D0C0', shade: '#05040A', rim: '#FFF1C8' };
+    const stone = (x: number, w: number, hh: number) => facets([[x - w, 198], [x - w * 0.8, 198 - hh], [x, 192 - hh], [x + w * 0.9, 200 - hh], [x + w, 198]], hsl(h + 10, 10, 26), stoneL, { size: 7, relief: 0.8, seed: Math.round(x) });
+    s += stone(22, 10, 54) + stone(52, 7, 34) + stone(196, 11, 60) + stone(176, 7, 30);
+    s += facets([[b.x0 - 4, 214], [30, 199], [80, 196], [120, 197], [170, 197], [200, 200], [b.x1 + 4, 208], [b.x1 + 4, b.y1], [b.x0 - 4, b.y1]], hsl(h + 10, 18, 18), stoneL, { size: 16, relief: 0.5, seed: 33, base2: '#05050A' });
+    s += facets([[84, 207], [92, 198], [160, 198], [168, 207]], hsl(h + 10, 10, 34), stoneL, { size: 8, relief: 0.4, seed: 34 });
+    s += grass(214, 26, 14, hsl(h + 20, 16, 28), hsl(h + 20, 14, 22));
   }
-  return deink(s);
+  return s;
 };
-lapinova.scene = lapinovaScene;
+
+export const lapinova: Species = Object.assign(draw, { scene });

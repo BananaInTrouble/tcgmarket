@@ -1,513 +1,283 @@
-import { aura, bloom, eyeGlow, gloss, hsl, softShadow, sparkle, speckles, strands, vol, type Bounds, type DrawCtx, type Palette, type Species } from './style.ts';
-
-const f = (v: number) => +v.toFixed(1);
-type Pt = [number, number];
-/** Point d'une forme tubulaire : x, y, demi-épaisseur. */
-export type Pw = [number, number, number];
-
-/** Segments de Catmull-Rom (courbe lisse passant par tous les points). */
-function cr(ps: Pt[]): string {
-  let s = '';
-  for (let i = 0; i < ps.length - 1; i++) {
-    const p0 = ps[Math.max(0, i - 1)], p1 = ps[i], p2 = ps[i + 1], p3 = ps[Math.min(ps.length - 1, i + 2)];
-    s += ` C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
-  }
-  return s;
-}
-/** Courbe lisse ouverte passant par les points. */
-export const spl = (ps: Pt[]) => `M${f(ps[0][0])} ${f(ps[0][1])}` + cr(ps);
-/** Forme effilée (membre, cou, queue, bois) le long d'une courbe, à épaisseur variable. */
-export function tube(ps: Pw[]): string {
-  const L: Pt[] = [], R: Pt[] = [], T: Pt[] = [];
-  ps.forEach((p, i) => {
-    const a = ps[Math.max(0, i - 1)], b = ps[Math.min(ps.length - 1, i + 1)];
-    let tx = b[0] - a[0], ty = b[1] - a[1];
-    const l = Math.hypot(tx, ty) || 1;
-    tx /= l; ty /= l;
-    T.push([tx, ty]);
-    L.push([p[0] - ty * p[2], p[1] + tx * p[2]]);
-    R.push([p[0] + ty * p[2], p[1] - tx * p[2]]);
-  });
-  const e = ps[ps.length - 1], s0 = ps[0], te = T[T.length - 1], ts = T[0];
-  const Rr = R.slice().reverse();
-  return spl(L) + ` Q${f(e[0] + te[0] * e[2] * 1.4)} ${f(e[1] + te[1] * e[2] * 1.4)} ${f(Rr[0][0])} ${f(Rr[0][1])}` + cr(Rr)
-    + ` Q${f(s0[0] - ts[0] * s0[2] * 1.4)} ${f(s0[1] - ts[1] * s0[2] * 1.4)} ${f(L[0][0])} ${f(L[0][1])} Z`;
-}
-// ---------------------------------------------------------------------------------------------------------------
-// Rendu V4 (« 3D » lumineux, sans traits d'encre) : outils partagés par cervastre, spirago et drakomet. Chaque espèce
-// fixe d'abord son éclairage avec `setLook` (préfixe d'ids, palette, couleur de la lumière de contour).
-
-export const LOOK = { pre: 'x', hi: '#FFFFFF', lo: '#05030C', base: '', shade: '', deep: '', rim: '#9FE8FF', light: [0.32, 0.22] as [number, number], n: 0 };
-export function setLook(pre: string, pal: Palette, rimCol: string, light: [number, number] = [0.32, 0.22]): void {
-  Object.assign(LOOK, { pre, hi: pal.light, lo: pal.deep, base: pal.body, shade: pal.shade, deep: pal.deep, rim: rimCol, light, n: 0 });
-}
-/** Partie du corps modelée en volume ; `inner` est découpé dans la forme (taches, marques, brins). */
-export function part(id: string, d: string, fill: string, inner: string, _w = 1.6): string {
-  const far = fill === LOOK.shade || fill === LOOK.deep;
-  return vol(id, d, fill, { hi: far ? LOOK.base : LOOK.hi, lo: LOOK.lo, rim: LOOK.rim, light: LOOK.light, ao: far ? 0.75 : 0.5 })
-    + (inner ? `<g clip-path="url(#${id}-c)">${inner}</g>` : '');
-}
-/** (V3) Ombre propre d'un cylindre : en V4, le volume s'en charge. */
-export function turn(_d: string, _light: string, _shade: string, _dx: number, _dy: number, _hatch = 'fine'): string {
-  return '';
-}
-/** Ombre interne douce (sans hachures). */
-export const shadow = (d: string, color: string, opacity = 0.9, _hatch = 'fine') =>
-  `<path d="${d}" fill="${color}" opacity="${f(opacity * 0.7)}" filter="url(#b4)"/>`;
-const INK = ['#140F24', '#1A1230'];
-/** Trait : les traits d'encre deviennent de légers plis sombres, les traits colorés deviennent lumineux. */
-export const line = (d: string, w = 1.8, color = '#140F24', extra = '') => INK.includes(color)
-  ? `<path d="${d}" fill="none" stroke="${LOOK.lo}" stroke-width="${f(w * 1.2)}" stroke-linecap="round" opacity="0.3"/>`
-  : `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 2.4)}" stroke-linecap="round" opacity="0.35" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.8)}" stroke-linecap="round"${extra}/>`;
-/** Pelage : brins clairs en lumière. */
-export const fur = (c: DrawCtx, x: number, y: number, len: number, angle: number, count: number, spread = 6, color = '', w = 0.9) =>
-  strands(c, x, y, len, angle, count, spread * 2, color && !INK.includes(color) ? color : LOOK.hi, w * 0.7);
-/** Lumière de contour lumineuse. */
-export const rim = (d: string, color: string, w = 1.6) =>
-  `<path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 3)}" stroke-linecap="round" opacity="0.45" filter="url(#b2)"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${f(w * 0.7)}" stroke-linecap="round" opacity="0.9"/>`;
-/** Filet d'or lumineux. */
-export const gild = (d: string, w = 1.2) =>
-  `<path d="${d}" fill="none" stroke="#FFD27A" stroke-width="${f(w * 3)}" stroke-linecap="round" opacity="0.45" filter="url(#b2)"/><path d="${d}" fill="none" stroke="#FFF0C0" stroke-width="${f(w * 0.8)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-/** Constellation lumineuse : fil clair, étoiles avec halo. */
-export function constellation(pts: [number, number][], color = '#FFF6D8'): string {
-  return `<polyline points="${pts.map((p) => `${f(p[0])},${f(p[1])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="0.7" opacity="0.65"/>`
-    + pts.map(([x, y], i) => `<circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 3 : 4.2}" fill="${color}" opacity="0.35" filter="url(#b2)"/><circle cx="${f(x)}" cy="${f(y)}" r="${i % 2 ? 1 : 1.5}" fill="#FFFFFF"/>`).join('');
-}
-/** Œil incandescent. */
-export const eyeA = (x: number, y: number, w: number, iris: string, opts: { angle?: number; slit?: boolean; open?: number } = {}) =>
-  eyeGlow(`${LOOK.pre}-eye${LOOK.n++}`, x, y, w * 1.05, iris, opts);
-/** Ombre portée au sol, douce. */
-export const ground = (x: number, y: number, rx: number) => softShadow(`M${f(x - rx)} ${f(y)} a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(rx * 2)} 0 a${f(rx)} ${f(rx * 0.16)} 0 1 0 ${f(-rx * 2)} 0 Z`, 0.55, 'b4');
-/** Supprime les derniers traits d'encre (contours, hachures) d'un dessin. */
-export function noInk(s: string, lo = LOOK.lo): string {
-  return s
-    .replace(/<path[^>]*fill="url\(#(fine|xhatch|hatch)\)"[^>]*\/>/g, '')
-    .replace(/<rect[^>]*fill="url\(#(fine|xhatch|hatch)\)"[^>]*\/>/g, '')
-    .replace(/ fill="none" stroke="#(140F24|1A1230)"/g, ` fill="none" stroke="${lo}" stroke-opacity="0.3"`)
-    .replace(/ stroke="#(140F24|1A1230)"( stroke-width="[^"]*")?/g, '');
-}
-export { bloom, gloss, softShadow };
-
-/** Sabot orienté selon le dernier segment de la patte (angle en degrés, 0 = vers le bas). */
-const hoof = (x: number, y: number, ang = 0) =>
-  `<g transform="translate(${f(x)} ${f(y)}) rotate(${f(ang)})"><path d="M-2.6 -6 L2.8 -6 L3.6 0 L-4.6 0 Z" fill="#0E0A16"/><ellipse cx="-0.6" cy="-4.4" rx="1.6" ry="0.8" fill="${LOOK.hi}" opacity="0.5"/></g>`;
-
-function hoofAt(pts: Pw[]): string {
-  const e = pts[pts.length - 1], p = pts[pts.length - 2];
-  const dx = e[0] - p[0], dy = e[1] - p[1], l = Math.hypot(dx, dy) || 1;
-  if (e[1] >= 199 && dy / l > 0.85) return hoof(e[0], 205);
-  return hoof(e[0] + (dx / l) * 5.5, e[1] + (dy / l) * 5.5, (Math.atan2(dy, dx) * 180) / Math.PI - 90);
-}
-
-/** Membre fin terminé par un sabot. */
-function leg(id: string, c: DrawCtx, pts: Pw[], fill: string, far: boolean): string {
-  const d = tube(pts);
-  const e = pts[pts.length - 1];
-  const inner = far ? shadow(d, c.pal.deep, 0.35, 'fine') : turn(d, fill, c.pal.shade, -pts[1][2] * 0.7, -1);
-  return part(id, d, fill, inner + line(spl(pts.slice(1, 3).map(([x, y]) => [x + 0.6, y] as Pt)), 0.7, '#140F24', ' opacity="0.5"'), far ? 1.3 : 1.5)
-    + hoofAt(pts);
-}
-
-/** Cerf adulte (stades 1 à 3), de profil vers la gauche, tête haute. */
-function stag(c: DrawCtx): string {
-  const { pal, stage } = c;
-  const id = `cervastre-${stage}`;
-  const st = Math.min(stage, 3);
-  let g = '';
-
-  // ---- Bois (derrière la tête) ----
-  const antler = (dx: number, dy: number, far: boolean) => {
-    const T = (ps: Pw[]) => ps.map(([x, y, w]) => [x + dx, y + dy, w] as Pw);
-    let beams: Pw[][];
-    if (st === 1) {
-      beams = [
-        T([[58, 44, 2.8], [60, 34, 2.6], [64, 24, 2.2], [70, 14, 1.4], [74, 9, 0.6]]),
-        T([[60, 34, 2.1], [52, 27, 1.4], [47, 22, 0.5]]),
-      ];
-    } else {
-      beams = [
-        T([[58, 44, 3.6], [62, 30, 3.3], [70, 16, 3], [82, 4, 2.6], [94, -6, 2.2], [104, -12, 1.4], [112, -16, 0.5]]),
-        T([[60, 38, 2.8], [52, 32, 2.1], [44, 29, 1.3], [37, 28, 0.4]]),
-        T([[65, 26, 2.6], [57, 17, 1.9], [51, 8, 1.1], [48, 1, 0.4]]),
-        T([[76, 10, 2.4], [77, 0, 1.7], [74, -10, 0.5]]),
-        T([[88, -1, 2.1], [91, -11, 1.4], [88, -20, 0.4]]),
-      ];
-    }
-    let o = '';
-    const fill = st >= 3 ? (far ? pal.light : pal.glow) : far ? pal.shade : pal.belly;
-    beams.forEach((b, i) => {
-      const d = tube(b);
-      o += part(`${id}-a${far ? 'f' : 'n'}${i}`, d, fill, turn(d, fill, far ? pal.deep : pal.shade, -1.6, -0.6), far ? 1.1 : 1.3);
-    });
-    // Perlures et filets d'or.
-    if (!far) {
-      o += line(spl(beams[0].slice(0, 3).map(([x, y]) => [x - 0.8, y] as Pt)), 0.6, '#140F24', ' opacity="0.6" stroke-dasharray="1 2"');
-      if (st >= 3) for (const b of beams) o += gild(spl(b.slice(0, -1).map(([x, y, w]) => [x - w * 0.3, y - w * 0.3] as Pt)), 0.9);
-    }
-    // Les pointes se prolongent en constellations.
-    if (st >= 2) {
-      const tips = beams.map((b) => b[b.length - 1]);
-      for (const [x, y] of tips) o += sparkle(x, y, far ? 2.4 : 3.2, st >= 3 ? pal.glow : '#FFF6D8', false);
-    }
-    return o;
-  };
-  if (st >= 2) {
-    const col = st >= 3 ? pal.gold : '#FFF6D8';
-    g += constellation([[138, -8], [152, -2], [164, -12], [180, -4], [194, -12]], col);
-    g += constellation([[37, 28], [24, 20], [16, 4]], col);
-    if (st >= 3) g += constellation([[74, -10], [62, -20], [46, -16], [34, -10]], col) + constellation([[194, -12], [202, 4], [208, -6]], col) + `<ellipse cx="80" cy="6" rx="52" ry="30" fill="${pal.glow}" opacity="0.45" filter="url(#soft)"/>`;
-  }
-  g += antler(st === 1 ? 14 : 26, st === 1 ? 3 : 6, true);
-
-  // ---- Pattes du fond ----
-  // Stade 1 : pas d'exploration ; stades 2-3 : galop (pattes avant lancées, arrière en poussée).
-  const LEGS: Record<string, Pw[]> = st === 1 ? {
-    f1: [[96, 144, 7], [93, 164, 4.2], [92, 177, 3.2], [91, 196, 2.6], [90, 200, 2.6]],
-    f2: [[168, 136, 10], [170, 158, 5.4], [172, 175, 3.3], [164, 195, 2.6], [162, 200, 2.6]],
-    n1: [[84, 140, 9], [80, 160, 4.6], [72, 172, 3.4], [74, 186, 2.8], [76, 191, 2.8]],
-    n2: [[156, 128, 15], [166, 156, 7], [178, 172, 3.7], [180, 194, 2.9], [182, 200, 2.9]],
-  } : {
-    f1: [[96, 144, 7], [96, 162, 4.2], [106, 172, 3.2], [113, 168, 2.6], [116, 166, 2.6]],
-    f2: [[168, 136, 10], [162, 158, 5.4], [148, 168, 3.3], [138, 176, 2.6], [135, 178, 2.6]],
-    n1: [[84, 140, 9], [70, 154, 4.8], [56, 162, 3.5], [44, 170, 2.9], [40, 173, 2.9]],
-    n2: [[156, 128, 15], [172, 150, 7], [188, 162, 3.7], [204, 168, 2.9], [209, 169, 2.9]],
-  };
-  g += leg(`${id}-lf1`, c, LEGS.f1, pal.shade, true);
-  g += leg(`${id}-lf2`, c, LEGS.f2, pal.shade, true);
-
-  // ---- Queue ----
-  g += part(`${id}-tl`, 'M178 104 C186 101 193 106 193 115 C188 116 182 113 178 110 Z', pal.body, shadow('M186 112 L196 118 L196 104 Z', pal.deep, 0.8, 'fine'), 1.3);
-
-  // ---- Corps et cou ----
-  const B = 'M108 100 C128 96 150 97 168 102 C184 106 191 121 187 139 C184 151 174 157 162 155 C140 159 116 159 96 153 C84 150 76 145 72 135 C66 119 55 99 45 83 L66 54 C76 68 89 88 108 100 Z';
-  let bi = '';
-  bi += shadow('M64 128 C86 147 120 151 150 147 C168 145 182 139 194 126 L194 172 L60 172 Z', pal.shade, 0.85, 'fine');
-  bi += shadow('M70 140 C92 152 132 156 194 140 L194 172 L60 172 Z', pal.deep, 0.5, 'xhatch');
-  bi += shadow('M187 112 C194 138 182 158 158 158 C172 148 178 132 174 112 Z', pal.deep, 0.55, 'xhatch');
-  bi += shadow('M72 136 C74 120 70 104 60 92 C70 110 80 126 94 142 Z', pal.shade, 0.7, 'fine');
-  // Plastron clair, miroir de croupe.
-  bi += `<path d="M45 83 C53 96 60 110 66 124 C68 112 64 98 56 86 Z" fill="${pal.belly}" opacity="0.85"/>`;
-  bi += `<path d="M175 105 C185 110 189 121 187 134 C181 126 177 117 169 108 Z" fill="${pal.belly}" opacity="0.9"/>`;
-  // Musculature au trait.
-  bi += line('M100 106 C110 118 110 136 100 150', 0.8, '#140F24', ' opacity="0.55"');
-  bi += line('M152 106 C141 118 141 138 150 154', 0.8, '#140F24', ' opacity="0.55"');
-  bi += line('M118 150 C128 146 140 146 148 149', 0.7, '#140F24', ' opacity="0.45"');
-  // Crinière du cou (le cerf adulte a une collerette de poils longs).
-  const mane: [number, number][] = st === 1 ? [[54, 94], [61, 108]] : [[50, 88], [56, 100], [62, 112], [68, 124]];
-  for (const [x, y] of mane) bi += fur(c, x, y, st === 1 ? 7 : 10, 125, 4, 4);
-  bi += fur(c, 120, 104, 6, 70, 5, 10) + fur(c, 150, 104, 6, 80, 4, 8) + fur(c, 92, 120, 6, 95, 3, 6);
-  if (st === 1) {
-    // Dernières mouchetures du faon, presque effacées.
-    for (const [x, y] of [[118, 112], [130, 108], [142, 113], [126, 122], [154, 118]] as Pt[]) bi += `<circle cx="${x}" cy="${y}" r="1.6" fill="#FFF6D8" opacity="0.55"/>`;
-  } else {
-    // Constellation discrète sur le flanc.
-    bi += constellation([[114, 116], [126, 110], [140, 118], [152, 112], [146, 128]], st >= 3 ? pal.gold : pal.light);
-  }
-  if (st >= 3) {
-    bi += gild('M98 112 c10 -8 24 -6 26 4 c2 9 -8 13 -14 7 c-4 -5 2 -10 6 -6', 1);
-    bi += gild('M160 112 c-8 6 -10 18 -2 26 c6 6 16 2 14 -6', 1);
-    bi += gild('M58 96 c6 4 10 10 12 18', 0.9);
-  }
-  g += part(`${id}-b`, B, pal.body, bi, 1.8);
-  g += rim('M66 55 C76 68 89 88 108 100 C128 96 150 97 168 102', pal.glow, 1.3);
-
-  // ---- Pattes avant ----
-  g += leg(`${id}-ln1`, c, LEGS.n1, pal.body, false);
-  g += leg(`${id}-ln2`, c, LEGS.n2, pal.body, false);
-
-  // ---- Bois de l'avant, oreilles, tête ----
-  g += part(`${id}-ef`, 'M57 41 C59 31 65 23 73 19 C73 29 69 37 63 43 Z', pal.shade, '', 1.2);
-  g += antler(0, 0, false);
-  const H = 'M73 52 C69 42 59 38 51 40 C43 42 37 50 31 58 C27 63 22 66 20 70 C19 74 22 77 26 77 C29 80 34 81 39 79 C47 76 55 74 61 72 C69 68 75 60 73 52 Z';
-  let hi = '';
-  hi += shadow('M28 82 C44 77 58 74 72 62 L80 84 L26 90 Z', pal.shade, 0.85, 'fine');
-  hi += `<path d="M24 78 C32 78 42 76 50 75 C44 80 34 82 26 81 Z" fill="${pal.belly}"/>`;
-  hi += `<path d="M20 70 C19 66 23 63 27 66 C28 70 25 74 21 74 Z" fill="#140F24"/>`;
-  hi += line('M26 77 C30 76 34 76 38 77', 0.9);
-  hi += line('M41 56 C37 59 34 62 31 64', 1, '#140F24', ' opacity="0.7"');
-  hi += line('M36 52 C40 50 44 49 48 50', 0.7, '#140F24', ' opacity="0.5"');
-  hi += fur(c, 64, 62, 5, 100, 3, 4);
-  hi += eyeA(46, 53, 5.2, pal.eye, { angle: -24, slit: false, open: 0.5 });
-  if (st >= 3) hi += gild('M52 44 l3 -4 l3 4 l-3 4 Z', 0.9);
-  g += part(`${id}-h`, H, pal.body, hi, 1.7);
-  g += rim('M51 40 C43 42 37 50 31 58 C27 63 22 66 20 70', pal.glow, 1.1);
-  // Oreille avant.
-  g += part(`${id}-e`, 'M62 47 C70 37 84 31 97 33 C93 41 83 51 68 55 Z', pal.body,
-    `<path d="M68 49 C76 41 86 37 92 36 C86 43 78 49 70 52 Z" fill="${pal.deep}"/>` + fur(c, 72, 48, 5, 20, 3, 3, pal.light), 1.4);
-  if (st >= 3) g += `<circle cx="46" cy="53" r="9" fill="${pal.eye}" opacity="0.35" filter="url(#soft)"/>`;
-  return g;
-}
-
-/** Faon (stade 0) endormi, enroulé dans la mousse : pattes repliées, tête posée sur le flanc, robe mouchetée. */
-function fawnAsleep(c: DrawCtx): string {
-  const { pal } = c;
-  const id = 'cervastre-0';
-  let g = '';
-  // Queue.
-  g += part(`${id}-tl`, 'M170 166 C177 160 185 162 187 170 C182 173 176 172 171 171 Z', pal.body, `<path d="M176 170 C180 167 184 168 185 170" fill="none" stroke="#FFF6D8" stroke-width="2"/>`, 1.2);
-  // Corps couché.
-  const B = 'M60 199 C52 182 62 162 90 153 C118 145 154 147 171 162 C183 173 184 191 173 201 L68 203 Z';
-  let bi = '';
-  bi += shadow('M50 186 C80 196 140 198 190 182 L190 210 L50 210 Z', pal.shade, 0.85, 'fine');
-  bi += shadow('M54 196 C90 203 150 204 190 194 L190 210 L50 210 Z', pal.deep, 0.6, 'xhatch');
-  // Cuisse repliée (volume de la hanche).
-  bi += shadow('M178 170 C186 186 180 200 166 204 C172 192 172 178 164 166 Z', pal.deep, 0.45, 'xhatch');
-  bi += line('M146 156 C164 162 174 178 168 198', 0.9, '#140F24', ' opacity="0.6"');
-  bi += line('M96 156 C90 168 90 182 96 194', 0.7, '#140F24', ' opacity="0.45"');
-  bi += fur(c, 120, 154, 5, 80, 5, 12) + fur(c, 158, 166, 6, 70, 4, 6) + fur(c, 70, 176, 5, 120, 3, 5);
-  // Mouchetures en rangées le long de l'échine, quelques-unes sont des étoiles.
-  const rows: [number, number, number][] = [[84, 160, 0], [92, 167, 1], [102, 176, 2]];
-  for (const [x0, y0, k] of rows) {
-    for (let i = 0; i < 7 - k; i++) {
-      const t = i / (6 - k), x = x0 + t * (80 - k * 6), y = y0 - Math.sin(t * Math.PI) * (10 - k * 2) + t * 4;
-      bi += (i + k) % 4 === 1 ? sparkle(x, y, 2.6, '#FFF6D8', false) : `<ellipse cx="${f(x)}" cy="${f(y)}" rx="${f(1.5 + c.r() * 0.6)}" ry="${f(1.1 + c.r() * 0.4)}" fill="#FFF6D8" opacity="0.9"/>`;
-    }
-  }
-  g += part(`${id}-b`, B, pal.body, bi, 1.6);
-  g += rim('M90 153 C118 145 154 147 171 162', pal.glow, 1.3);
-  // Patte arrière repliée : le sabot dépasse devant la cuisse.
-  g += leg(`${id}-lh`, c, [[156, 194, 5], [138, 199, 3.2], [124, 200, 2.4]], pal.body, false).replace(/<path transform[^>]*\/>$/, '')
-    + hoof(119, 201, 90);
-  // Patte avant repliée sous le poitrail.
-  g += leg(`${id}-lf`, c, [[80, 192, 5.2], [64, 197, 3.2], [52, 199, 2.4]], pal.body, false).replace(/<path transform[^>]*\/>$/, '')
-    + hoof(47, 200, 90);
-  // Cou recourbé vers l'arrière.
-  const N = tube([[74, 186, 14], [66, 170, 12], [72, 155, 10], [88, 148, 9]]);
-  g += part(`${id}-n`, N, pal.body, turn(N, pal.body, pal.shade, 3, -4) + `<path d="M58 172 C60 184 66 190 74 194" fill="none" stroke="${pal.belly}" stroke-width="6" opacity="0.8"/>` + fur(c, 62, 172, 5, 160, 3, 5), 1.5);
-  // Tête posée sur le flanc (profil vers la droite), yeux clos.
-  let hd = '';
-  const H = 'M82 66 C80 56 72 50 63 51 C55 52 49 58 44 66 C40 72 36 75 34 79 C33 83 36 86 40 86 C43 88 48 88 52 86 C60 83 68 80 74 78 C81 75 84 72 82 66 Z';
-  let hi = '';
-  hi += shadow('M40 90 C56 84 70 82 84 70 L90 92 L36 96 Z', pal.shade, 0.85, 'fine');
-  hi += `<path d="M38 86 C46 86 54 84 62 82 C56 87 46 89 40 89 Z" fill="${pal.belly}"/>`;
-  hi += `<path d="M34 79 C33 75 37 72 41 75 C42 79 39 83 35 83 Z" fill="#140F24"/>`;
-  hi += line('M40 86 C44 85 47 85 50 86', 0.8);
-  // Paupière close et cils.
-  hi += line('M53 64 C56 67 61 67 65 63', 1.3) + line('M55 66 l-1.5 2.4 M58 67 l-0.6 2.6 M61 66.6 l0.4 2.6', 0.7);
-  hi += line('M50 60 C54 57 60 57 66 59', 0.7, '#140F24', ' opacity="0.5"');
-  hi += sparkle(68, 55, 2.2, pal.gold, false);
-  hd += part(`${id}-h`, H, pal.body, hi, 1.5);
-  hd += rim('M63 51 C55 52 49 58 44 66', pal.glow, 1);
-  // Oreille rabattue vers l'arrière, contre le cou.
-  hd += part(`${id}-e`, 'M76 60 C84 52 96 50 108 54 C100 60 90 64 78 66 Z', pal.body,
-    `<path d="M81 60 C88 56 96 55 103 56 C97 59 90 62 82 63 Z" fill="${pal.deep}"/>` + fur(c, 86, 60, 4, 10, 3, 2, pal.light), 1.3);
-  g += `<g transform="rotate(10 98 150) translate(180 84) scale(-1 1)">${hd}</g>`;
-  // Une luciole posée sur l'oreille, une autre qui tourne autour du museau.
-  g += `<circle cx="104" cy="133" r="5" fill="${pal.glow}" opacity="0.6" filter="url(#glow)"/><ellipse cx="104" cy="133" rx="1.6" ry="1.2" fill="#FFF6D8" stroke="#140F24" stroke-width="0.6"/>`;
-  g += `<circle cx="158" cy="146" r="4" fill="${pal.glow}" opacity="0.5" filter="url(#glow)"/><circle cx="158" cy="146" r="1.2" fill="#FFF6D8"/>`;
-  g += line('M158 146 C150 140 146 150 138 146 C132 142 136 136 142 138', 0.6, pal.glow, ' stroke-dasharray="1.5 2.5" opacity="0.8"');
-  return g;
-}
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
- * Cervastre → Cervelune → Astrocerf → Astrocerf éveillé : cerf de bestiaire céleste dont les bois se prolongent en
- * constellations. Faon endormi enroulé dans la mousse, daguet aux bois en velours qui traverse un ruisseau,
- * grand cerf au galop, puis forme éveillée au galop, bois dorés, croissant de lune et marques d'or.
+ * Cervastre → Cervelune → Astrocerf → Astrocerf éveillé, en low-poly : faon endormi dans une clairière au clair de
+ * lune, daguet qui traverse un ruisseau au crépuscule, grand cerf au galop dans la plaine à l'aube, puis forme éveillée
+ * au galop sous les aurores d'une forêt-cathédrale. Les bois sont des cristaux qui se prolongent en constellations.
  */
-function drawCerv(c: DrawCtx): string {
-  const st = Math.min(c.stage, 3);
-  let s = '';
-  if (st === 0) return `<g transform="translate(116 205) scale(1.18) translate(-116 -205)">${ground(118, 204, 70)}${fawnAsleep(c)}</g>`;
-  if (st >= 3) s += aura(100, 70, 80, c.pal.glow) + aura(130, 130, 70, c.pal.accent2);
-  s += st === 1 ? ground(130, 205, 76) : ground(128, 206, 66);
-  const k = [1, 0.92, 0.86, 0.86][st];
-  let top = '';
-  if (st >= 3) {
-    const my = 34, mx = 190;
-    top += `<circle cx="${mx}" cy="${my}" r="12" fill="${c.pal.glow}" opacity="0.4" filter="url(#glow)"/>`;
-    top += `<path d="M${mx - 3} ${my - 9} a9 9 0 1 0 8 15 a7.2 7.2 0 1 1 -8 -15 Z" fill="${c.pal.gold}" stroke="#140F24" stroke-width="1"/>`;
-    for (let i = 0; i < 6; i++) top += sparkle(14 + c.r() * 190, 30 + c.r() * 100, 1.6 + c.r() * 2, i % 2 ? c.pal.glow : '#FFF6D8', false);
-    top += speckles(c, 60, 30, 50, 20, 8, c.pal.glow);
+
+const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
+const n1 = (v: number) => v.toFixed(1);
+
+/** Éclairage de chaque carte (accordé au décor). */
+const LIGHTS: Light[] = [
+  { dir: [-0.6, -0.7, 0.5], color: '#DDE6FF', shade: '#0A0B26', rim: '#7CF5E0' },
+  { dir: [0.5, -0.5, 0.6], color: '#FFC9A0', shade: '#160A26', rim: '#FF9A7A' },
+  { dir: [-0.55, -0.6, 0.6], color: '#FFE3B8', shade: '#120A2E', rim: '#7CF5E0' },
+  { dir: [-0.4, -0.7, 0.6], color: '#D8FFF0', shade: '#0A0826', rim: '#E9C25B' },
+];
+const dim = (l: Light, deep: string): Light => ({ ...l, color: mix(l.color, deep, 0.45), rim: undefined });
+
+const constel = (pts: Pt[], s = 4) =>
+  `<polyline points="${pts.map((p) => p.map(n1).join(',')).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.8" opacity="0.85"/>`
+  + pts.map(([x, y]) => gem(x, y, s, '#FFFFFF', GOLD)).join('');
+const hoof = (x: number, y: number, a = 0) =>
+  `<path transform="translate(${n1(x)} ${n1(y)}) rotate(${a})" d="M-3.6 -4 L3 -4.6 L4 1.4 L-4.4 1.4 Z" fill="#1A1030"/><path transform="translate(${n1(x)} ${n1(y)}) rotate(${a})" d="M-3.6 -4 L0 -4.3 L-1 1.4 L-4.4 1.4 Z" fill="#3A2A5A"/>`;
+const eye = (x: number, y: number, r: number, glow: string) =>
+  `<circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(r * 1.9)}" fill="${glow}" opacity="0.22"/><circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(r)}" fill="#0B0618"/><path d="M${n1(x - r * 0.5)} ${n1(y - r * 0.15)} l${n1(r * 0.55)} ${n1(-r * 0.5)} l${n1(r * 0.2)} ${n1(r * 0.45)} z" fill="#FFF3C4"/>`;
+
+/** Bois en cristal ; `big` = nombre d'andouillers. */
+function antlers(L: Light, seed: number, stage: number): string {
+  const cl: Light = { ...L, shade: '#3A5BC0', color: '#FFFFFF' };
+  const a = (sp: Pt[], w: number[], k: number) => facets(limb(sp, w), CRYSTAL, cl, { size: 3.5, relief: 0.4, seed: seed + k });
+  const far: Light = { ...cl, color: '#B9D4FF', shade: '#1A2A70' };
+  const af = (sp: Pt[], w: number[], k: number) => facets(limb(sp, w), mix(CRYSTAL, '#5A6AC0', 0.45), far, { size: 3.5, relief: 0.4, seed: seed + 20 + k });
+  if (stage === 1) {
+    return af([[76, 44], [84, 32], [90, 20]], [4, 3, 1.4], 1) + af([[84, 33], [94, 30]], [2.6, 1.2], 2)
+      + a([[68, 46], [68, 32], [64, 18]], [4.4, 3.2, 1.4], 3) + a([[68, 34], [58, 28]], [2.8, 1.2], 4);
   }
-  // Galop : le corps se cabre légèrement et quitte le sol ; traînée d'étoiles soulevée par les sabots.
-  if (st >= 2) {
-    let trail = '';
-    for (let i = 0; i < 18; i++) {
-      const t = c.r();
-      trail += `<circle cx="${f(150 + t * 70)}" cy="${f(196 - t * 18 + (c.r() - 0.5) * 14)}" r="${f(0.6 + c.r() * 1.4)}" fill="${i % 3 ? '#FFF6D8' : c.pal.glow}" opacity="${f(0.9 - t * 0.6)}"/>`;
-    }
-    return s + top + trail + `<g transform="translate(0 -2) rotate(-3 120 150) translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
-  }
-  return s + top + `<g transform="translate(120 205) scale(${k}) translate(-120 -205)">${stag(c)}</g>`;
+  let s = af([[74, 42], [90, 34], [106, 22], [116, 10]], [4, 3.2, 2.4, 1.4], 1) + af([[90, 34], [96, 20]], [2.6, 1.4], 2) + af([[106, 22], [122, 22]], [2.4, 1.2], 3);
+  s += a([[66, 44], [70, 28], [82, 14], [98, 6]], [5, 4, 3, 2], 4) + a([[70, 30], [60, 18], [56, 6]], [3.5, 2.5, 1.5], 5) + a([[80, 16], [86, 4]], [3, 1.5], 6) + a([[67, 38], [56, 34], [48, 34]], [3, 2, 1.2], 7);
+  if (stage >= 3) s += a([[90, 10], [100, -4]], [2.4, 1.2], 8) + a([[60, 20], [46, 14]], [2.2, 1], 9);
+  return s;
 }
 
-export const cervastre: Species = (c) => {
+/** Tête de cerf (repère de la carte test : nuque vers (70, 62)), bois et constellations selon le stade. */
+function head(c: DrawCtx, L: Light, far: Light, base: string, deep: string, st: number): string {
+  void c;
+  const cream = mix(base, '#F3EBDD', 0.35);
+  let hd = '';
+  hd += facets(ellipse(80, 46, 11, 4.6, 10, -0.6), deep, far, { size: 4, seed: 6 });
+  hd += antlers(L, 30, st);
+  hd += facets(curve([76, 52], [[[66, 43], [48, 45], [36, 54]], [[30, 59], [26, 63], [30, 68]], [[40, 72], [58, 74], [72, 70]], [[83, 64], [85, 56], [76, 52]]]), base, L, { size: 5, relief: 0.9, seed: 7 });
+  hd += facets(curve([30, 60], [[[35, 57], [41, 60], [43, 66]], [[38, 70], [32, 70], [29, 66]]]), cream, L, { size: 3.5, relief: 0.4, seed: 17 });
+  hd += `<circle cx="30.5" cy="63" r="2.6" fill="#0B0618"/><circle cx="29.8" cy="62.2" r="0.8" fill="#8C86A8"/>`;
+  hd += eye(55, 57, 2.2, st >= 3 ? CRYSTAL : '#FFF3C4');
+  hd += facets(ellipse(87, 50, 12, 4.6, 10, -0.45), base, L, { size: 4, seed: 18 }) + facets(ellipse(89, 50, 7, 2, 8, -0.45), deep, far, { size: 3, seed: 19 });
+  if (st >= 2) hd += constel([[98, 6], [114, 2], [126, 10], [140, 4]]) + constel([[56, 6], [44, -4]]) + constel([[116, 10], [132, 14], [146, 8]], 3.4) + constel([[48, 34], [36, 28]], 3.4);
+  if (st >= 3) hd += constel([[100, -4], [92, -14], [78, -12]], 3.6) + constel([[46, 14], [34, 8]], 3.4);
+  return hd;
+}
+
+/** Grand cerf au galop (stades 2 et 3), d'après la carte test validée : pattes affinées, tête plus grande. */
+function gallop(c: DrawCtx, st: number): string {
+  const h = c.hue;
+  const base = hsl(h, 32, 46), deep = hsl(h + 10, 40, 24);
+  const L = LIGHTS[st], far = dim(L, deep);
+  let s = '';
+  if (st >= 3) s += `<circle cx="110" cy="96" r="80" fill="${CRYSTAL}" opacity="0.08"/><circle cx="110" cy="96" r="54" fill="${GOLD}" opacity="0.08"/>`;
+  // Pattes du côté opposé.
+  s += facets(limb([[88, 132], [97, 150], [88, 164], [76, 166]], [11, 6, 4, 3]), deep, far, { size: 5, relief: 0.6, seed: 2 });
+  s += facets(limb([[150, 126], [143, 147], [154, 163], [168, 167]], [17, 8, 5, 3.6]), deep, far, { size: 6, relief: 0.6, seed: 3 });
+  // Corps, croupe, cou.
+  s += facets(curve([60, 112], [[[60, 98], [74, 88], [92, 90]], [[112, 92], [140, 96], [160, 90]], [[178, 86], [190, 100], [184, 118]], [[178, 134], [160, 140], [140, 138]], [[118, 136], [96, 144], [78, 138]], [[66, 134], [58, 124], [60, 112]]]), base, L, { size: 10, relief: 1.4, seed: 4, base2: deep });
+  s += facets(ellipse(166, 110, 22, 21, 16), base, L, { size: 9, relief: 1.2, seed: 15, base2: deep });
+  s += facets(limb([[92, 102], [80, 82], [70, 62]], [32, 22, 15]), base, L, { size: 8, relief: 1, seed: 5 });
+  // Poitrail clair.
+  s += facets(limb([[68, 126], [70, 112], [74, 98]], [7, 9, 6]), mix(base, '#F3EBDD', 0.35), L, { size: 5, relief: 0.6, seed: 16 });
+  // Constellation du flanc ; forme éveillée : arabesques d'or.
+  s += constel([[112, 108], [126, 102], [140, 110], [152, 104]], 3);
+  if (st >= 3) s += constel([[100, 124], [116, 128], [132, 122], [146, 130], [168, 122]], 3) + constel([[84, 98], [78, 84]], 3);
+  // Tête (agrandie autour de la nuque), bois et constellations.
+  const hd = head(c, L, far, base, deep, st);
+  s += `<g transform="translate(70 62) scale(1.15) translate(-70 -62)">${hd}</g>`;
+  // Pattes du premier plan (galop : une tendue devant, une tendue derrière), plus fines.
+  s += facets(limb([[72, 128], [60, 145], [50, 157], [36, 164], [24, 166]], [13, 7, 4.6, 3.6, 3]), base, L, { size: 5, relief: 0.8, seed: 12 });
+  s += facets(limb([[166, 118], [181, 136], [197, 149], [212, 156]], [24, 9, 5, 3.6]), base, L, { size: 6, relief: 0.8, seed: 13 });
+  s += facets(ellipse(188, 96, 7, 5, 10, -0.5), '#F3EBDD', L, { size: 4, seed: 14 });
+  s += hoof(22, 166, 70) + hoof(75, 166, 60) + hoof(169, 167, 70) + hoof(214, 156, 64);
+  // Traînée d'étoiles soulevée par les sabots.
+  const r = prng(90 + st);
+  for (let i = 0; i < 12; i++) { const t = r(); s += gem(170 + t * 50, 166 - t * 10 + (r() - 0.5) * 16, 1.2 + r() * 2, '#FFFFFF', st >= 3 ? GOLD : CRYSTAL); }
+  if (st >= 3) {
+    // Croissant de lune au-dessus des bois.
+    s += `<circle cx="190" cy="16" r="16" fill="${GOLD}" opacity="0.18"/><path d="M186 6 A11 11 0 1 0 198 24 A8.5 8.5 0 1 1 186 6 Z" fill="${GOLD}"/><path d="M186 6 A11 11 0 0 0 184 20 A8.5 8.5 0 0 1 186 6 Z" fill="#FFF3C4"/>`;
+  }
+  return `<g transform="translate(-6 30) scale(1.08)">${s}</g>`;
+}
+
+/** Daguet (stade 1) qui traverse le ruisseau, une patte avant levée, bois courts en cristal. */
+function walker(c: DrawCtx): string {
+  const h = c.hue;
+  const base = hsl(h, 30, 46), deep = hsl(h + 10, 38, 24);
+  const L = LIGHTS[1], far = dim(L, deep);
+  let s = '';
+  // Pattes lointaines.
+  s += facets(limb([[106, 146], [107, 166], [105, 184], [105, 200]], [11, 6, 4, 3.4]), deep, far, { size: 5, relief: 0.6, seed: 2 });
+  s += facets(limb([[166, 138], [171, 158], [177, 175], [172, 200]], [17, 8, 4.4, 3.4]), deep, far, { size: 6, relief: 0.6, seed: 3 });
+  s += hoof(105, 202) + hoof(172, 202);
+  // Corps (même anatomie que l'adulte, plus svelte), croupe, cou dressé.
+  s += facets(curve([70, 124], [[[70, 110], [84, 102], [102, 104]], [[122, 106], [150, 108], [170, 104]], [[186, 100], [198, 112], [194, 130]], [[188, 146], [170, 152], [150, 150]], [[128, 148], [106, 154], [88, 148]], [[76, 144], [68, 136], [70, 124]]]), base, L, { size: 9, relief: 1.3, seed: 4, base2: deep });
+  s += facets(ellipse(176, 122, 20, 19, 16), base, L, { size: 8, relief: 1.1, seed: 15, base2: deep });
+  s += facets(limb([[100, 118], [88, 96], [80, 74]], [30, 20, 14]), base, L, { size: 7, relief: 1, seed: 5 });
+  // Dernières mouchetures, presque effacées.
+  for (const [x, y] of [[122, 116], [136, 112], [150, 118], [130, 126], [160, 124]] as Pt[]) s += `<circle cx="${x}" cy="${y}" r="1.7" fill="#F3EBDD" opacity="0.55"/>`;
+  s += facets(ellipse(198, 108, 6, 4.4, 10, -0.6), '#F3EBDD', L, { size: 4, seed: 14 });
+  // Tête (même tête que l'adulte, décalée sur le cou dressé).
+  const hd = head(c, L, far, base, deep, 1);
+  s += `<g transform="translate(80 74) scale(1.12) translate(-80 -74) translate(10 12)">${hd}</g>`;
+  // Pattes du premier plan : une avant levée (pas prudent dans l'eau).
+  s += facets(limb([[92, 144], [88, 164], [78, 178], [82, 192]], [12, 6.4, 4.2, 3.4]), base, L, { size: 5, relief: 0.8, seed: 12 });
+  s += facets(limb([[180, 134], [190, 158], [194, 176], [190, 200]], [22, 8.5, 4.6, 3.6]), base, L, { size: 6, relief: 0.8, seed: 13 });
+  s += hoof(83, 194, -20) + hoof(190, 202);
+  return `<g transform="translate(112 205) scale(1.04) translate(-112 -205)">${s}</g>`;
+}
+
+/** Faon endormi (stade 0) : couché en rond, pattes repliées, tête posée sur le flanc, yeux clos. */
+function sleeper(c: DrawCtx): string {
+  const h = c.hue;
+  const base = hsl(h, 38, 50), deep = hsl(h + 10, 40, 26), cream = mix(base, '#F6EEDD', 0.55);
+  const L = LIGHTS[0], far = dim(L, deep);
+  let s = '';
+  s += `<ellipse cx="118" cy="205" rx="80" ry="9" fill="#05030C" opacity="0.4"/>`;
+  // Queue et corps couché.
+  s += facets(ellipse(186, 170, 7, 5, 10, -0.5), cream, L, { size: 4, seed: 2 });
+  s += facets(curve([52, 202], [[[46, 180], [66, 156], [98, 150]], [[128, 144], [164, 148], [180, 166]], [[192, 180], [190, 200], [176, 204]], [[140, 206], [90, 206], [52, 202]]]), base, L, { size: 9, relief: 1.3, seed: 3, base2: deep });
+  s += facets(ellipse(160, 182, 26, 21, 16), base, L, { size: 8, relief: 1.1, seed: 4, base2: deep });
+  // Mouchetures en rangées le long de l'échine, quelques-unes en étoiles.
+  const r = prng(11);
+  for (const [x0, y0, k] of [[86, 160, 0], [94, 168, 1], [104, 177, 2]] as [number, number, number][]) {
+    for (let i = 0; i < 7 - k; i++) {
+      const t = i / (6 - k), x = x0 + t * (78 - k * 6), y = y0 - Math.sin(t * Math.PI) * (10 - k * 2) + t * 4;
+      s += (i + k) % 4 === 1 ? gem(x, y, 2.6, '#FFFFFF', GOLD) : `<ellipse cx="${n1(x)}" cy="${n1(y)}" rx="${n1(1.6 + r() * 0.6)}" ry="${n1(1.2 + r() * 0.4)}" fill="#F6EEDD" opacity="0.9"/>`;
+    }
+  }
+  // Pattes repliées : sabot arrière qui dépasse, patte avant sous le poitrail.
+  s += facets(limb([[150, 198], [130, 202], [118, 202]], [9, 5, 3.6]), base, L, { size: 4, relief: 0.6, seed: 5 }) + hoof(114, 202, 90);
+  s += facets(limb([[80, 196], [62, 200], [48, 201]], [10, 5.4, 3.6]), base, L, { size: 4, relief: 0.6, seed: 6 }) + hoof(44, 201, 90);
+  // Cou recourbé, tête posée sur le flanc (vers la droite).
+  s += facets(limb([[72, 192], [64, 174], [72, 158], [90, 150]], [24, 20, 16, 13]), base, L, { size: 6, relief: 0.9, seed: 7 });
+  s += facets(limb([[66, 186], [62, 174], [66, 164]], [9, 8, 6]), cream, L, { size: 4, relief: 0.5, seed: 8 });
+  s += facets(ellipse(80, 140, 15, 5.4, 10, -0.35), deep, far, { size: 4, seed: 9 });
+  s += facets(curve([86, 150], [[[90, 138], [108, 134], [122, 142]], [[132, 148], [142, 152], [145, 158]], [[145, 164], [134, 167], [126, 165]], [[112, 163], [96, 163], [86, 150]]]), base, L, { size: 5, relief: 0.9, seed: 10 });
+  s += facets(curve([118, 160], [[[128, 162], [138, 164], [144, 162]], [[136, 168], [124, 168], [118, 160]]]), cream, L, { size: 4, relief: 0.4, seed: 12 });
+  s += `<circle cx="143" cy="157" r="2.3" fill="#0B0618"/>`;
+  s += `<path d="M106 146 Q112 151 118 146 Q112 148.8 106 146 Z" fill="#160E28"/>`;
+  s += facets(ellipse(96, 140, 13, 5, 10, -0.6), base, L, { size: 4, seed: 13 }) + facets(ellipse(97, 139.5, 7.5, 2, 8, -0.6), deep, far, { size: 3, seed: 14 });
+  s += gem(110, 140, 2.4, '#FFFFFF', GOLD);
+  // Une luciole posée sur l'oreille, une autre qui tourne près du museau.
+  s += `<circle cx="92" cy="130" r="6" fill="#E8F59A" opacity="0.25"/>` + gem(92, 130, 2.6, '#FFFFFF', '#E8F59A');
+  s += `<circle cx="158" cy="146" r="5" fill="#E8F59A" opacity="0.22"/>` + gem(158, 146, 2, '#FFFFFF', '#E8F59A');
+  return `<g transform="translate(116 205) scale(1.18) translate(-116 -205)">${s}</g>`;
+}
+
+const draw = (c: DrawCtx): string => {
   const st = Math.min(c.stage, 3);
-  setLook(`cervastre-${st}`, c.pal, ['#CFE4FF', '#FFB48A', '#FFD49A', '#7CF5D0'][st], st === 2 ? [0.62, 0.2] : [0.32, 0.2]);
-  return noInk(drawCerv(c));
+  if (st === 0) return sleeper(c);
+  if (st === 1) return walker(c);
+  return gallop(c, st);
 };
 
 // ---------------------------------------------------------------------------------------------------------------
-// Décor : forêt cosmique (clairière moussue la nuit, ruisseau au crépuscule, lisière à l'aube, forêt-cathédrale
+// Décor : forêt cosmique (clairière moussue la nuit, ruisseau au crépuscule, plaine à l'aube, forêt-cathédrale
 // sous les aurores).
 
-/** Fond plein en dégradé vertical. */
-export function skyGrad(id: string, b: Bounds, stops: [number, string][]): string {
-  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">${stops.map(([o, col]) => `<stop offset="${o}" stop-color="${col}"/>`).join('')}</linearGradient></defs>`
-    + `<rect x="${b.x0}" y="${b.y0}" width="${b.x1 - b.x0}" height="${b.y1 - b.y0}" fill="url(#${id})"/>`;
-}
-export function stars(c: DrawCtx, b: Bounds, n: number, ymax: number, col = '#FFF6D8'): string {
-  let o = '';
+const trunk = (x: number, top: number, bot: number, w: number, col: string, L: Light, seed: number) =>
+  facets([[x - w * 0.42, top], [x + w * 0.42, top], [x + w * 0.5, bot - 12], [x + w, bot], [x - w, bot], [x - w * 0.5, bot - 12]], col, L, { size: Math.max(6, w * 0.9), relief: 0.5, seed });
+const fir = (x: number, y: number, hh: number, col: string, L: Light, seed: number) =>
+  facets([[x, y - hh], [x + hh * 0.32, y], [x - hh * 0.32, y]], col, L, { size: hh / 4, relief: 0.8, seed });
+const stars = (b: Bounds, n: number, ymax: number, seed: number, dark = '#BFD7FF') => {
+  const r = prng(seed);
+  let s = '';
   for (let i = 0; i < n; i++) {
-    const x = b.x0 + c.r() * (b.x1 - b.x0), y = b.y0 + c.r() * (ymax - b.y0), r = 0.3 + c.r() * c.r() * 1.3;
-    o += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(r)}" fill="${col}" opacity="${f(0.35 + c.r() * 0.6)}"/>`;
+    const x = b.x0 + r() * (b.x1 - b.x0), y = b.y0 + r() * (ymax - b.y0), z = r();
+    s += z > 0.75 ? gem(x, y, 1.6 + r() * 2.2, '#FFFFFF', dark) : `<circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(0.5 + z)}" fill="#FFFFFF" opacity="${n1(0.4 + r() * 0.5)}"/>`;
   }
-  return o;
-}
-/** Tronc droit et légèrement effilé, écorce au trait. `light` = côté éclairé (-1 gauche, 1 droite). */
-export function trunk(c: DrawCtx, x: number, top: number, bot: number, w: number, fill: string, shade: string, detail: number, light = -1, glowCol = ''): string {
-  const tw = w * 0.82, d = `M${f(x - w)} ${f(bot)} C${f(x - w * 0.8)} ${f(bot - 10)} ${f(x - tw)} ${f(bot - 30)} ${f(x - tw)} ${f(top)} L${f(x + tw)} ${f(top)} C${f(x + tw)} ${f(bot - 30)} ${f(x + w * 0.8)} ${f(bot - 10)} ${f(x + w)} ${f(bot)} Z`;
-  let o = `<path d="${d}" fill="${fill}"/>`;
-  if (detail > 0) {
-    o += `<path d="M${f(x - light * tw * 0.2)} ${f(top)} L${f(x - light * tw)} ${f(top)} L${f(x - light * w)} ${f(bot)} L${f(x - light * w * 0.2)} ${f(bot)} Z" fill="${shade}" opacity="0.8"/>`;
-    o += `<path d="M${f(x - light * tw * 0.2)} ${f(top)} L${f(x - light * tw)} ${f(top)} L${f(x - light * w)} ${f(bot)} L${f(x - light * w * 0.2)} ${f(bot)} Z" fill="url(#fine)" opacity="${f(detail)}"/>`;
-    for (let i = 0; i < w * 0.9; i++) {
-      const xx = x - tw + c.r() * tw * 2, y0 = top + c.r() * (bot - top), len = 8 + c.r() * 22;
-      o += `<path d="M${f(xx)} ${f(y0)} q${f((c.r() - 0.5) * 2)} ${f(len / 2)} 0 ${f(len)}" fill="none" stroke="#140F24" stroke-width="0.5" opacity="${f(0.35 * detail)}"/>`;
+  return s;
+};
+const fireflies = (b: Bounds, n: number, y0: number, y1: number, col: string, seed: number) => {
+  const r = prng(seed);
+  let s = '';
+  for (let i = 0; i < n; i++) { const x = b.x0 + 10 + r() * (b.x1 - b.x0 - 20), y = y0 + r() * (y1 - y0); s += `<circle cx="${n1(x)}" cy="${n1(y)}" r="4" fill="${col}" opacity="0.2"/><circle cx="${n1(x)}" cy="${n1(y)}" r="1.2" fill="#FFFFFF"/>`; }
+  return s;
+};
+/** Fougère : pinnules en petits triangles le long d'une tige. */
+function fern(x: number, y: number, len: number, ang: number, curl: number, col: string, col2: string): string {
+  let s = '', a = (ang * Math.PI) / 180, px = x, py = y;
+  for (let i = 0; i < 10; i++) {
+    a += curl / 10;
+    const nx = px + Math.cos(a) * len / 10, ny = py + Math.sin(a) * len / 10, l = len * 0.22 * (1 - i / 12);
+    for (const sd of [-1, 1]) {
+      const la = a + sd * 1.1;
+      s += `<path d="M${n1(px)} ${n1(py)}L${n1(px + Math.cos(la) * l)} ${n1(py + Math.sin(la) * l)}L${n1(nx)} ${n1(ny)}Z" fill="${sd > 0 ? col : col2}"/>`;
     }
-    if (glowCol) o += `<path d="M${f(x + light * tw * 0.98)} ${f(top)} L${f(x + light * w * 0.96)} ${f(bot - 4)}" stroke="${glowCol}" stroke-width="1" opacity="0.7"/>`;
-    o += `<path d="M${f(x - tw)} ${f(top)} L${f(x - tw)} ${f(bot - 30)} C${f(x - tw)} ${f(bot - 30)} ${f(x - w * 0.8)} ${f(bot - 10)} ${f(x - w)} ${f(bot)} M${f(x + tw)} ${f(top)} L${f(x + tw)} ${f(bot - 30)} C${f(x + tw)} ${f(bot - 30)} ${f(x + w * 0.8)} ${f(bot - 10)} ${f(x + w)} ${f(bot)}" fill="none" stroke="#140F24" stroke-width="${f(0.5 + detail * 0.7)}" opacity="${f(0.4 + detail * 0.4)}"/>`;
+    px = nx; py = ny;
   }
-  return o;
-}
-/** Fougère : rachis courbe et pinnules alternées. */
-export function fern(x: number, y: number, len: number, ang: number, curl: number, col: string, ink = 0.6): string {
-  let d = '', leaf = '';
-  const a0 = (ang * Math.PI) / 180;
-  let px = x, py = y, a = a0;
-  const n = 14;
-  const pts: Pt[] = [[px, py]];
-  for (let i = 1; i <= n; i++) {
-    a += curl / n;
-    px += Math.cos(a) * len / n; py += Math.sin(a) * len / n;
-    pts.push([px, py]);
-    const l = (len * 0.24) * (1 - i / (n + 2));
-    for (const s of [-1, 1]) {
-      const la = a + s * 1.1;
-      leaf += `M${f(px)} ${f(py)} q${f(Math.cos(la - s * 0.4) * l * 0.6)} ${f(Math.sin(la - s * 0.4) * l * 0.6)} ${f(Math.cos(la) * l)} ${f(Math.sin(la) * l)} `;
-    }
-  }
-  d = spl(pts);
-  return `<path d="${leaf}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linecap="round"/>`
-    + (ink ? `<path d="${leaf}" fill="none" stroke="#140F24" stroke-width="0.4" opacity="${ink}"/>` : '')
-    + `<path d="${d}" fill="none" stroke="${col}" stroke-width="1.3"/>` + (ink ? `<path d="${d}" fill="none" stroke="#140F24" stroke-width="0.5" opacity="${ink}"/>` : '');
-}
-export function grass(c: DrawCtx, x0: number, x1: number, y: number, h: number, col: string, n: number, op = 0.8): string {
-  let d = '';
-  for (let i = 0; i < n; i++) {
-    const x = x0 + c.r() * (x1 - x0), hh = h * (0.5 + c.r() * 0.7), lean = (c.r() - 0.5) * hh * 0.8;
-    d += `M${f(x)} ${f(y + c.r() * 4)} q${f(lean * 0.3)} ${f(-hh * 0.6)} ${f(lean)} ${f(-hh)} `;
-  }
-  return `<path d="${d}" fill="none" stroke="${col}" stroke-width="0.9" stroke-linecap="round" opacity="${op}"/>`;
-}
-export function fireflies(c: DrawCtx, x0: number, y0: number, x1: number, y1: number, n: number, col: string): string {
-  let o = '';
-  for (let i = 0; i < n; i++) {
-    const x = x0 + c.r() * (x1 - x0), y = y0 + c.r() * (y1 - y0);
-    o += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(2.5 + c.r() * 2)}" fill="${col}" opacity="0.35" filter="url(#glow)"/><circle cx="${f(x)}" cy="${f(y)}" r="${f(0.7 + c.r() * 0.6)}" fill="#FFF6D8"/>`;
-  }
-  return o;
-}
-function mushrooms(x: number, y: number, s: number, col: string): string {
-  let o = `<ellipse cx="${f(x)}" cy="${f(y - 6 * s)}" rx="${f(14 * s)}" ry="${f(9 * s)}" fill="${col}" opacity="0.3" filter="url(#soft)"/>`;
-  for (const [dx, h, r] of [[0, 9, 4.2], [6, 6, 3], [-5, 5, 2.4]] as const) {
-    const X = x + dx * s, Y = y, H = h * s, R = r * s;
-    o += `<path d="M${f(X - R * 0.25)} ${f(Y)} L${f(X - R * 0.18)} ${f(Y - H)} L${f(X + R * 0.18)} ${f(Y - H)} L${f(X + R * 0.25)} ${f(Y)} Z" fill="#E8E0CC" stroke="#140F24" stroke-width="0.5"/>`;
-    o += `<path d="M${f(X - R)} ${f(Y - H)} Q${f(X)} ${f(Y - H - R * 1.4)} ${f(X + R)} ${f(Y - H)} Q${f(X)} ${f(Y - H + R * 0.35)} ${f(X - R)} ${f(Y - H)} Z" fill="${col}" stroke="#140F24" stroke-width="0.6"/>`;
-    o += `<path d="M${f(X - R * 0.5)} ${f(Y - H - R * 0.55)} q${f(R * 0.3)} ${f(-R * 0.3)} ${f(R * 0.6)} ${f(-R * 0.3)}" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.8"/>`;
-  }
-  return o;
+  return s;
 }
 
-cervastre.scene = (c: DrawCtx, b: Bounds) => noInk(cervScene(c, b), '#05030C');
-function cervScene(c: DrawCtx, b: Bounds): string {
+const scene = (c: DrawCtx, b: Bounds): string => {
   const st = Math.min(c.stage, 3);
-  const id = `cervastre-${st}-bg`;
-  const h = c.hue;
+  const r = prng(41 + st);
   const W = b.x1 - b.x0;
-  let o = '';
-  const rect = (fill: string, y0: number, op = 1, extra = '') => `<rect x="${b.x0}" y="${f(y0)}" width="${W}" height="${f(b.y1 - y0)}" fill="${fill}" opacity="${op}"${extra}/>`;
+  let s = '';
   if (st === 0) {
-    // Clairière moussue, nuit profonde ; un rayon de lune tombe entre les troncs sur le faon endormi.
-    o += skyGrad(`${id}-s`, b, [[0, '#0B1426'], [0.55, '#16293A'], [1, '#0E1A1E']]);
-    o += stars(c, b, 40, 90);
-    o += `<circle cx="40" cy="28" r="13" fill="#F4ECD0" opacity="0.9"/><circle cx="40" cy="28" r="26" fill="#F4ECD0" opacity="0.25" filter="url(#soft)"/>`;
-    for (const [x, w] of [[14, 5], [62, 4], [96, 6], [150, 4.5], [182, 5], [208, 4]] as const) o += trunk(c, x, b.y0, 150, w, '#2A4250', '#22384A', 0, -1);
-    o += `<rect x="${b.x0}" y="110" width="${W}" height="50" fill="#5C8A90" opacity="0.18" filter="url(#soft)"/>`;
-    for (const [x, w] of [[30, 11], [128, 9], [196, 13]] as const) o += trunk(c, x, b.y0, 168, w, '#1C2E36', '#132028', 0.5, -1, '#9FC8C0');
-    // Rayon de lune.
-    o += `<path d="M30 20 L70 20 L178 210 L82 210 Z" fill="#F4ECD0" opacity="0.12" filter="url(#soft)"/>`;
-    // Sol de mousse, creux où dort le faon.
-    o += `<path d="M${b.x0} 162 C40 150 90 156 120 158 C160 160 200 150 ${b.x1} 156 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#1F3B30"/>`;
-    o += `<path d="M${b.x0} 162 C40 150 90 156 120 158 C160 160 200 150 ${b.x1} 156 L${b.x1} 170 L${b.x0} 172 Z" fill="url(#fine)" opacity="0.5"/>`;
-    o += `<ellipse cx="116" cy="200" rx="90" ry="22" fill="#2F5A44"/><ellipse cx="116" cy="200" rx="90" ry="22" fill="url(#fine)" opacity="0.4"/>`;
-    o += `<ellipse cx="110" cy="194" rx="70" ry="10" fill="#7FB59A" opacity="0.25" filter="url(#soft)"/>`;
-    for (let i = 0; i < 40; i++) o += `<circle cx="${f(30 + c.r() * 170)}" cy="${f(186 + c.r() * 30)}" r="${f(0.8 + c.r() * 1.2)}" fill="#4F8A66" opacity="0.7"/>`;
-    o += fern(4, 214, 60, -60, 0.9, '#2E6A52') + fern(10, 222, 54, -40, 0.7, '#3A7A5C') + fern(218, 214, 58, -120, -0.9, '#2E6A52') + fern(212, 226, 50, -150, -0.6, '#3A7A5C');
-    o += mushrooms(186, 214, 1.1, hsl(h + 160, 70, 70)) + mushrooms(36, 222, 0.8, hsl(h + 160, 70, 70));
-    o += fireflies(c, 20, 60, 200, 150, 9, '#E8F59A');
-    o += rect('#000', 226, 0.25);
-  } else if (st === 1) {
-    // Ruisseau à la lisière, au crépuscule : ciel violet et braise, reflets d'étoiles dans l'eau.
-    o += skyGrad(`${id}-s`, b, [[0, '#1E1638'], [0.42, '#4A2E5A'], [0.6, '#C2716A'], [0.68, '#E6A777']]);
-    o += stars(c, b, 34, 80);
-    // Collines boisées lointaines.
-    o += `<path d="M${b.x0} 140 C30 126 50 132 70 124 C96 114 120 128 146 120 C170 112 196 126 ${b.x1} 118 L${b.x1} 160 L${b.x0} 160 Z" fill="#6A4A6E" opacity="0.85"/>`;
-    let pines = '';
-    for (let x = b.x0; x < b.x1; x += 5 + c.r() * 5) { const y = 128 + Math.sin(x / 19) * 5 + c.r() * 4, hh = 8 + c.r() * 10; pines += `M${f(x - 3)} ${f(y + 6)} L${f(x)} ${f(y - hh)} L${f(x + 3)} ${f(y + 6)} Z `; }
-    o += `<path d="${pines}" fill="#4E3558"/>`;
-    o += `<rect x="${b.x0}" y="128" width="${W}" height="24" fill="#E6A777" opacity="0.25" filter="url(#soft)"/>`;
-    for (const [x, w] of [[18, 8], [46, 5], [176, 6], [204, 10]] as const) o += trunk(c, x, b.y0, 160, w, '#3A2846', '#2A1C36', 0.5, 1, '#F0B48A');
-    // Berges et ruisseau.
-    o += `<path d="M${b.x0} 156 C60 150 160 150 ${b.x1} 154 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#2C2A3A"/>`;
-    const water = `M100 152 C120 156 150 160 160 170 C176 186 200 196 ${b.x1} 200 L${b.x1} ${b.y1} L${b.x0} ${b.y1} L${b.x0} 206 C40 204 70 192 80 176 C88 164 92 156 100 152 Z`;
-    o += `<defs><linearGradient id="${id}-w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6A777"/><stop offset="0.5" stop-color="#5A4070"/><stop offset="1" stop-color="#1E1838"/></linearGradient></defs>`;
-    o += `<path d="${water}" fill="url(#${id}-w)" stroke="#140F24" stroke-width="0.8"/>`;
-    for (let i = 0; i < 14; i++) { const y = 160 + i * 5.5, x = 100 - i * 2 + c.r() * 30, l = 6 + i * 2.5; o += `<path d="M${f(x)} ${f(y)} h${f(l)}" stroke="#FFF6D8" stroke-width="0.6" opacity="${f(0.25 + c.r() * 0.3)}"/>`; }
-    o += stars(c, { x0: 60, y0: 180, x1: 200, y1: 236 }, 14, 236);
-    o += `<ellipse cx="80" cy="204" rx="14" ry="3" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.6"/><ellipse cx="80" cy="204" rx="22" ry="5" fill="none" stroke="#FFF6D8" stroke-width="0.4" opacity="0.4"/>`;
-    o += `<ellipse cx="172" cy="205" rx="12" ry="2.6" fill="none" stroke="#FFF6D8" stroke-width="0.6" opacity="0.6"/>`;
-    o += grass(c, b.x0, 90, 158, 10, '#4A3C56', 30) + grass(c, 150, b.x1, 160, 10, '#4A3C56', 26);
-    o += fern(b.x0 - 2, 196, 50, -50, 0.8, '#3E4A4A') + fern(b.x1 + 2, 186, 46, -130, -0.8, '#3E4A4A');
-    o += fireflies(c, 30, 70, 200, 140, 5, '#FFD99A');
-  } else if (st === 2) {
-    // Lisière à l'aube : soleil levant derrière la forêt lointaine, prairie couverte de rosée.
-    o += skyGrad(`${id}-s`, b, [[0, '#26345A'], [0.35, '#6C6E96'], [0.58, '#E7B48C'], [0.66, '#F6DDB0']]);
-    o += stars(c, b, 18, 50);
-    o += `<circle cx="168" cy="148" r="30" fill="#FFF0C8" opacity="0.7" filter="url(#soft)"/><circle cx="168" cy="150" r="11" fill="#FFF4D8"/>`;
-    for (let i = 0; i < 9; i++) { const a = (-160 + i * 18) * Math.PI / 180; o += `<path d="M168 150 L${f(168 + Math.cos(a) * 160)} ${f(150 + Math.sin(a) * 160)}" stroke="#FFF0C8" stroke-width="5" opacity="0.08"/>`; }
-    let far = '', mid = '';
-    for (let x = b.x0; x < b.x1 + 6; x += 4 + c.r() * 4) { const y = 146 + Math.sin(x / 23) * 4, hh = 10 + c.r() * 14; far += `M${f(x - 3.5)} ${f(y + 8)} L${f(x)} ${f(y - hh)} L${f(x + 3.5)} ${f(y + 8)} Z `; }
-    for (let x = b.x0; x < b.x1 + 6; x += 6 + c.r() * 6) { const y = 158 + Math.sin(x / 31) * 3, hh = 14 + c.r() * 16; mid += `M${f(x - 5)} ${f(y + 8)} L${f(x)} ${f(y - hh)} L${f(x + 5)} ${f(y + 8)} Z `; }
-    o += `<path d="${far}" fill="#8C7C9A" opacity="0.9"/>` + `<rect x="${b.x0}" y="146" width="${W}" height="16" fill="#F6DDB0" opacity="0.35" filter="url(#soft)"/>`;
-    o += `<path d="${mid}" fill="#5A5274"/>`;
-    o += `<path d="M${b.x0} 166 C60 160 150 162 ${b.x1} 164 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#4C5A5C"/>`;
-    o += `<path d="M${b.x0} 166 C60 160 150 162 ${b.x1} 164 L${b.x1} 180 L${b.x0} 180 Z" fill="#E7B48C" opacity="0.25"/>`;
-    o += `<path d="M${b.x0} 196 C60 192 150 192 ${b.x1} 196 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#33403F"/><path d="M${b.x0} 196 C60 192 150 192 ${b.x1} 196 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="url(#fine)" opacity="0.4"/>`;
-    o += grass(c, b.x0, b.x1, 170, 7, '#6E7A70', 50, 0.7) + grass(c, b.x0, b.x1, 200, 12, '#26302E', 60, 0.9);
-    // Grands pins de premier plan qui encadrent la scène.
-    o += trunk(c, b.x0 + 4, b.y0, 236, 9, '#232436', '#171828', 0.7, 1, '#F6C690') + trunk(c, b.x1 - 6, b.y0, 236, 11, '#232436', '#171828', 0.7, -1, '#F6C690');
-    for (let i = 0; i < 16; i++) o += `<circle cx="${f(20 + c.r() * 190)}" cy="${f(196 + c.r() * 30)}" r="${f(0.6 + c.r())}" fill="#FFF6D8" opacity="0.7"/>`;
-  } else {
-    // Forêt-cathédrale sous les aurores : troncs géants veinés d'or, graines de lumière en suspension.
-    o += skyGrad(`${id}-s`, b, [[0, '#0A0C22'], [0.6, '#1A1C40'], [1, '#141530']]);
-    o += stars(c, b, 60, 150);
-    const au = (y: number, col: string, op: number) => `<path d="M${b.x0 - 20} ${y} C40 ${y - 40} 90 ${y + 30} 140 ${y - 10} C180 ${y - 40} 210 ${y + 10} ${b.x1 + 20} ${y - 20}" fill="none" stroke="${col}" stroke-width="22" opacity="${op}" filter="url(#soft)"/>`;
-    o += au(60, hsl(h + 120, 80, 60), 0.5) + au(84, hsl(h + 200, 80, 66), 0.4) + au(40, hsl(h + 60, 80, 70), 0.3);
-    for (const [x, w] of [[40, 6], [84, 4], [146, 5], [186, 6]] as const) o += trunk(c, x, b.y0, 160, w, '#2A2C56', '#22244A', 0, 1);
-    o += `<rect x="${b.x0}" y="120" width="${W}" height="50" fill="${hsl(h + 200, 60, 60)}" opacity="0.18" filter="url(#soft)"/>`;
-    for (const [x, w, lt] of [[b.x0 + 8, 16, 1], [b.x1 - 10, 18, -1]] as const) {
-      o += trunk(c, x, b.y0, 236, w, '#1B1A36', '#121128', 0.8, lt, '#E9C25B');
-      o += `<path d="M${f(x - w * 0.3)} ${b.y0} C${f(x + w * 0.4)} 60 ${f(x - w * 0.5)} 120 ${f(x + w * 0.2)} 230" fill="none" stroke="#E9C25B" stroke-width="0.9" opacity="0.8"/>`;
+    // Clairière moussue, nuit profonde ; un rayon de lune tombe sur le faon.
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A1024', '#13243A', '#163038', '#0E1E22', '#08100F'], 9, 24);
+    s += stars(b, 26, 100, 5);
+    s += `<circle cx="40" cy="30" r="26" fill="#DDE6FF" opacity="0.14"/>` + facets(ellipse(40, 30, 13, 13, 12), '#F2F0E0', { dir: [-0.5, -0.5, 0.7], color: '#FFFFFF', shade: '#9AA4C8' }, { size: 6, relief: 0.6, seed: 3 });
+    const fL: Light = { dir: [-0.6, -0.5, 0.6], color: '#9FC8D8', shade: '#060A14' };
+    for (const [x, w] of [[14, 6], [66, 4.5], [100, 6.5], [150, 5], [184, 5.5], [212, 4.5]] as Pt[]) s += trunk(x, b.y0, 160, w, '#22384A', fL, 10 + x);
+    s += `<path d="M30 20 L70 20 L182 214 L80 214 Z" fill="#DDE6FF" opacity="0.08"/>`;
+    for (const [x, w] of [[24, 11], [130, 9], [200, 12]] as Pt[]) s += trunk(x, b.y0, 172, w, '#18283A', fL, 30 + x);
+    // Sol moussu et creux.
+    const moss: Light = { dir: [-0.5, -0.8, 0.5], color: '#9FE0B8', shade: '#04100A' };
+    s += facets([[b.x0, 166], [40, 156], [100, 160], [160, 158], [b.x1, 154], [b.x1, b.y1], [b.x0, b.y1]], '#1E3C30', moss, { size: 20, relief: 0.4, seed: 22, base2: '#0A1612' });
+    s += facets(ellipse(116, 204, 96, 22, 20), '#2F5A44', moss, { size: 14, relief: 0.6, seed: 23 });
+    s += fern(b.x0 + 2, 228, 64, -60, 0.9, '#2E6A52', '#1C4A3A') + fern(b.x0 + 8, 240, 54, -36, 0.7, '#3A7A5C', '#245040') + fern(b.x1 - 2, 226, 60, -120, -0.9, '#2E6A52', '#1C4A3A') + fern(b.x1 - 8, 240, 52, -150, -0.6, '#3A7A5C', '#245040');
+    for (const [x, y, k] of [[188, 226, 1.1], [34, 232, 0.8]] as [number, number, number][]) {
+      s += `<circle cx="${x}" cy="${y - 10 * k}" r="${n1(14 * k)}" fill="#7CF5E0" opacity="0.1"/>`;
+      for (const [dx, hh, rr] of [[0, 9, 4.6], [7, 6, 3.2], [-6, 5, 2.6]] as Pt3[]) s += `<path d="M${n1(x + dx * k - 0.8)} ${y} L${n1(x + dx * k + 0.8)} ${y} L${n1(x + dx * k)} ${n1(y - hh * k)} Z" fill="#E8E0CC"/><path d="M${n1(x + (dx - rr) * k)} ${n1(y - hh * k)} L${n1(x + dx * k)} ${n1(y - (hh + rr) * k)} L${n1(x + (dx + rr) * k)} ${n1(y - hh * k)} Z" fill="#7CF5E0"/>`;
     }
-    o += `<path d="M${b.x0} 180 C60 172 160 172 ${b.x1} 180 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#1C1E3A"/>`;
-    o += `<path d="M30 236 C70 210 120 196 ${b.x1} 186" fill="none" stroke="#E9C25B" stroke-width="8" opacity="0.2" filter="url(#soft)"/>`;
-    o += grass(c, b.x0, b.x1, 186, 10, '#3A3C6A', 50);
-    o += fern(b.x0 + 4, 230, 50, -60, 0.9, '#2C3C66') + fern(b.x1 - 4, 232, 50, -120, -0.9, '#2C3C66');
-    for (let i = 0; i < 4; i++) { const x = 30 + c.r() * 160, y = 10 + c.r() * 60; o += `<path d="M${f(x)} ${f(y)} l-22 10" stroke="#FFF6D8" stroke-width="0.9" opacity="0.7"/>`; }
-    o += fireflies(c, 20, 40, 200, 200, 14, '#E9C25B');
+    s += fireflies(b, 10, 50, 170, '#E8F59A', 6);
+  } else if (st === 1) {
+    // Ruisseau à la lisière, au crépuscule.
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#1C1438', '#3E2A5A', '#9A5A6A', '#E0A070', '#2A2440', '#14122A'], 7, 24);
+    s += stars(b, 22, 70, 8);
+    const hill: Light = { dir: [0.5, -0.6, 0.5], color: '#F0B08A', shade: '#1A1030' };
+    s += facets([[b.x0, 150], [30, 128], [70, 138], [110, 122], [150, 134], [190, 120], [b.x1, 132], [b.x1, 170], [b.x0, 170]], '#5A3E66', hill, { size: 18, relief: 0.5, seed: 21 });
+    for (let i = 0; i < 12; i++) s += fir(b.x0 + 4 + i * 20 + r() * 8, 156, 18 + r() * 14, '#3A2848', hill, 40 + i);
+    for (const [x, w] of [[16, 8], [44, 5], [178, 6], [208, 10]] as Pt[]) s += trunk(x, b.y0, 168, w, '#2A1C38', hill, 60 + x);
+    // Berges, ruisseau aux reflets d'or rose.
+    const bank: Light = { dir: [0.4, -0.8, 0.5], color: '#D89A8A', shade: '#0C0818' };
+    s += facets([[b.x0, 162], [80, 156], [160, 156], [b.x1, 160], [b.x1, b.y1], [b.x0, b.y1]], '#2C2A3A', bank, { size: 20, relief: 0.4, seed: 24, base2: '#14122A' });
+    const water: Light = { dir: [0.3, -0.9, 0.4], color: '#FFD0A0', shade: '#1A1438' };
+    s += facets([[100, 158], [124, 160], [160, 172], [b.x1, 200], [b.x1, b.y1], [b.x0, b.y1], [b.x0, 212], [60, 196], [86, 168]], '#6A4C80', water, { size: 16, relief: 0.3, seed: 25, base2: '#24204A' });
+    for (let i = 0; i < 12; i++) { const y = 168 + i * 6, x = 90 - i * 3 + r() * 40, l = 8 + i * 2.5; s += `<path d="M${n1(x)} ${n1(y)} h${n1(l)} l-3 1.2 h${n1(-l + 4)} z" fill="#FFE0C0" opacity="${n1(0.25 + r() * 0.3)}"/>`; }
+    for (const [x, rx] of [[86, 14], [190, 12]] as Pt[]) s += `<ellipse cx="${x}" cy="204" rx="${rx}" ry="2.6" fill="none" stroke="#FFE0C0" stroke-width="0.7" opacity="0.6"/><ellipse cx="${x}" cy="205" rx="${rx * 1.6}" ry="4.4" fill="none" stroke="#FFE0C0" stroke-width="0.5" opacity="0.35"/>`;
+    s += fern(b.x0 - 2, 208, 52, -50, 0.8, '#3E4A4A', '#2A3434') + fern(b.x1 + 2, 196, 48, -130, -0.8, '#3E4A4A', '#2A3434');
+    s += fireflies(b, 6, 70, 150, '#FFD99A', 9);
+  } else if (st === 2) {
+    // Plaine à la lisière, à l'aube (décor de la carte test).
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0A2A', '#2A1E5C', '#6B3E7A', '#E08A5C', '#3A2050', '#120C26'], 9, 24);
+    s += `<circle cx="150" cy="150" r="46" fill="#FFB86B" opacity="0.25"/>` + gem(150, 150, 16, '#FFF3D6', '#FFC37A');
+    const mtn: Light = { dir: [-0.6, -0.5, 0.5], color: '#C79AD6', shade: '#1A1236' };
+    s += facets([[b.x0, 175], [30, 128], [70, 160], [110, 120], [150, 158], [190, 126], [b.x1, 165], [b.x1, 190], [b.x0, 190]], '#4A3474', mtn, { size: 16, relief: 0.6, seed: 21 });
+    const tL: Light = { dir: [-0.6, -0.5, 0.6], color: '#E7A07A', shade: '#08061A' };
+    for (let i = 0; i < 9; i++) { const x = b.x0 + 8 + i * 27 + r() * 8; s += fir(x, 196, 40 + r() * 34, '#22183E', tL, 30 + i); }
+    s += facets([[b.x0, 186], [b.x1, 182], [b.x1, b.y1], [b.x0, b.y1]], '#2B2350', { dir: [-0.4, -0.8, 0.5], color: '#E59A6E', shade: '#0B0820' }, { size: 18, relief: 0.4, seed: 22, base2: '#120C26' });
+    s += stars(b, 14, 110, 12);
+  } else {
+    // Forêt-cathédrale sous les aurores : troncs géants veinés d'or.
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A0C22', '#123A4A', '#2A1E5C', '#1A1640', '#0C0A1E'], 11, 24);
+    for (const [y, col, op] of [[40, '#7CF5C0', 0.22], [70, '#C08AFF', 0.18], [24, '#E9F59A', 0.12]] as [number, string, number][]) {
+      s += `<path d="M${b.x0 - 10} ${y + 20} L40 ${y - 10} L90 ${y + 24} L140 ${y - 6} L190 ${y + 16} L${b.x1 + 10} ${y - 12} L${b.x1 + 10} ${y + 8} L190 ${y + 40} L140 ${y + 18} L90 ${y + 50} L40 ${y + 18} L${b.x0 - 10} ${y + 46} Z" fill="${col}" opacity="${op}"/>`;
+    }
+    s += stars(b, 30, 150, 14, '#7CF5C0');
+    const fL: Light = { dir: [-0.4, -0.6, 0.6], color: '#9FE8D8', shade: '#05061A' };
+    for (const [x, w] of [[44, 6], [86, 4.5], [148, 5], [188, 6]] as Pt[]) s += trunk(x, b.y0, 178, w, '#2A2C56', fL, 70 + x);
+    for (const [x, w] of [[b.x0 + 10, 16], [b.x1 - 10, 18]] as Pt[]) {
+      s += trunk(x, b.y0, b.y1, w, '#1B1A36', fL, 90 + x);
+      s += `<polyline points="${n1(x - 4)},${b.y0} ${n1(x + 5)},60 ${n1(x - 6)},130 ${n1(x + 3)},220" fill="none" stroke="${GOLD}" stroke-width="1" opacity="0.7"/>`;
+    }
+    s += facets([[b.x0, 184], [80, 176], [160, 178], [b.x1, 184], [b.x1, b.y1], [b.x0, b.y1]], '#1C1E3A', { dir: [-0.3, -0.8, 0.5], color: '#7CF5C0', shade: '#05061A' }, { size: 20, relief: 0.4, seed: 26, base2: '#0C0A1E' });
+    s += `<path d="M30 ${b.y1} L120 186 L132 186 L90 ${b.y1} Z" fill="${GOLD}" opacity="0.12"/>`;
+    s += fireflies(b, 12, 30, 200, GOLD, 15);
   }
-  if (b.y1 > 240) o += rect('#0B0A18', 236, 0.5);
-  return o;
-}
+  void W;
+  return s;
+};
+type Pt3 = [number, number, number];
 
+export const cervastre: Species = Object.assign(draw, { scene });
