@@ -113,21 +113,12 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
   const backdrop = draw.scene
     ? `<g transform="translate(${ox} ${oy})">${draw.scene(ctx, bounds)}</g>`
     : `<g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`;
-  // Particules lumineuses et petits orbes, façon poussière d'étoiles.
-  let motes = '';
-  for (let i = 0; i < 26; i++) {
-    const x = win.x + r() * win.w, y = win.y + r() * win.h * 0.8, rad = 0.6 + r() * 1.8;
-    const col = ['#7CF5E0', '#FFE27A', '#E58CFF', '#FFFFFF'][i % 4];
-    motes += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(rad * 2.6).toFixed(1)}" fill="${col}" opacity="0.18" filter="url(#bl3)"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad.toFixed(1)}" fill="${col}" opacity="${(0.5 + r() * 0.5).toFixed(2)}"/>`;
-  }
   const cg = `translate(${ox} ${oy})`;
   const art = `<g clip-path="url(#win)">`
-    + `<g filter="url(#night)">${backdrop}</g>`
-    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#mood)"/>`
-    + `<ellipse cx="${W / 2}" cy="${oy + 100}" rx="95" ry="85" fill="url(#halo)"/>`
-    + motes
+    + backdrop
+    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#mood)" opacity="0.6"/>`
     + (owned
-      ? `<g transform="${cg}"><use href="#cr" filter="url(#bloom)" style="mix-blend-mode:screen" opacity="0.45"/><use href="#cr" class="ink"/>`
+      ? `<g transform="${cg}"><use href="#cr" class="ink"/>`
         + `</g>`
       : `<g transform="${cg}"><use href="#cr" filter="url(#ghost)"/></g>`)
     + (owned && (card.rarity === 'SR' || full) ? `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.35"/>` : '')
