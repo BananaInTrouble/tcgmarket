@@ -1,5 +1,5 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type FacetOpts, type Light, type Pt } from './lowpoly.ts';
 
 /**
  * Drakomet → Wyvernova → Comethéon, en low-poly : dragon des comètes. Le nouveau-né sort d'un œuf-météorite au fond
@@ -9,6 +9,8 @@ import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light
 
 const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
 const n1 = (v: number) => v.toFixed(1);
+/** Facettes un peu plus grandes que demandé (budget : ~1500 facettes par carte). */
+const fx = (poly: Pt[], col: string, L: Light, o: FacetOpts = {}) => facets(poly, col, L, { ...o, size: (o.size ?? 11) * 1.25 });
 const LIGHTS: Light[] = [
   { dir: [0.2, 0.6, 0.6], color: '#FFB26B', shade: '#140816', rim: '#FF8A4A' },
   { dir: [-0.6, 0.3, 0.6], color: '#BFF6FF', shade: '#06061A', rim: '#7CE8FF' },
@@ -50,18 +52,18 @@ function head(P: Pose['head'], base: string, deep: string, L: Light, far: Light,
   };
   const TT = (ps: Pt[]) => ps.map(T);
   const hs = st === 0 ? 0.5 : 1;
-  const horn = (pts: Pt[], w: number[], col: string, l: Light, seed: number) => facets(limb(TT(pts.map(([x, y]) => [x, y * hs] as Pt)), w.map((v) => v * P.s)), col, l, { size: 3, relief: 0.5, seed });
+  const horn = (pts: Pt[], w: number[], col: string, l: Light, seed: number) => fx(limb(TT(pts.map(([x, y]) => [x, y * hs] as Pt)), w.map((v) => v * P.s)), col, l, { size: 3, relief: 0.5, seed });
   let s = '';
   s += horn([[-4, -10], [6, -17], [18, -24], [28, -30]], [5, 4, 2.6, 0.8], mix(CRYSTAL, deep, 0.5), far, 70);
   // Collerette d'épines de la joue.
-  s += facets(TT([[2, 6], [20, 2], [10, 10], [22, 14], [8, 16], [14, 24], [0, 16]]), deep, far, { size: 4, relief: 0.4, seed: 71 });
+  s += fx(TT([[2, 6], [20, 2], [10, 10], [22, 14], [8, 16], [14, 24], [0, 16]]), deep, far, { size: 4, relief: 0.4, seed: 71 });
   const upper: Pt[] = [[4, -6], [-4, -15], [-16, -17], [-25, -13], [-33, -10], [-41, -8], [-47, -4], [-50, 0], [-47, 4], [-30, 6], [-14, 6], [0, 6], [8, 2]];
   const lower: Pt[] = P.roar ? [[-6, 8], [-20, 9], [-34, 14], [-44, 18], [-40, 21], [-24, 19], [-8, 16], [4, 12]] : [[-6, 8], [-22, 8], [-40, 10], [-38, 13], [-20, 16], [-6, 15], [4, 12]];
-  if (P.roar) s += `<path d="${'M' + TT([[-46, 4], [-14, 7], [-44, 17]]).map((p) => p.map(n1).join(' ')).join(' L')} Z" fill="#2A0A1A"/>` + facets(TT([[-44, 5], [-30, 6.5], [-42, 14]]), '#E86A8A', L, { size: 3, relief: 0.3, seed: 72 });
-  s += facets(TT(lower), mix(base, '#F2E6D8', 0.25), L, { size: 4, relief: 0.6, seed: 73 });
-  s += facets(TT(upper), base, L, { size: 4.5, relief: 0.9, seed: 74 });
+  if (P.roar) s += `<path d="${'M' + TT([[-46, 4], [-14, 7], [-44, 17]]).map((p) => p.map(n1).join(' ')).join(' L')} Z" fill="#2A0A1A"/>` + fx(TT([[-44, 5], [-30, 6.5], [-42, 14]]), '#E86A8A', L, { size: 3, relief: 0.3, seed: 72 });
+  s += fx(TT(lower), mix(base, '#F2E6D8', 0.25), L, { size: 4, relief: 0.6, seed: 73 });
+  s += fx(TT(upper), base, L, { size: 4.5, relief: 0.9, seed: 74 });
   // Arcade sourcilière, naseau, œil incandescent.
-  s += facets(TT([[-34, -11], [-24, -16], [-10, -15], [-12, -11], [-24, -12]]), deep, L, { size: 3, relief: 0.4, seed: 75 });
+  s += fx(TT([[-34, -11], [-24, -16], [-10, -15], [-12, -11], [-24, -12]]), deep, L, { size: 3, relief: 0.4, seed: 75 });
   const [nx, ny] = T([-44, -3]);
   s += `<circle cx="${n1(nx)}" cy="${n1(ny)}" r="${n1(1.3 * P.s)}" fill="#0B0618"/>`;
   const [ex, ey] = T([-19, -7]);
@@ -82,7 +84,7 @@ function wing(w: Pose['wing'], bone: string, mem: string, L: Light, seed: number
   }
   const lt = tips[tips.length - 1];
   poly.push([(lt[0] + root[0]) / 2 + (wr[0] - (lt[0] + root[0]) / 2) * 0.3, (lt[1] + root[1]) / 2 + (wr[1] - (lt[1] + root[1]) / 2) * 0.3], root);
-  let s = facets(poly, mem, L, { size: 15, relief: 0.5, seed, base2: mix(mem, '#000000', 0.3) });
+  let s = fx(poly, mem, L, { size: 15, relief: 0.5, seed, base2: mix(mem, '#000000', 0.3) });
   const r = prng(seed);
   for (let i = 0; i < (near ? 16 : 8); i++) {
     const t = tips[Math.floor(r() * tips.length)], u = 0.2 + r() * 0.6, v = r() * 0.4;
@@ -91,8 +93,8 @@ function wing(w: Pose['wing'], bone: string, mem: string, L: Light, seed: number
   }
   if (near && st >= 2) s += constel(tips.slice(1).map(([x, y], i) => [x + (wr[0] - x) * (0.3 + i * 0.05), y + (wr[1] - y) * (0.3 + i * 0.05)] as Pt), 2.6);
   const bl: Light = { ...L, rim: undefined };
-  s += facets(limb([sh, [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2], el, wr], [w.w * 3.6, w.w * 3, w.w * 2.4, w.w * 2]), bone, bl, { size: 5.5, relief: 0.6, seed: seed + 1 });
-  tips.forEach((t, i) => { s += facets(limb([wr, [(wr[0] + t[0]) / 2, (wr[1] + t[1]) / 2 - 3], t], [w.w * 1.6, w.w * 1, w.w * 0.4]), bone, bl, { size: 5, relief: 0.4, seed: seed + 2 + i }); });
+  s += fx(limb([sh, [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2], el, wr], [w.w * 3.6, w.w * 3, w.w * 2.4, w.w * 2]), bone, bl, { size: 5.5, relief: 0.6, seed: seed + 1 });
+  tips.forEach((t, i) => { s += fx(limb([wr, [(wr[0] + t[0]) / 2, (wr[1] + t[1]) / 2 - 3], t], [w.w * 1.6, w.w * 1, w.w * 0.4]), bone, bl, { size: 5, relief: 0.4, seed: seed + 2 + i }); });
   s += `<path d="M${n1(wr[0])} ${n1(wr[1] - 2)} l-9 -8 l3 9 z" fill="${CRYSTAL}"/>`;
   return s;
 }
@@ -110,22 +112,22 @@ function dragon(c: DrawCtx, P: Pose, st: number, extra = ''): string {
   const m = (p: Pt): Pt => [P.wing.sh[0] - (p[0] - P.wing.sh[0]) * P.farWing.s + P.farWing.dx, P.wing.sh[1] + (p[1] - P.wing.sh[1]) * P.farWing.s + P.farWing.dy];
   const fw = { ...P.wing, sh: m(P.wing.sh), el: m(P.wing.el), wr: m(P.wing.wr), tips: P.wing.tips.map(m), root: m(P.wing.root) };
   s += wing(fw, deep, mix(mem, '#000000', 0.25), far, 80, st, false);
-  if (P.hindFar) s += facets(limb(sp(P.hindFar), wd(P.hindFar)), deep, far, { size: 5, relief: 0.6, seed: 81 }) + claws(sp(P.hindFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
-  if (P.armFar) s += facets(limb(sp(P.armFar), wd(P.armFar)), deep, far, { size: 4, relief: 0.6, seed: 82 }) + claws(sp(P.armFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
+  if (P.hindFar) s += fx(limb(sp(P.hindFar), wd(P.hindFar)), deep, far, { size: 5, relief: 0.6, seed: 81 }) + claws(sp(P.hindFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
+  if (P.armFar) s += fx(limb(sp(P.armFar), wd(P.armFar)), deep, far, { size: 4, relief: 0.6, seed: 82 }) + claws(sp(P.armFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
   // Queue, épines dorsales.
-  s += facets(limb(sp(P.tail), wd(P.tail)), base, L, { size: 6, relief: 0.8, seed: 83, base2: deep });
+  s += fx(limb(sp(P.tail), wd(P.tail)), base, L, { size: 6, relief: 0.8, seed: 83, base2: deep });
   for (let i = 1; i < P.tail.length - 1; i++) {
     const [x, y, w] = P.tail[i], [x2, y2] = P.tail[i + 1], a = Math.atan2(y2 - y, x2 - x), nx = Math.sin(a), ny = -Math.cos(a), hh = w * 0.9 + 1.5;
     s += `<path d="M${n1(x + nx * w - Math.cos(a) * hh * 0.6)} ${n1(y + ny * w - Math.sin(a) * hh * 0.6)} L${n1(x + nx * (w + hh) + Math.cos(a) * hh * 0.4)} ${n1(y + ny * (w + hh) + Math.sin(a) * hh * 0.4)} L${n1(x + nx * w + Math.cos(a) * hh * 0.6)} ${n1(y + ny * w + Math.sin(a) * hh * 0.6)} Z" fill="${deep}"/>`;
   }
   // Corps et cou ; plastron ventral clair.
-  s += facets(limb(sp(P.body), wd(P.body)), base, L, { size: 8, relief: 1.2, seed: 84, base2: deep });
-  s += facets(limb(sp(P.neck), wd(P.neck)), base, L, { size: 6, relief: 1, seed: 85 });
+  s += fx(limb(sp(P.body), wd(P.body)), base, L, { size: 8, relief: 1.2, seed: 84, base2: deep });
+  s += fx(limb(sp(P.neck), wd(P.neck)), base, L, { size: 6, relief: 1, seed: 85 });
   const belly = [...P.body.slice().reverse(), ...P.neck.slice(1)].map(([x, y, w], i, arr) => {
     const b = arr[Math.min(i + 1, arr.length - 1)], a0 = arr[Math.max(i - 1, 0)], a = Math.atan2(b[1] - a0[1], b[0] - a0[0]);
     return [x + Math.sin(a) * w * 0.55, y - Math.cos(a) * w * 0.55, w * 0.7] as Pw;
   });
-  s += facets(limb(sp(belly), wd(belly).map((v) => v * 0.55)), mix(base, '#F2E6D8', 0.35), L, { size: 5, relief: 0.5, seed: 86 });
+  s += fx(limb(sp(belly), wd(belly).map((v) => v * 0.55)), mix(base, '#F2E6D8', 0.35), L, { size: 5, relief: 0.5, seed: 86 });
   // Épines du dos et du cou.
   const dors = [...P.neck.slice().reverse(), ...P.body.slice(1)];
   for (let i = 1; i < dors.length; i++) {
@@ -136,8 +138,8 @@ function dragon(c: DrawCtx, P: Pose, st: number, extra = ''): string {
   if (st >= 2) s += constel(P.body.slice(1).map(([x, y, w]) => [x + 3, y - w * 0.2] as Pt), 2.6);
   s += extra;
   // Membres de devant.
-  s += facets(limb(sp(P.hind), wd(P.hind)), base, L, { size: 5, relief: 0.8, seed: 87 }) + claws(sp(P.hind).slice(-1)[0], -1, CRYSTAL);
-  if (P.arm) s += facets(limb(sp(P.arm), wd(P.arm)), base, L, { size: 4, relief: 0.8, seed: 88 }) + claws(sp(P.arm).slice(-1)[0], -1, CRYSTAL);
+  s += fx(limb(sp(P.hind), wd(P.hind)), base, L, { size: 5, relief: 0.8, seed: 87 }) + claws(sp(P.hind).slice(-1)[0], -1, CRYSTAL);
+  if (P.arm) s += fx(limb(sp(P.arm), wd(P.arm)), base, L, { size: 4, relief: 0.8, seed: 88 }) + claws(sp(P.arm).slice(-1)[0], -1, CRYSTAL);
   // Aile de devant et tête.
   s += wing(P.wing, mix(base, '#FFFFFF', 0.08), mem, L, 90, st, true);
   s += head(P.head, base, deep, L, far, st);
@@ -178,8 +180,8 @@ const draw = (c: DrawCtx): string => {
   if (st === 1) {
     // Wyvernova : jeune wyverne qui guette, perchée sur son astéroïde.
     const rockL: Light = { dir: [-0.6, 0.2, 0.6], color: '#9FD8F0', shade: '#05061A', rim: '#7CE8FF' };
-    let g = facets(curve([60, 204], [[[56, 192], [64, 180], [78, 176]], [[96, 170], [124, 172], [142, 176]], [[158, 180], [168, 190], [166, 204]], [[130, 210], [90, 210], [60, 204]]]), hsl(h + 200, 14, 34), rockL, { size: 10, relief: 0.9, seed: 30, base2: '#141428' });
-    for (const [x, y, k] of [[86, 180, 1], [94, 177, 1.4], [134, 180, 0.9]] as [number, number, number][]) g += facets([[x - 3 * k, y], [x, y - 12 * k], [x + 3 * k, y]], CRYSTAL, { dir: [-0.6, -0.3, 0.6], color: '#FFFFFF', shade: '#3A5BC0' }, { size: 3, relief: 0.4, seed: x });
+    let g = fx(curve([60, 204], [[[56, 192], [64, 180], [78, 176]], [[96, 170], [124, 172], [142, 176]], [[158, 180], [168, 190], [166, 204]], [[130, 210], [90, 210], [60, 204]]]), hsl(h + 200, 14, 34), rockL, { size: 10, relief: 0.9, seed: 30, base2: '#141428' });
+    for (const [x, y, k] of [[86, 180, 1], [94, 177, 1.4], [134, 180, 0.9]] as [number, number, number][]) g += fx([[x - 3 * k, y], [x, y - 12 * k], [x + 3 * k, y]], CRYSTAL, { dir: [-0.6, -0.3, 0.6], color: '#FFFFFF', shade: '#3A5BC0' }, { size: 3, relief: 0.4, seed: x });
     const P: Pose = {
       body: [[104, 124, 14], [112, 140, 16], [122, 156, 13], [132, 166, 9]],
       neck: [[104, 124, 11], [96, 108, 8.5], [88, 92, 7], [86, 78, 6.4], [92, 68, 6]],
@@ -198,8 +200,8 @@ const draw = (c: DrawCtx): string => {
   // Drakomet : nouveau-né qui sort de son œuf-météorite.
   const eggL: Light = { dir: [0.2, 0.5, 0.7], color: '#FFB26B', shade: '#0E0610', rim: '#FF8A4A' };
   let g = `<ellipse cx="112" cy="205" rx="70" ry="7" fill="#05030C" opacity="0.45"/>`;
-  g += facets([[64, 130], [76, 104], [100, 92], [116, 92], [136, 92], [156, 108], [160, 132], [150, 126], [138, 136], [128, 122], [114, 136], [104, 120], [92, 136], [80, 124], [72, 138]], '#1A1020', eggL, { size: 8, relief: 0.4, seed: 40 });
-  for (let i = 0; i < 6; i++) g += facets([[80 + i * 12, 128 - (i % 2) * 4], [83 + i * 12, 119 - (i % 2) * 4], [87 + i * 12, 127 - (i % 2) * 4]], i % 2 ? '#FFE27A' : CRYSTAL, eggL, { size: 3, relief: 0.3, seed: 41 + i });
+  g += fx([[64, 130], [76, 104], [100, 92], [116, 92], [136, 92], [156, 108], [160, 132], [150, 126], [138, 136], [128, 122], [114, 136], [104, 120], [92, 136], [80, 124], [72, 138]], '#1A1020', eggL, { size: 8, relief: 0.4, seed: 40 });
+  for (let i = 0; i < 6; i++) g += fx([[80 + i * 12, 128 - (i % 2) * 4], [83 + i * 12, 119 - (i % 2) * 4], [87 + i * 12, 127 - (i % 2) * 4]], i % 2 ? '#FFE27A' : CRYSTAL, eggL, { size: 3, relief: 0.3, seed: 41 + i });
   const P: Pose = {
     body: [[112, 150, 20], [116, 162, 20]],
     neck: [[110, 146, 12], [100, 128, 9], [92, 110, 8], [92, 96, 7.5], [98, 86, 7.2]],
@@ -213,11 +215,11 @@ const draw = (c: DrawCtx): string => {
   };
   g += dragon(c, P, 0);
   // Coquille de devant (roche météoritique) et fêlures incandescentes.
-  g += facets([[48, 204], [42, 176], [46, 150], [62, 128], [72, 138], [80, 124], [92, 136], [104, 120], [114, 136], [128, 122], [138, 136], [150, 126], [160, 138], [176, 154], [180, 182], [172, 204]], mix('#2E3A56', hsl(h + 180, 30, 30), 0.3), eggL, { size: 10, relief: 1, seed: 50, base2: '#120A18' });
+  g += fx([[48, 204], [42, 176], [46, 150], [62, 128], [72, 138], [80, 124], [92, 136], [104, 120], [114, 136], [128, 122], [138, 136], [150, 126], [160, 138], [176, 154], [180, 182], [172, 204]], mix('#3A4C78', hsl(h + 180, 30, 40), 0.25), { ...eggL, rim: CRYSTAL }, { size: 10, relief: 1, seed: 50, base2: '#120A18' });
   for (const d of [[[96, 150], [90, 164], [98, 170], [94, 182]], [[140, 146], [146, 158], [140, 166]], [[64, 160], [72, 170], [68, 184]]] as Pt[][]) {
-    g += facets(limb(d, [2.4, 1.8, 1.4, 1]), '#FFD27A', { dir: [0, 0, 1], color: '#FFFFFF', shade: '#FF8A4A' }, { size: 2, relief: 0.2, seed: 55 });
+    g += fx(limb(d, [2.4, 1.8, 1.4, 1]), '#FFD27A', { dir: [0, 0, 1], color: '#FFFFFF', shade: '#FF8A4A' }, { size: 2, relief: 0.2, seed: 55 });
   }
-  g += facets(limb([[88, 142], [78, 136], [72, 134]], [8, 6, 5]), hsl(h, 34, 46), LIGHTS[0], { size: 3, relief: 0.6, seed: 56 }) + claws([72, 134], -1, CRYSTAL);
+  g += fx(limb([[88, 142], [78, 136], [72, 134]], [8, 6, 5]), hsl(h, 34, 46), LIGHTS[0], { size: 3, relief: 0.6, seed: 56 }) + claws([72, 134], -1, CRYSTAL);
   return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${g}</g>`;
 };
 
@@ -238,7 +240,7 @@ function rock(x: number, y: number, rr: number, col: string, L: Light, seed: num
   const r = prng(seed);
   const pts: Pt[] = [];
   for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, k = rr * (0.75 + r() * 0.35); pts.push([x + Math.cos(a) * k, y + Math.sin(a) * k * 0.85]); }
-  return facets(pts, col, L, { size: Math.max(3, rr / 2.4), relief: 0.9, seed });
+  return fx(pts, col, L, { size: Math.max(3, rr / 2.4), relief: 0.9, seed });
 }
 
 const scene = (c: DrawCtx, b: Bounds): string => {
@@ -252,11 +254,11 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     s += `<path d="M150 14 L210 -8 L212 -5 Z" fill="#FFE6B0" opacity="0.8"/>`;
     for (let i = 0; i < 5; i++) s += `<ellipse cx="${n1(80 + r() * 70)}" cy="${n1(40 + i * 16)}" rx="${n1(26 + r() * 18)}" ry="${n1(9 + r() * 5)}" fill="#6A5470" opacity="${n1(0.08 + i * 0.03)}"/>`;
     const hL: Light = { dir: [0.2, 0.6, 0.6], color: '#E08A5A', shade: '#0A0610' };
-    s += facets([[b.x0, 140], [40, 126], [80, 134], [120, 122], [170, 132], [b.x1, 124], [b.x1, 166], [b.x0, 166]], '#3A2A3C', hL, { size: 18, relief: 0.5, seed: 10 });
-    s += facets([[b.x0, 154], [40, 140], [111, 144], [180, 138], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#4A3436', hL, { size: 28, relief: 0.6, seed: 11, base2: '#160C12' });
-    s += facets(ellipse(111, 198, 112, 34, 22), '#2A1E26', { dir: [0.1, -0.7, 0.6], color: '#FF9A5A', shade: '#080408' }, { size: 16, relief: -0.6, seed: 12 });
+    s += fx([[b.x0, 140], [40, 126], [80, 134], [120, 122], [170, 132], [b.x1, 124], [b.x1, 166], [b.x0, 166]], '#3A2A3C', hL, { size: 18, relief: 0.5, seed: 10 });
+    s += fx([[b.x0, 154], [40, 140], [111, 144], [180, 138], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#4A3436', hL, { size: 28, relief: 0.6, seed: 11, base2: '#160C12' });
+    s += fx(ellipse(111, 198, 112, 34, 22), '#1C1218', { dir: [0.1, -0.7, 0.6], color: '#FF9A5A', shade: '#080408' }, { size: 16, relief: -0.6, seed: 12 });
     s += `<ellipse cx="111" cy="200" rx="70" ry="16" fill="#FF9A4A" opacity="0.2"/>`;
-    for (const d of [[[18, 206], [36, 202], [46, 208], [60, 206]], [[168, 214], [182, 208], [194, 212], [206, 206]], [[60, 228], [72, 224], [84, 226]]] as Pt[][]) s += facets(limb(d, [2.2, 1.6, 1.2, 1]), '#FFB26B', { dir: [0, 0, 1], color: '#FFF0C0', shade: '#C8501A' }, { size: 2, relief: 0.2, seed: 13 });
+    for (const d of [[[18, 206], [36, 202], [46, 208], [60, 206]], [[168, 214], [182, 208], [194, 212], [206, 206]], [[60, 228], [72, 224], [84, 226]]] as Pt[][]) s += fx(limb(d, [2.2, 1.6, 1.2, 1]), '#FFB26B', { dir: [0, 0, 1], color: '#FFF0C0', shade: '#C8501A' }, { size: 2, relief: 0.2, seed: 13 });
     for (let i = 0; i < 12; i++) { const x = 20 + r() * 180, y = 60 + r() * 130; s += `<path d="M${n1(x)} ${n1(y - 1.4)} L${n1(x + 1.2)} ${n1(y)} L${n1(x)} ${n1(y + 1.4)} L${n1(x - 1.2)} ${n1(y)} Z" fill="#FFB26B" opacity="${n1(0.5 + r() * 0.5)}"/>`; }
     s += rock(22, 222, 9, '#4A3A40', hL, 14) + rock(198, 228, 12, '#4A3A40', hL, 15) + rock(186, 150, 4, '#4A3A40', hL, 16);
   } else if (st === 1) {
@@ -264,7 +266,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     s += `<ellipse cx="160" cy="60" rx="90" ry="40" fill="${hsl(h + 200, 60, 50)}" opacity="0.14"/><ellipse cx="60" cy="40" rx="60" ry="24" fill="${hsl(h + 140, 60, 56)}" opacity="0.1"/>`;
     s += stars(b, 50, b.y1, 7);
     const pL: Light = { dir: [0.6, -0.6, 0.5], color: '#BFF6FF', shade: '#04081A', rim: '#7CE8FF' };
-    s += `<circle cx="-20" cy="300" r="132" fill="${hsl(h + 180, 70, 70)}" opacity="0.12"/>` + facets(ellipse(-20, 300, 120, 120, 40), hsl(h + 180, 34, 34), pL, { size: 28, relief: 1, seed: 20 });
+    s += `<circle cx="-20" cy="300" r="132" fill="${hsl(h + 180, 70, 70)}" opacity="0.12"/>` + fx(ellipse(-20, 300, 120, 120, 40), hsl(h + 180, 34, 34), pL, { size: 28, relief: 1, seed: 20 });
     const aL: Light = { dir: [-0.6, 0.3, 0.6], color: '#9FD8F0', shade: '#04040E' };
     for (let i = 0; i < 8; i++) s += rock(b.x0 + r() * (b.x1 - b.x0), 10 + r() * 150, 2.5 + r() * 4, '#5A5A7A', aL, 21 + i);
     s += rock(30, 70, 12, '#4A4A66', aL, 30) + rock(198, 190, 16, '#3E3E58', aL, 31) + rock(186, 26, 8, '#4A4A66', aL, 32);
@@ -275,7 +277,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
       s += `<path d="M${x} ${y - 1.4} L${x + l} ${y - l * 0.6} L${x} ${y + 1.4} Z" fill="#FFFFFF" opacity="0.6"/>` + gem(x, y, 3, '#FFFFFF', CRYSTAL);
     }
     const mL: Light = { dir: [-0.5, -0.6, 0.6], color: '#F2C0C8', shade: '#120A24' };
-    s += facets([[b.x0, 172], [20, 140], [36, 158], [58, 120], [80, 160], [160, 166], [b.x1 - 30, 130], [b.x1, 150], [b.x1, 182], [b.x0, 182]], hsl(h + 260, 22, 40), mL, { size: 22, relief: 0.6, seed: 40 });
+    s += fx([[b.x0, 172], [20, 140], [36, 158], [58, 120], [80, 160], [160, 166], [b.x1 - 30, 130], [b.x1, 150], [b.x1, 182], [b.x0, 182]], hsl(h + 260, 22, 40), mL, { size: 22, relief: 0.6, seed: 40 });
     // Mer de nuages (bourrelets facettés).
     const cloud = (y: number, col: string, seed: number) => {
       const pts: Pt[] = [[b.x0 - 10, b.y1]];
@@ -283,11 +285,11 @@ const scene = (c: DrawCtx, b: Bounds): string => {
       const cr = prng(seed);
       while (x < b.x1 + 20) { const w = 14 + cr() * 20; pts.push([x, y + (cr() - 0.5) * 6], [x + w * 0.5, y - 8 - cr() * 8]); x += w; }
       pts.push([b.x1 + 20, y], [b.x1 + 20, b.y1]);
-      return facets(pts, col, { dir: [-0.4, -0.8, 0.5], color: '#FFE6E0', shade: '#3A2440' }, { size: 20, relief: 0.6, seed });
+      return fx(pts, col, { dir: [-0.4, -0.8, 0.5], color: '#FFE6E0', shade: '#3A2440' }, { size: 20, relief: 0.6, seed });
     };
     s += cloud(176, '#B890B0', 41) + cloud(194, '#9A7298', 42);
     // Le pic sous le dragon.
-    s += facets([[b.x0 - 6, b.y1], [18, 222], [40, 206], [70, 202], [120, 200], [170, 203], [196, 210], [214, 224], [b.x1 + 6, b.y1]], '#3A3048', { dir: [-0.5, -0.6, 0.6], color: '#FFC4B0', shade: '#0A0612', rim: '#FFB0C8' }, { size: 20, relief: 0.8, seed: 43, base2: '#120C1C' });
+    s += fx([[b.x0 - 6, b.y1], [18, 222], [40, 206], [70, 202], [120, 200], [170, 203], [196, 210], [214, 224], [b.x1 + 6, b.y1]], '#3A3048', { dir: [-0.5, -0.6, 0.6], color: '#FFC4B0', shade: '#0A0612', rim: '#FFB0C8' }, { size: 20, relief: 0.8, seed: 43, base2: '#120C1C' });
   }
   return s;
 };
