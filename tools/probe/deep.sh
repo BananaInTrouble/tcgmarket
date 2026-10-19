@@ -1,21 +1,26 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : sources de logos des extensions Lorcana.
+# Exploration ponctuelle : sources de logos des extensions Lorcana (suite).
 set -u
 UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36'
-h() { echo "== $1"; curl -sL -A "$UA" -o /tmp/x -D - -m 30 "$1" | grep -iE "^HTTP|content-type|content-length" | head -4; }
-for id in lorcana-1 lorcana-14 1 tfc rotf lorcana-tfc; do h "https://images.scrydex.com/lorcana/$id-logo/logo"; done
-echo "#### lorcanajson sets"
-curl -sL -m 60 https://lorcanajson.org/files/current/en/allCards.json -o /tmp/all.json
-python3 -c "import json;d=json.load(open('/tmp/all.json'));s=d.get('sets');print(type(s));import itertools;print(json.dumps(dict(itertools.islice(s.items(),2)) if isinstance(s,dict) else s[:2],indent=1)[:1500])"
-echo "#### lorcast"
-curl -sL -m 30 https://api.lorcast.com/v0/sets | head -c 1500; echo
-echo "#### lorcana-api"
-curl -sL -m 30 "https://api.lorcana-api.com/sets/all" | head -c 1200; echo
-echo "#### fandom search"
-curl -sL -m 30 "https://lorcana.fandom.com/api.php?action=query&list=search&srnamespace=6&srsearch=logo&srlimit=60&format=json" | python3 -c "import json,sys;d=json.load(sys.stdin);print('\n'.join(x['title'] for x in d['query']['search']))" 2>&1 | head -70
-echo "#### fandom imageinfo"
-curl -sL -m 30 "https://lorcana.fandom.com/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=logo&gsrlimit=60&prop=imageinfo&iiprop=url|size&format=json" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(p['title'],p['imageinfo'][0]['width'],p['imageinfo'][0]['url']) for p in d['query']['pages'].values()]" 2>&1 | head -70
-echo "#### site officiel"
-for u in https://www.disneylorcana.com/en-US https://www.disneylorcana.com/en-US/sets https://dreamborn.ink/en/sets ; do h "$u"; grep -oiE '(src|href|content)="[^"]*(logo|set)[^"]*\.(png|webp|svg|jpg)[^"]*"' /tmp/x | sort -u | head -30; done
-echo "#### takaratomy"
-h "https://www.takaratomy.co.jp/products/disneylorcana/"; grep -oiE 'src="[^"]*logo[^"]*"' /tmp/x | sort -u | head -30
+T="The_First_Chapter|Rise_of_the_Floodborn|Into_the_Inklands|Ursula's_Return|Shimmering_Skies|Azurite_Sea|Archazia's_Island|The_Reign_of_Jafar|Reign_of_Jafar|Fabled|Whispers_in_the_Well|Winterspell|Wilds_Unknown|Attack_of_the_Vine!|Hyperia_City"
+echo "#### fandom pageimages"
+curl -sL -m 30 -G "https://lorcana.fandom.com/api.php" --data-urlencode "titles=$T" -d action=query -d prop=pageimages -d piprop=original -d redirects=1 -d format=json | python3 -c "import json,sys;d=json.load(sys.stdin);[print(p.get('title'),'|',(p.get('original') or {}).get('source'),(p.get('original') or {}).get('width')) for p in d['query']['pages'].values()]"
+echo "#### fandom images par page"
+curl -sL -m 30 -G "https://lorcana.fandom.com/api.php" --data-urlencode "titles=$T" -d action=query -d prop=images -d imlimit=500 -d redirects=1 -d format=json | python3 -c "
+import json,sys;d=json.load(sys.stdin)
+for p in d['query']['pages'].values():
+  ims=[i['title'] for i in p.get('images',[]) if any(w in i['title'].lower() for w in ('logo','set','title','wordmark'))]
+  print(p.get('title'),'->',ims[:12])"
+echo "#### fandom allimages logo"
+for pre in "" ; do
+curl -sL -m 30 "https://lorcana.fandom.com/api.php?action=query&list=allimages&aisort=name&ailimit=500&format=json&aiprop=url|size" | python3 -c "
+import json,sys;d=json.load(sys.stdin)
+for i in d['query']['allimages']:
+  n=i['name'].lower()
+  if 'logo' in n: print(i['name'],i['width'],i['url'])" | head -80
+done
+echo "#### disneylorcana html"
+curl -sL -A "$UA" -m 30 https://www.disneylorcana.com/en-US -o /tmp/h.html
+grep -oE 'https?://[^"'"'"' )]+\.(png|webp|svg|jpg)' /tmp/h.html | sort -u | head -80
+grep -oE '"/[^"]*(set|logo)[^"]*\.(png|webp|svg|jpg)"' /tmp/h.html | sort -u | head -40
+grep -oE 'href="/en-US/[^"]+"' /tmp/h.html | sort -u | head -60
