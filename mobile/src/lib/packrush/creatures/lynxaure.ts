@@ -199,7 +199,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     const mL: Light = { dir: [-0.3, -0.8, 0.5], color: '#B8E8F0', shade: '#06101E' };
     s += facets([[b.x0, 130], [20, 104], [56, 122], [96, 92], [140, 120], [180, 98], [b.x1, 118], [b.x1, 150], [b.x0, 150]], '#2C4A66', mL, { size: 16, relief: 0.6, seed: 14 });
     for (let i = 0; i < 16; i++) s += fir(b.x0 + 4 + i * (W / 15) + r() * 4, 150, 12 + r() * 12, '#0C1A2C', mL, 40 + i);
-    s += facets([[b.x0, 148], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#3E7A8C', { dir: [0, -0.9, 0.5], color: '#C8FFF0', shade: '#061424' }, { size: 22, relief: 0.15, seed: 15, base2: '#0A1E2C', jitter: 0.2 });
+    s += facets([[b.x0, 148], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#22485A', { dir: [0, -0.9, 0.5], color: '#8FD8D0', shade: '#061424' }, { size: 22, relief: 0.15, seed: 15, base2: '#071420', jitter: 0.2 });
     s += `<path d="M${b.x0} 148 H${b.x1}" stroke="#C8FFF0" stroke-width="0.8" opacity="0.6"/>`;
     return s;
   }
