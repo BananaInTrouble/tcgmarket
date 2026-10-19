@@ -82,7 +82,7 @@ function wing(w: Pose['wing'], bone: string, mem: string, L: Light, seed: number
   }
   const lt = tips[tips.length - 1];
   poly.push([(lt[0] + root[0]) / 2 + (wr[0] - (lt[0] + root[0]) / 2) * 0.3, (lt[1] + root[1]) / 2 + (wr[1] - (lt[1] + root[1]) / 2) * 0.3], root);
-  let s = facets(poly, mem, L, { size: 12, relief: 0.5, seed, base2: mix(mem, '#000000', 0.3) });
+  let s = facets(poly, mem, L, { size: 15, relief: 0.5, seed, base2: mix(mem, '#000000', 0.3) });
   const r = prng(seed);
   for (let i = 0; i < (near ? 16 : 8); i++) {
     const t = tips[Math.floor(r() * tips.length)], u = 0.2 + r() * 0.6, v = r() * 0.4;
@@ -91,8 +91,8 @@ function wing(w: Pose['wing'], bone: string, mem: string, L: Light, seed: number
   }
   if (near && st >= 2) s += constel(tips.slice(1).map(([x, y], i) => [x + (wr[0] - x) * (0.3 + i * 0.05), y + (wr[1] - y) * (0.3 + i * 0.05)] as Pt), 2.6);
   const bl: Light = { ...L, rim: undefined };
-  s += facets(limb([sh, [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2], el, wr], [w.w * 3.6, w.w * 3, w.w * 2.4, w.w * 2]), bone, bl, { size: 4, relief: 0.6, seed: seed + 1 });
-  tips.forEach((t, i) => { s += facets(limb([wr, [(wr[0] + t[0]) / 2, (wr[1] + t[1]) / 2 - 3], t], [w.w * 1.6, w.w * 1, w.w * 0.4]), bone, bl, { size: 3.5, relief: 0.4, seed: seed + 2 + i }); });
+  s += facets(limb([sh, [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2], el, wr], [w.w * 3.6, w.w * 3, w.w * 2.4, w.w * 2]), bone, bl, { size: 5.5, relief: 0.6, seed: seed + 1 });
+  tips.forEach((t, i) => { s += facets(limb([wr, [(wr[0] + t[0]) / 2, (wr[1] + t[1]) / 2 - 3], t], [w.w * 1.6, w.w * 1, w.w * 0.4]), bone, bl, { size: 5, relief: 0.4, seed: seed + 2 + i }); });
   s += `<path d="M${n1(wr[0])} ${n1(wr[1] - 2)} l-9 -8 l3 9 z" fill="${CRYSTAL}"/>`;
   return s;
 }
@@ -247,35 +247,35 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   const r = prng(90 + st);
   let s = '';
   if (st === 0) {
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0C22', '#22162E', '#3A2230', '#2A1620', '#140A12'], 3, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0C22', '#22162E', '#3A2230', '#2A1620', '#140A12'], 3, 32);
     s += stars(b, 28, 110, 6);
     s += `<path d="M150 14 L210 -8 L212 -5 Z" fill="#FFE6B0" opacity="0.8"/>`;
     for (let i = 0; i < 5; i++) s += `<ellipse cx="${n1(80 + r() * 70)}" cy="${n1(40 + i * 16)}" rx="${n1(26 + r() * 18)}" ry="${n1(9 + r() * 5)}" fill="#6A5470" opacity="${n1(0.08 + i * 0.03)}"/>`;
     const hL: Light = { dir: [0.2, 0.6, 0.6], color: '#E08A5A', shade: '#0A0610' };
     s += facets([[b.x0, 140], [40, 126], [80, 134], [120, 122], [170, 132], [b.x1, 124], [b.x1, 166], [b.x0, 166]], '#3A2A3C', hL, { size: 18, relief: 0.5, seed: 10 });
-    s += facets([[b.x0, 154], [40, 140], [111, 144], [180, 138], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#4A3436', hL, { size: 20, relief: 0.6, seed: 11, base2: '#160C12' });
+    s += facets([[b.x0, 154], [40, 140], [111, 144], [180, 138], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#4A3436', hL, { size: 28, relief: 0.6, seed: 11, base2: '#160C12' });
     s += facets(ellipse(111, 198, 112, 34, 22), '#2A1E26', { dir: [0.1, -0.7, 0.6], color: '#FF9A5A', shade: '#080408' }, { size: 16, relief: -0.6, seed: 12 });
     s += `<ellipse cx="111" cy="200" rx="70" ry="16" fill="#FF9A4A" opacity="0.2"/>`;
     for (const d of [[[18, 206], [36, 202], [46, 208], [60, 206]], [[168, 214], [182, 208], [194, 212], [206, 206]], [[60, 228], [72, 224], [84, 226]]] as Pt[][]) s += facets(limb(d, [2.2, 1.6, 1.2, 1]), '#FFB26B', { dir: [0, 0, 1], color: '#FFF0C0', shade: '#C8501A' }, { size: 2, relief: 0.2, seed: 13 });
     for (let i = 0; i < 12; i++) { const x = 20 + r() * 180, y = 60 + r() * 130; s += `<path d="M${n1(x)} ${n1(y - 1.4)} L${n1(x + 1.2)} ${n1(y)} L${n1(x)} ${n1(y + 1.4)} L${n1(x - 1.2)} ${n1(y)} Z" fill="#FFB26B" opacity="${n1(0.5 + r() * 0.5)}"/>`; }
     s += rock(22, 222, 9, '#4A3A40', hL, 14) + rock(198, 228, 12, '#4A3A40', hL, 15) + rock(186, 150, 4, '#4A3A40', hL, 16);
   } else if (st === 1) {
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#08081C', '#0E1030', '#141634', '#0C0E24'], 4, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#08081C', '#0E1030', '#141634', '#0C0E24'], 4, 32);
     s += `<ellipse cx="160" cy="60" rx="90" ry="40" fill="${hsl(h + 200, 60, 50)}" opacity="0.14"/><ellipse cx="60" cy="40" rx="60" ry="24" fill="${hsl(h + 140, 60, 56)}" opacity="0.1"/>`;
     s += stars(b, 50, b.y1, 7);
     const pL: Light = { dir: [0.6, -0.6, 0.5], color: '#BFF6FF', shade: '#04081A', rim: '#7CE8FF' };
-    s += `<circle cx="-20" cy="300" r="132" fill="${hsl(h + 180, 70, 70)}" opacity="0.12"/>` + facets(ellipse(-20, 300, 120, 120, 40), hsl(h + 180, 34, 34), pL, { size: 20, relief: 1, seed: 20 });
+    s += `<circle cx="-20" cy="300" r="132" fill="${hsl(h + 180, 70, 70)}" opacity="0.12"/>` + facets(ellipse(-20, 300, 120, 120, 40), hsl(h + 180, 34, 34), pL, { size: 28, relief: 1, seed: 20 });
     const aL: Light = { dir: [-0.6, 0.3, 0.6], color: '#9FD8F0', shade: '#04040E' };
     for (let i = 0; i < 8; i++) s += rock(b.x0 + r() * (b.x1 - b.x0), 10 + r() * 150, 2.5 + r() * 4, '#5A5A7A', aL, 21 + i);
     s += rock(30, 70, 12, '#4A4A66', aL, 30) + rock(198, 190, 16, '#3E3E58', aL, 31) + rock(186, 26, 8, '#4A4A66', aL, 32);
   } else {
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0E2C', hsl(h + 220, 36, 28), hsl(h + 330, 44, 50), '#F2C79A', '#8A6A90', '#3A2A48'], 5, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0E2C', hsl(h + 220, 36, 28), hsl(h + 330, 44, 50), '#F2C79A', '#8A6A90', '#3A2A48'], 5, 32);
     s += stars(b, 30, 120, 8);
     for (const [x, y, l] of [[190, 20, 60], [60, 66, 40], [150, 92, 30]] as Pt3[]) {
       s += `<path d="M${x} ${y - 1.4} L${x + l} ${y - l * 0.6} L${x} ${y + 1.4} Z" fill="#FFFFFF" opacity="0.6"/>` + gem(x, y, 3, '#FFFFFF', CRYSTAL);
     }
     const mL: Light = { dir: [-0.5, -0.6, 0.6], color: '#F2C0C8', shade: '#120A24' };
-    s += facets([[b.x0, 172], [20, 140], [36, 158], [58, 120], [80, 160], [160, 166], [b.x1 - 30, 130], [b.x1, 150], [b.x1, 182], [b.x0, 182]], hsl(h + 260, 22, 40), mL, { size: 16, relief: 0.6, seed: 40 });
+    s += facets([[b.x0, 172], [20, 140], [36, 158], [58, 120], [80, 160], [160, 166], [b.x1 - 30, 130], [b.x1, 150], [b.x1, 182], [b.x0, 182]], hsl(h + 260, 22, 40), mL, { size: 22, relief: 0.6, seed: 40 });
     // Mer de nuages (bourrelets facettés).
     const cloud = (y: number, col: string, seed: number) => {
       const pts: Pt[] = [[b.x0 - 10, b.y1]];
@@ -283,11 +283,11 @@ const scene = (c: DrawCtx, b: Bounds): string => {
       const cr = prng(seed);
       while (x < b.x1 + 20) { const w = 14 + cr() * 20; pts.push([x, y + (cr() - 0.5) * 6], [x + w * 0.5, y - 8 - cr() * 8]); x += w; }
       pts.push([b.x1 + 20, y], [b.x1 + 20, b.y1]);
-      return facets(pts, col, { dir: [-0.4, -0.8, 0.5], color: '#FFE6E0', shade: '#3A2440' }, { size: 14, relief: 0.6, seed });
+      return facets(pts, col, { dir: [-0.4, -0.8, 0.5], color: '#FFE6E0', shade: '#3A2440' }, { size: 20, relief: 0.6, seed });
     };
     s += cloud(176, '#B890B0', 41) + cloud(194, '#9A7298', 42);
     // Le pic sous le dragon.
-    s += facets([[b.x0 - 6, b.y1], [18, 222], [40, 206], [70, 202], [120, 200], [170, 203], [196, 210], [214, 224], [b.x1 + 6, b.y1]], '#3A3048', { dir: [-0.5, -0.6, 0.6], color: '#FFC4B0', shade: '#0A0612', rim: '#FFB0C8' }, { size: 14, relief: 0.8, seed: 43, base2: '#120C1C' });
+    s += facets([[b.x0 - 6, b.y1], [18, 222], [40, 206], [70, 202], [120, 200], [170, 203], [196, 210], [214, 224], [b.x1 + 6, b.y1]], '#3A3048', { dir: [-0.5, -0.6, 0.6], color: '#FFC4B0', shade: '#0A0612', rim: '#FFB0C8' }, { size: 20, relief: 0.8, seed: 43, base2: '#120C1C' });
   }
   return s;
 };

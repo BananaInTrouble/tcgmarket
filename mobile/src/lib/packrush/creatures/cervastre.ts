@@ -174,7 +174,7 @@ const draw = (c: DrawCtx): string => {
 // sous les aurores).
 
 const trunk = (x: number, top: number, bot: number, w: number, col: string, L: Light, seed: number) =>
-  facets([[x - w * 0.42, top], [x + w * 0.42, top], [x + w * 0.5, bot - 12], [x + w, bot], [x - w, bot], [x - w * 0.5, bot - 12]], col, L, { size: Math.max(6, w * 0.9), relief: 0.5, seed });
+  facets([[x - w * 0.42, top], [x + w * 0.42, top], [x + w * 0.5, bot - 12], [x + w, bot], [x - w, bot], [x - w * 0.5, bot - 12]], col, L, { size: Math.max(9, w * 1.3), relief: 0.5, seed });
 const fir = (x: number, y: number, hh: number, col: string, L: Light, seed: number) =>
   facets([[x, y - hh], [x + hh * 0.32, y], [x - hh * 0.32, y]], col, L, { size: hh / 4, relief: 0.8, seed });
 const stars = (b: Bounds, n: number, ymax: number, seed: number, dark = '#BFD7FF') => {
@@ -214,7 +214,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   let s = '';
   if (st === 0) {
     // Clairière moussue, nuit profonde ; un rayon de lune tombe sur le faon.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A1024', '#13243A', '#163038', '#0E1E22', '#08100F'], 9, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A1024', '#13243A', '#163038', '#0E1E22', '#08100F'], 9, 32);
     s += stars(b, 26, 100, 5);
     s += `<circle cx="40" cy="30" r="26" fill="#DDE6FF" opacity="0.14"/>` + facets(ellipse(40, 30, 13, 13, 12), '#F2F0E0', { dir: [-0.5, -0.5, 0.7], color: '#FFFFFF', shade: '#9AA4C8' }, { size: 6, relief: 0.6, seed: 3 });
     const fL: Light = { dir: [-0.6, -0.5, 0.6], color: '#9FC8D8', shade: '#060A14' };
@@ -223,7 +223,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     for (const [x, w] of [[24, 11], [130, 9], [200, 12]] as Pt[]) s += trunk(x, b.y0, 172, w, '#18283A', fL, 30 + x);
     // Sol moussu et creux.
     const moss: Light = { dir: [-0.5, -0.8, 0.5], color: '#9FE0B8', shade: '#04100A' };
-    s += facets([[b.x0, 166], [40, 156], [100, 160], [160, 158], [b.x1, 154], [b.x1, b.y1], [b.x0, b.y1]], '#1E3C30', moss, { size: 20, relief: 0.4, seed: 22, base2: '#0A1612' });
+    s += facets([[b.x0, 166], [40, 156], [100, 160], [160, 158], [b.x1, 154], [b.x1, b.y1], [b.x0, b.y1]], '#1E3C30', moss, { size: 28, relief: 0.4, seed: 22, base2: '#0A1612' });
     s += facets(ellipse(116, 204, 96, 22, 20), '#2F5A44', moss, { size: 14, relief: 0.6, seed: 23 });
     s += fern(b.x0 + 2, 228, 64, -60, 0.9, '#2E6A52', '#1C4A3A') + fern(b.x0 + 8, 240, 54, -36, 0.7, '#3A7A5C', '#245040') + fern(b.x1 - 2, 226, 60, -120, -0.9, '#2E6A52', '#1C4A3A') + fern(b.x1 - 8, 240, 52, -150, -0.6, '#3A7A5C', '#245040');
     for (const [x, y, k] of [[188, 226, 1.1], [34, 232, 0.8]] as [number, number, number][]) {
@@ -233,7 +233,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     s += fireflies(b, 10, 50, 170, '#E8F59A', 6);
   } else if (st === 1) {
     // Ruisseau à la lisière, au crépuscule.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#1C1438', '#3E2A5A', '#9A5A6A', '#E0A070', '#2A2440', '#14122A'], 7, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#1C1438', '#3E2A5A', '#9A5A6A', '#E0A070', '#2A2440', '#14122A'], 7, 32);
     s += stars(b, 22, 70, 8);
     const hill: Light = { dir: [0.5, -0.6, 0.5], color: '#F0B08A', shade: '#1A1030' };
     s += facets([[b.x0, 150], [30, 128], [70, 138], [110, 122], [150, 134], [190, 120], [b.x1, 132], [b.x1, 170], [b.x0, 170]], '#5A3E66', hill, { size: 18, relief: 0.5, seed: 21 });
@@ -241,26 +241,26 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     for (const [x, w] of [[16, 8], [44, 5], [178, 6], [208, 10]] as Pt[]) s += trunk(x, b.y0, 168, w, '#2A1C38', hill, 60 + x);
     // Berges, ruisseau aux reflets d'or rose.
     const bank: Light = { dir: [0.4, -0.8, 0.5], color: '#D89A8A', shade: '#0C0818' };
-    s += facets([[b.x0, 162], [80, 156], [160, 156], [b.x1, 160], [b.x1, b.y1], [b.x0, b.y1]], '#2C2A3A', bank, { size: 20, relief: 0.4, seed: 24, base2: '#14122A' });
+    s += facets([[b.x0, 162], [80, 156], [160, 156], [b.x1, 160], [b.x1, b.y1], [b.x0, b.y1]], '#2C2A3A', bank, { size: 28, relief: 0.4, seed: 24, base2: '#14122A' });
     const water: Light = { dir: [0.3, -0.9, 0.4], color: '#FFD0A0', shade: '#1A1438' };
-    s += facets([[100, 158], [124, 160], [160, 172], [b.x1, 200], [b.x1, b.y1], [b.x0, b.y1], [b.x0, 212], [60, 196], [86, 168]], '#6A4C80', water, { size: 16, relief: 0.3, seed: 25, base2: '#24204A' });
+    s += facets([[100, 158], [124, 160], [160, 172], [b.x1, 200], [b.x1, b.y1], [b.x0, b.y1], [b.x0, 212], [60, 196], [86, 168]], '#6A4C80', water, { size: 22, relief: 0.3, seed: 25, base2: '#24204A' });
     for (let i = 0; i < 12; i++) { const y = 168 + i * 6, x = 90 - i * 3 + r() * 40, l = 8 + i * 2.5; s += `<path d="M${n1(x)} ${n1(y)} h${n1(l)} l-3 1.2 h${n1(-l + 4)} z" fill="#FFE0C0" opacity="${n1(0.25 + r() * 0.3)}"/>`; }
     for (const [x, rx] of [[86, 14], [190, 12]] as Pt[]) s += `<ellipse cx="${x}" cy="204" rx="${rx}" ry="2.6" fill="none" stroke="#FFE0C0" stroke-width="0.7" opacity="0.6"/><ellipse cx="${x}" cy="205" rx="${rx * 1.6}" ry="4.4" fill="none" stroke="#FFE0C0" stroke-width="0.5" opacity="0.35"/>`;
     s += fern(b.x0 - 2, 208, 52, -50, 0.8, '#3E4A4A', '#2A3434') + fern(b.x1 + 2, 196, 48, -130, -0.8, '#3E4A4A', '#2A3434');
     s += fireflies(b, 6, 70, 150, '#FFD99A', 9);
   } else if (st === 2) {
     // Plaine à la lisière, à l'aube (décor de la carte test).
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0A2A', '#2A1E5C', '#6B3E7A', '#E08A5C', '#3A2050', '#120C26'], 9, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0A2A', '#2A1E5C', '#6B3E7A', '#E08A5C', '#3A2050', '#120C26'], 9, 32);
     s += `<circle cx="150" cy="150" r="46" fill="#FFB86B" opacity="0.25"/>` + gem(150, 150, 16, '#FFF3D6', '#FFC37A');
     const mtn: Light = { dir: [-0.6, -0.5, 0.5], color: '#C79AD6', shade: '#1A1236' };
     s += facets([[b.x0, 175], [30, 128], [70, 160], [110, 120], [150, 158], [190, 126], [b.x1, 165], [b.x1, 190], [b.x0, 190]], '#4A3474', mtn, { size: 16, relief: 0.6, seed: 21 });
     const tL: Light = { dir: [-0.6, -0.5, 0.6], color: '#E7A07A', shade: '#08061A' };
     for (let i = 0; i < 9; i++) { const x = b.x0 + 8 + i * 27 + r() * 8; s += fir(x, 196, 40 + r() * 34, '#22183E', tL, 30 + i); }
-    s += facets([[b.x0, 186], [b.x1, 182], [b.x1, b.y1], [b.x0, b.y1]], '#2B2350', { dir: [-0.4, -0.8, 0.5], color: '#E59A6E', shade: '#0B0820' }, { size: 18, relief: 0.4, seed: 22, base2: '#120C26' });
+    s += facets([[b.x0, 186], [b.x1, 182], [b.x1, b.y1], [b.x0, b.y1]], '#2B2350', { dir: [-0.4, -0.8, 0.5], color: '#E59A6E', shade: '#0B0820' }, { size: 26, relief: 0.4, seed: 22, base2: '#120C26' });
     s += stars(b, 14, 110, 12);
   } else {
     // Forêt-cathédrale sous les aurores : troncs géants veinés d'or.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A0C22', '#123A4A', '#2A1E5C', '#1A1640', '#0C0A1E'], 11, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0A0C22', '#123A4A', '#2A1E5C', '#1A1640', '#0C0A1E'], 11, 32);
     for (const [y, col, op] of [[40, '#7CF5C0', 0.22], [70, '#C08AFF', 0.18], [24, '#E9F59A', 0.12]] as [number, string, number][]) {
       s += `<path d="M${b.x0 - 10} ${y + 20} L40 ${y - 10} L90 ${y + 24} L140 ${y - 6} L190 ${y + 16} L${b.x1 + 10} ${y - 12} L${b.x1 + 10} ${y + 8} L190 ${y + 40} L140 ${y + 18} L90 ${y + 50} L40 ${y + 18} L${b.x0 - 10} ${y + 46} Z" fill="${col}" opacity="${op}"/>`;
     }
@@ -271,7 +271,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
       s += trunk(x, b.y0, b.y1, w, '#1B1A36', fL, 90 + x);
       s += `<polyline points="${n1(x - 4)},${b.y0} ${n1(x + 5)},60 ${n1(x - 6)},130 ${n1(x + 3)},220" fill="none" stroke="${GOLD}" stroke-width="1" opacity="0.7"/>`;
     }
-    s += facets([[b.x0, 184], [80, 176], [160, 178], [b.x1, 184], [b.x1, b.y1], [b.x0, b.y1]], '#1C1E3A', { dir: [-0.3, -0.8, 0.5], color: '#7CF5C0', shade: '#05061A' }, { size: 20, relief: 0.4, seed: 26, base2: '#0C0A1E' });
+    s += facets([[b.x0, 184], [80, 176], [160, 178], [b.x1, 184], [b.x1, b.y1], [b.x0, b.y1]], '#1C1E3A', { dir: [-0.3, -0.8, 0.5], color: '#7CF5C0', shade: '#05061A' }, { size: 28, relief: 0.4, seed: 26, base2: '#0C0A1E' });
     s += `<path d="M30 ${b.y1} L120 186 L132 186 L90 ${b.y1} Z" fill="${GOLD}" opacity="0.12"/>`;
     s += fireflies(b, 12, 30, 200, GOLD, 15);
   }
