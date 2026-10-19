@@ -16,8 +16,14 @@ export const LANGS = ['en', 'fr', 'de', 'it'];
 const SOURCE = (lang) => `https://lorcanajson.org/files/current/${lang}/allCards.json`;
 export const CM_PRICES = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json';
 
-/** Visuel officiel réduit par le proxy d'images wsrv.nl (WebP de 360 px ; 900 px sur la fiche). */
-export const smallImage = (url) => (url ? `https://wsrv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ''))}&w=360&output=webp` : url);
+/**
+ * Visuel officiel : direct pour Ravensburger (son serveur refuse le proxy wsrv.nl, 403, mais accepte l'affichage
+ * depuis l'app), sinon réduit par wsrv.nl (WebP de 360 px ; 900 px sur la fiche).
+ */
+export const smallImage = (url) => {
+  if (!url || /^https?:\/\/api\.lorcana\.ravensburger\.com\//.test(url)) return url;
+  return `https://wsrv.nl/?url=${encodeURIComponent(url.replace(/^https?:\/\//, ''))}&w=360&output=webp`;
+};
 
 /** Identifiant stable d'une rareté (« Super Rare » → « super_rare »), depuis la carte anglaise. */
 export const rarityId = (r) => String(r ?? '').trim().toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, '') || undefined;
