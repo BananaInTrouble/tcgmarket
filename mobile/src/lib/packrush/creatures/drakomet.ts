@@ -1,378 +1,298 @@
-import { aura, hsl, sparkle, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { bloom, constellation, eyeA, gild, gloss, ground, line, noInk, part, rim, setLook, shadow, skyGrad, spl, stars, tube, turn, type Pw } from './cervastre.ts';
-
-const f = (v: number) => +v.toFixed(1);
-type Pt = [number, number];
-
-/** Écailles : rangées de petits arcs (à découper dans la forme). */
-function scales(x0: number, y0: number, x1: number, y1: number, sz: number, op = 0.35): string {
-  let d = '';
-  let row = 0;
-  for (let y = y0; y < y1; y += sz * 0.8, row++) {
-    for (let x = x0 + (row % 2) * sz * 0.5; x < x1; x += sz) d += `M${f(x)} ${f(y)} q${f(sz / 2)} ${f(sz * 0.55)} ${f(sz)} 0 `;
-  }
-  return `<path d="${d}" fill="none" stroke="#FFFFFF" stroke-width="0.45" opacity="${f(op * 0.55)}"/>`;
-}
-
-/** Comète : noyau éclatant et chevelure de traînées. `ang` = direction de la traîne (degrés). */
-function comet(c: DrawCtx, x: number, y: number, ang: number, len: number): string {
-  const { pal } = c;
-  const a = (ang * Math.PI) / 180;
-  let o = `<circle cx="${f(x)}" cy="${f(y)}" r="${f(len * 0.28)}" fill="${pal.glow}" opacity="0.5" filter="url(#soft)"/>`;
-  const streaks: [number, number, number, string][] = [[0, 1, 4.2, pal.accent2], [0.16, 0.8, 2.6, pal.glow], [-0.18, 0.75, 2.4, pal.accent], [0.05, 0.95, 1.6, '#FFF6D8']];
-  for (const [da, k, w, col] of streaks) {
-    const pts: Pw[] = [];
-    for (let i = 0; i <= 4; i++) {
-      const t = i / 4, aa = a + da * t + Math.sin(t * 3) * 0.06;
-      pts.push([x + Math.cos(aa) * len * k * t, y + Math.sin(aa) * len * k * t, w * (1 - t * 0.92)]);
-    }
-    o += `<path d="${tube(pts)}" fill="${col}" opacity="0.8"/>`;
-  }
-  o += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(len * 0.07 + 2)}" fill="#FFF6D8" stroke="#140F24" stroke-width="1"/>` + sparkle(x, y, len * 0.12 + 3, '#FFF6D8', false);
-  return o;
-}
-
-interface Pose {
-  body: Pw[]; neck: Pw[]; tail: Pw[];
-  head: { x: number; y: number; s: number; r: number };
-  hind: Pw[]; hindFar?: Pw[]; arm?: Pw[]; armFar?: Pw[];
-  wing: { sh: Pt; el: Pt; wr: Pt; tips: Pt[]; root: Pt; w: number };
-  farWing: { dx: number; dy: number; s: number; mirror?: boolean };
-  horn: number; spines: number;
-}
-
-/** Tête de dragon de profil (vers la gauche), origine à la nuque. */
-function head(c: DrawCtx, id: string, st: number, hl: number): string {
-  const { pal } = c;
-  let o = '';
-  const hs = st === 0 ? 0.55 : 1;
-  const H0 = (ps: Pw[]) => ps.map(([x, y, w]) => [x, y * hs, w * (0.6 + hs * 0.4)] as Pw);
-  // Corne de l'arrière.
-  const hornF = tube(H0([[-4, -10, 2.8], [6, -17, 2.4], [16 + hl * 4, -22 - hl * 3, 1.5], [24 + hl * 10, -24 - hl * 7, 0.4]]));
-  o += part(`${id}-hf`, hornF, pal.shade, '', 1.1);
-  // Collerette d'épines de la joue.
-  o += `<path d="M2 8 L18 4 L8 12 L20 14 L6 16 L14 22 L0 16 Z" fill="${pal.deep}" stroke="#140F24" stroke-width="1" stroke-linejoin="round"/>`;
-  const H = 'M4 -6 C-4 -15 -16 -17 -25 -13 C-33 -10 -41 -8 -47 -4 C-51 -2 -51 2 -47 4 C-40 6 -30 6 -19 7 C-29 9 -36 10 -41 11 C-35 16 -19 17 -7 15 C3 13 9 5 4 -6 Z';
-  let hi = '';
-  hi += shadow('M-50 6 C-36 8 -20 8 -4 2 C2 0 8 -2 12 -6 L12 24 L-50 24 Z', pal.shade, 0.85, 'fine');
-  hi += shadow('M-44 9 C-30 13 -14 13 0 10 L0 24 L-44 24 Z', pal.deep, 0.5, 'xhatch');
-  hi += `<path d="M-41 11 C-34 14 -20 15 -8 13 C-18 12 -30 12 -41 11 Z" fill="${pal.belly}" opacity="0.8"/>`;
-  hi += scales(-20, -14, 6, 4, 3.4, 0.3);
-  hi += line('M-47 4 C-38 6 -26 7 -12 6', 1.1);
-  for (let x = -44; x < -18; x += 4) hi += `<path d="M${x} 4.6 l1 2.2 l1 -2" fill="#FFF6D8" stroke="#140F24" stroke-width="0.4"/>`;
-  hi += `<path d="M-45 -4 C-43 -6 -40 -5 -40 -3 C-42 -2 -44 -2 -45 -4 Z" fill="#140F24"/>`;
-  hi += line('M-34 -9 C-26 -15 -16 -15 -8 -11', 2, '#140F24');
-  hi += eyeA(-19, -7, 4.4, pal.eye, { angle: -10, slit: true, open: 0.5 });
-  if (st >= 2) hi += gild('M-38 -7 C-30 -12 -22 -13 -12 -12 M-6 -9 c4 2 6 6 5 10', 0.8);
-  o += part(`${id}-h`, H, pal.body, hi, 1.6);
-  o += rim('M-25 -13 C-33 -10 -41 -8 -47 -4', pal.glow, 1);
-  if (st >= 2) o += `<circle cx="-19" cy="-7" r="7" fill="${pal.eye}" opacity="0.35" filter="url(#soft)"/>`;
-  // Corne de devant, annelée.
-  const hornN: Pw[] = H0([[-8, -12, 3.2], [2, -20, 2.7], [12 + hl * 4, -26 - hl * 3, 1.8], [20 + hl * 10, -30 - hl * 8, 0.4]]);
-  const hn = tube(hornN);
-  let hni = turn(hn, pal.light, pal.shade, -1.2, -1);
-  if (st > 0) for (let i = 1; i < 4; i++) hni += line(`M${f(-4 + i * 5)} ${f(-22 - i * 1.5)} l4 4`, 0.6, '#140F24', ' opacity="0.6"');
-  if (st >= 2) hni += gild(spl(hornN.map(([x, y]) => [x - 0.6, y - 0.8] as Pt)), 0.8);
-  o += part(`${id}-hn`, hn, pal.light, hni, 1.2);
-  return o;
-}
-
-/** Aile de chauve-souris : os en tubes, membrane-ciel nocturne avec nébuleuse et étoiles. */
-function wing(c: DrawCtx, id: string, w: Pose['wing'], far: boolean, st: number): string {
-  const { pal } = c;
-  const { sh, el, wr, tips, root } = w;
-  // Membrane : bord d'attaque épaule→coude→poignet→1re pointe, puis festons entre les pointes, retour au flanc.
-  let d = `M${f(sh[0])} ${f(sh[1])} L${f(el[0])} ${f(el[1])} L${f(wr[0])} ${f(wr[1])} L${f(tips[0][0])} ${f(tips[0][1])}`;
-  for (let i = 1; i < tips.length; i++) {
-    const [ax, ay] = tips[i - 1], [bx, by] = tips[i];
-    const mx = (ax + bx) / 2 + (wr[0] - (ax + bx) / 2) * 0.28, my = (ay + by) / 2 + (wr[1] - (ay + by) / 2) * 0.28;
-    d += ` Q${f(mx)} ${f(my)} ${f(bx)} ${f(by)}`;
-  }
-  const lt = tips[tips.length - 1];
-  d += ` Q${f((lt[0] + root[0]) / 2 + (wr[0] - (lt[0] + root[0]) / 2) * 0.3)} ${f((lt[1] + root[1]) / 2 + (wr[1] - (lt[1] + root[1]) / 2) * 0.3)} ${f(root[0])} ${f(root[1])} Z`;
-  let mi = `<path d="${d}" fill="${far ? pal.deep : pal.deep}"/>`;
-  const cx = (wr[0] + lt[0] + tips[0][0]) / 3, cy = (wr[1] + lt[1] + tips[0][1]) / 3;
-  mi += `<g clip-path="url(#${id}-m)"><ellipse cx="${f(cx)}" cy="${f(cy)}" rx="34" ry="20" fill="${pal.accent}" opacity="${far ? 0.25 : 0.45}" filter="url(#soft)"/>`
-    + `<ellipse cx="${f((cx + root[0]) / 2)}" cy="${f((cy + root[1]) / 2)}" rx="24" ry="16" fill="${pal.accent2}" opacity="${far ? 0.2 : 0.4}" filter="url(#soft)"/></g>`;
-  for (let i = 0; i < (far ? 10 : 22); i++) {
-    const t = tips[Math.floor(c.r() * tips.length)], u = c.r() * 0.85, v = c.r();
-    const x = wr[0] + (t[0] - wr[0]) * u + (root[0] - wr[0]) * v * (1 - u) * 0.6, y = wr[1] + (t[1] - wr[1]) * u + (root[1] - wr[1]) * v * (1 - u) * 0.6;
-    mi += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(0.4 + c.r() * 1)}" fill="#FFF6D8" opacity="${f(0.4 + c.r() * 0.6)}"/>`;
-  }
-  // Nervures fines de la membrane.
-  for (const t of tips) mi += line(`M${f(wr[0])} ${f(wr[1])} Q${f((wr[0] + t[0]) / 2 + 4)} ${f((wr[1] + t[1]) / 2 + 6)} ${f((wr[0] + t[0] * 3) / 4)} ${f((wr[1] + t[1] * 3) / 4)}`, 0.4, pal.light, ' opacity="0.35"');
-  mi += shadow(`M${f(sh[0])} ${f(sh[1])} L${f(el[0])} ${f(el[1])} L${f(root[0])} ${f(root[1])} Z`, '#000', 0.25, 'fine');
-  if (!far && st >= 2) mi += constellation(tips.slice(1).map(([x, y], i) => [x + (wr[0] - x) * (0.3 + i * 0.05), y + (wr[1] - y) * (0.3 + i * 0.05)] as Pt), pal.gold);
-  let o = part(`${id}-m`, d, pal.deep, mi, far ? 1.1 : 1.4);
-  // Os : bras, avant-bras, doigts.
-  const bone = far ? pal.shade : pal.body;
-  const ww = w.w * (far ? 0.85 : 1);
-  const arm = tube([[sh[0], sh[1], ww * 2.2], [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2, ww * 1.7], [el[0], el[1], ww * 1.4], [(el[0] + wr[0]) / 2, (el[1] + wr[1]) / 2, ww * 1.1], [wr[0], wr[1], ww * 1.2]]);
-  o += part(`${id}-ar`, arm, bone, turn(arm, bone, pal.shade, -1.5, -1.5) + scales(Math.min(sh[0], wr[0]) - 10, Math.min(sh[1], wr[1]) - 10, Math.max(sh[0], wr[0]) + 10, Math.max(sh[1], wr[1]) + 10, 3, 0.25), far ? 1.1 : 1.4);
-  tips.forEach((t, i) => {
-    const mx = wr[0] + (t[0] - wr[0]) * 0.5, my = wr[1] + (t[1] - wr[1]) * 0.5 - 3;
-    o += part(`${id}-d${i}`, tube([[wr[0], wr[1], ww * 0.9], [mx, my, ww * 0.55], [t[0], t[1], ww * 0.2]]), bone, '', far ? 0.9 : 1.1);
-  });
-  // Griffe du pouce.
-  o += `<path d="M${f(wr[0])} ${f(wr[1] - 2)} q-3 -7 -9 -8 q5 4 6 10 Z" fill="${pal.light}" stroke="#140F24" stroke-width="0.9"/>`;
-  if (!far) o += rim(`M${f(sh[0])} ${f(sh[1])} L${f(el[0])} ${f(el[1])} L${f(wr[0])} ${f(wr[1])}`, pal.glow, 1);
-  return o;
-}
-
-/** Patte griffue : tube + trois doigts. */
-function limb(c: DrawCtx, id: string, pts: Pw[], fill: string, far: boolean, dir = -1): string {
-  const d = tube(pts);
-  const e = pts[pts.length - 1];
-  let o = part(id, d, fill, (far ? shadow(d, c.pal.deep, 0.4, 'fine') : turn(d, fill, c.pal.shade, -pts[0][2] * 0.4, -2)) + scales(e[0] - 30, Math.min(...pts.map((p) => p[1])) - 10, e[0] + 30, e[1] + 4, 3.4, 0.3), far ? 1.2 : 1.5);
-  for (const k of [-1, 0, 1]) {
-    const tx = e[0] + dir * 7 + k * 3, ty = e[1] + 3 + Math.abs(k) * 0.5;
-    o += `<path d="M${f(e[0] + k * 2)} ${f(e[1] - 1)} Q${f(tx - dir)} ${f(ty - 4)} ${f(tx)} ${f(ty)} L${f(tx + dir * 2.5)} ${f(ty + 1)} L${f(tx - dir * 1)} ${f(ty - 1.5)} Z" fill="${far ? c.pal.shade : fill}" stroke="#140F24" stroke-width="1"/>`;
-    o += `<path d="M${f(tx)} ${f(ty)} l${f(dir * 2.5)} 1" stroke="${c.pal.light}" stroke-width="1"/>`;
-  }
-  return o;
-}
-
-function dragon(c: DrawCtx, P: Pose, st: number, extraFront = ''): string {
-  const { pal } = c;
-  const id = `drakomet-${st}`;
-  let g = '';
-  // Aile de l'arrière.
-  g += `<g transform="translate(${P.farWing.dx} ${P.farWing.dy}) translate(${P.wing.sh[0]} ${P.wing.sh[1]}) scale(${P.farWing.mirror ? -P.farWing.s : P.farWing.s} ${P.farWing.s}) translate(${-P.wing.sh[0]} ${-P.wing.sh[1]})">${wing(c, `${id}-wf`, P.wing, true, st)}</g>`;
-  if (P.hindFar) g += limb(c, `${id}-lhf`, P.hindFar, pal.shade, true);
-  if (P.armFar) g += limb(c, `${id}-laf`, P.armFar, pal.shade, true);
-  // Queue.
-  const td = tube(P.tail);
-  let ti = turn(td, pal.body, pal.shade, -2, -3) + scales(0, 100, 222, 236, 4, 0.3);
-  ti += `<path d="${spl(P.tail.map(([x, y, w]) => [x, y + w * 0.55] as Pt))}" fill="none" stroke="${pal.belly}" stroke-width="2" opacity="0.6"/>`;
-  g += part(`${id}-t`, td, pal.body, ti, 1.5);
-  // Épines dorsales de la queue.
-  for (let i = 1; i < P.tail.length - 1; i++) {
-    const [x, y, w] = P.tail[i], [x2, y2] = P.tail[i + 1];
-    const a = Math.atan2(y2 - y, x2 - x), nx = Math.sin(a), ny = -Math.cos(a);
-    const bx = x + nx * w, by = y + ny * w, h = w * 0.9 + 1;
-    g += `<path d="M${f(bx - Math.cos(a) * h * 0.6)} ${f(by - Math.sin(a) * h * 0.6)} L${f(bx + nx * h + Math.cos(a) * h * 0.5)} ${f(by + ny * h + Math.sin(a) * h * 0.5)} L${f(bx + Math.cos(a) * h * 0.6)} ${f(by + Math.sin(a) * h * 0.6)} Z" fill="${pal.deep}" stroke="#140F24" stroke-width="0.9" stroke-linejoin="round"/>`;
-  }
-  // Corps + cou (un seul volume).
-  const bd = tube(P.body), nd = tube(P.neck);
-  let bi = turn(bd, pal.body, pal.shade, -4, -5) + scales(0, 0, 222, 236, 4.2, 0.28);
-  // Plastron ventral en écailles transversales.
-  const belly = P.body.concat(P.neck.slice(1));
-  for (let i = 0; i < belly.length - 1; i++) {
-    const [x, y, w] = belly[i], [x2, y2] = belly[i + 1];
-    for (let t = 0; t < 1; t += 0.25) {
-      const px = x + (x2 - x) * t, py = y + (y2 - y) * t, pw = w + (belly[i + 1][2] - w) * t;
-      const a = Math.atan2(y2 - y, x2 - x), nx = -Math.sin(a), ny = Math.cos(a);
-      bi += line(`M${f(px + nx * pw * 0.35)} ${f(py + ny * pw * 0.35)} L${f(px + nx * pw * 1.1)} ${f(py + ny * pw * 1.1)}`, 0.6, '#140F24', ' opacity="0.5"');
-    }
-  }
-  bi += `<path d="${spl(belly.map(([x, y, w], i) => { const b = belly[Math.min(i + 1, belly.length - 1)], a0 = belly[Math.max(i - 1, 0)]; const a = Math.atan2(b[1] - a0[1], b[0] - a0[0]); return [x - Math.sin(a) * w * 0.75, y + Math.cos(a) * w * 0.75] as Pt; }))}" fill="none" stroke="${pal.belly}" stroke-width="${f(P.neck[0][2] * 0.7)}" opacity="0.55"/>`;
-  if (st >= 2) bi += gild(spl(P.body.map(([x, y, w]) => [x + 2, y - w * 0.3] as Pt)), 0.9) + constellation(P.body.slice(1).map(([x, y, w]) => [x + 3, y - w * 0.1] as Pt), pal.gold);
-  const both = `${bd} ${nd}`;
-  g += part(`${id}-b`, both, pal.body, bi, 1.7);
-  g += rim(spl(P.neck.slice().reverse().map(([x, y, w]) => [x + w * 0.7, y - w * 0.4] as Pt)), pal.glow, 1.2);
-  // Épines dorsales du cou et du dos.
-  const dors = P.neck.slice().reverse().concat(P.body.slice(1));
-  for (let i = 1; i < dors.length; i++) {
-    const [x, y, w] = dors[i], [x0, y0] = dors[i - 1];
-    const a = Math.atan2(y - y0, x - x0), nx = -Math.sin(a), ny = Math.cos(a);
-    const s = -1; // côté dos
-    const bx = x + nx * w * s * -1 * -1, by = y + ny * w * s;
-    const h = P.spines * (0.6 + w / 22);
-    void bx;
-    const px = x - nx * w, py = y - ny * w;
-    g += `<path d="M${f(px - Math.cos(a) * h * 0.5)} ${f(py - Math.sin(a) * h * 0.5)} L${f(px - nx * h + Math.cos(a) * h * 0.4)} ${f(py - ny * h + Math.sin(a) * h * 0.4)} L${f(px + Math.cos(a) * h * 0.6)} ${f(py + Math.sin(a) * h * 0.6)} Z" fill="${pal.deep}" stroke="#140F24" stroke-width="0.9" stroke-linejoin="round"/>`;
-  }
-  g += extraFront;
-  // Patte arrière, bras.
-  g += limb(c, `${id}-lh`, P.hind, pal.body, false);
-  if (P.arm) g += limb(c, `${id}-la`, P.arm, pal.body, false);
-  // Aile de devant.
-  g += wing(c, `${id}-wn`, P.wing, false, st);
-  // Tête.
-  g += `<g transform="translate(${P.head.x} ${P.head.y}) rotate(${P.head.r}) scale(${P.head.s})">${head(c, id, st, P.horn)}</g>`;
-  return g;
-}
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type FacetOpts, type Light, type Pt } from './lowpoly.ts';
 
 /**
- * Drakomet → Wyvernova → Comethéon : dragon des comètes. Nouveau-né sortant d'un œuf-météorite, jeune wyverne
- * perchée sur un astéroïde, puis grand dragon cabré aux ailes-ciel nocturne, dont la queue s'achève en comète.
+ * Drakomet → Wyvernova → Comethéon, en low-poly : dragon des comètes. Le nouveau-né sort d'un œuf-météorite au fond
+ * d'un cratère fumant, la jeune wyverne guette sur un astéroïde au-dessus d'une planète, le grand dragon se dresse
+ * sur un pic au-dessus des nuages et rugit un souffle d'étoiles ; sa queue s'achève en comète.
  */
-function drawDrak(c: DrawCtx): string {
-  const { pal } = c;
+
+const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
+const n1 = (v: number) => v.toFixed(1);
+/** Facettes un peu plus grandes que demandé (budget : ~1500 facettes par carte). */
+const fx = (poly: Pt[], col: string, L: Light, o: FacetOpts = {}) => facets(poly, col, L, { ...o, size: (o.size ?? 11) * 1.25 });
+const LIGHTS: Light[] = [
+  { dir: [0.2, 0.6, 0.6], color: '#FFB26B', shade: '#140816', rim: '#FF8A4A' },
+  { dir: [-0.6, 0.3, 0.6], color: '#BFF6FF', shade: '#06061A', rim: '#7CE8FF' },
+  { dir: [-0.5, -0.6, 0.6], color: '#FFD8C0', shade: '#0E0820', rim: '#FFB0C8' },
+];
+const constel = (pts: Pt[], s = 3) =>
+  `<polyline points="${pts.map((p) => p.map(n1).join(',')).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.85"/>`
+  + pts.map(([x, y]) => gem(x, y, s, '#FFFFFF', GOLD)).join('');
+
+type Pw = [number, number, number];
+interface Pose {
+  body: Pw[]; neck: Pw[]; tail: Pw[];
+  head: { x: number; y: number; s: number; r: number; roar?: boolean };
+  hind: Pw[]; hindFar?: Pw[]; arm?: Pw[]; armFar?: Pw[];
+  wing: { sh: Pt; el: Pt; wr: Pt; tips: Pt[]; root: Pt; w: number };
+  farWing: { dx: number; dy: number; s: number };
+  horn: number;
+}
+const sp = (p: Pw[]): Pt[] => p.map(([x, y]) => [x, y] as Pt);
+const wd = (p: Pw[]): number[] => p.map(([, , w]) => w * 2);
+
+/** Comète : tête facettée et chevelure en éventail de triangles lumineux. */
+function comet(x: number, y: number, ang: number, len: number): string {
+  let s = `<circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(len * 0.3)}" fill="${CRYSTAL}" opacity="0.15"/>`;
+  const a = (ang * Math.PI) / 180;
+  for (const [da, k, w, col, op] of [[0, 1, 5, '#7CE8FF', 0.55], [0.16, 0.8, 3.5, '#FFFFFF', 0.6], [-0.18, 0.75, 3, '#E58CFF', 0.5], [0.06, 0.95, 2, '#FFFFFF', 0.85]] as [number, number, number, string, number][]) {
+    const ex = x + Math.cos(a + da) * len * k, ey = y + Math.sin(a + da) * len * k;
+    const nx = -Math.sin(a + da) * w, ny = Math.cos(a + da) * w;
+    s += `<path d="M${n1(x + nx)} ${n1(y + ny)} L${n1(ex)} ${n1(ey)} L${n1(x - nx)} ${n1(y - ny)} Z" fill="${col}" opacity="${op}"/>`;
+  }
+  return s + gem(x, y, len * 0.16 + 3, '#FFFFFF', CRYSTAL);
+}
+
+/** Tête de dragon (profil vers la gauche), points en repère local, nuque à l'origine. */
+function head(P: Pose['head'], base: string, deep: string, L: Light, far: Light, st: number): string {
+  const T = (p: Pt): Pt => {
+    const a = (P.r * Math.PI) / 180, x = p[0] * P.s, y = p[1] * P.s;
+    return [P.x + x * Math.cos(a) - y * Math.sin(a), P.y + x * Math.sin(a) + y * Math.cos(a)];
+  };
+  const TT = (ps: Pt[]) => ps.map(T);
+  const hs = st === 0 ? 0.5 : 1;
+  const horn = (pts: Pt[], w: number[], col: string, l: Light, seed: number) => fx(limb(TT(pts.map(([x, y]) => [x, y * hs] as Pt)), w.map((v) => v * P.s)), col, l, { size: 3, relief: 0.5, seed });
+  let s = '';
+  s += horn([[-4, -10], [6, -17], [18, -24], [28, -30]], [5, 4, 2.6, 0.8], mix(CRYSTAL, deep, 0.5), far, 70);
+  // Collerette d'épines de la joue.
+  s += fx(TT([[2, 6], [20, 2], [10, 10], [22, 14], [8, 16], [14, 24], [0, 16]]), deep, far, { size: 4, relief: 0.4, seed: 71 });
+  const upper: Pt[] = [[4, -6], [-4, -15], [-16, -17], [-25, -13], [-33, -10], [-41, -8], [-47, -4], [-50, 0], [-47, 4], [-30, 6], [-14, 6], [0, 6], [8, 2]];
+  const lower: Pt[] = P.roar ? [[-6, 8], [-20, 9], [-34, 14], [-44, 18], [-40, 21], [-24, 19], [-8, 16], [4, 12]] : [[-6, 8], [-22, 8], [-40, 10], [-38, 13], [-20, 16], [-6, 15], [4, 12]];
+  if (P.roar) s += `<path d="${'M' + TT([[-46, 4], [-14, 7], [-44, 17]]).map((p) => p.map(n1).join(' ')).join(' L')} Z" fill="#2A0A1A"/>` + fx(TT([[-44, 5], [-30, 6.5], [-42, 14]]), '#E86A8A', L, { size: 3, relief: 0.3, seed: 72 });
+  s += fx(TT(lower), mix(base, '#F2E6D8', 0.25), L, { size: 4, relief: 0.6, seed: 73 });
+  s += fx(TT(upper), base, L, { size: 4.5, relief: 0.9, seed: 74 });
+  // Arcade sourcilière, naseau, œil incandescent.
+  s += fx(TT([[-34, -11], [-24, -16], [-10, -15], [-12, -11], [-24, -12]]), deep, L, { size: 3, relief: 0.4, seed: 75 });
+  const [nx, ny] = T([-44, -3]);
+  s += `<circle cx="${n1(nx)}" cy="${n1(ny)}" r="${n1(1.3 * P.s)}" fill="#0B0618"/>`;
+  const [ex, ey] = T([-19, -7]);
+  const eye = st === 0 ? '#FFE27A' : st === 1 ? '#7CF5E0' : '#FFB26B';
+  s += `<circle cx="${n1(ex)}" cy="${n1(ey)}" r="${n1(5 * P.s)}" fill="${eye}" opacity="0.25"/><path d="M${n1(ex - 4 * P.s)} ${n1(ey)} L${n1(ex)} ${n1(ey - 2.4 * P.s)} L${n1(ex + 4 * P.s)} ${n1(ey - 0.4 * P.s)} L${n1(ex)} ${n1(ey + 2 * P.s)} Z" fill="${eye}"/><path d="M${n1(ex - 0.5)} ${n1(ey - 2 * P.s)} L${n1(ex + 0.6)} ${n1(ey - 2 * P.s)} L${n1(ex + 0.5)} ${n1(ey + 1.8 * P.s)} L${n1(ex - 0.4)} ${n1(ey + 1.8 * P.s)} Z" fill="#0B0618"/>`;
+  s += horn([[-8, -12], [2, -20], [14, -29], [24, -36]], [6, 5, 3.4, 0.8], CRYSTAL, { ...L, color: '#FFFFFF', shade: '#3A5BC0' }, 76);
+  if (st >= 2) s += constel(TT([[-38, -6], [-28, -12], [-14, -12], [-4, -4]]), 2);
+  return s;
+}
+
+/** Aile : membrane-ciel nocturne facettée, os en membres fins. */
+function wing(w: Pose['wing'], bone: string, mem: string, L: Light, seed: number, st: number, near: boolean): string {
+  const { sh, el, wr, tips, root } = w;
+  const poly: Pt[] = [sh, el, wr, tips[0]];
+  for (let i = 1; i < tips.length; i++) {
+    const [ax, ay] = tips[i - 1], [bx, by] = tips[i];
+    poly.push([(ax + bx) / 2 + (wr[0] - (ax + bx) / 2) * 0.28, (ay + by) / 2 + (wr[1] - (ay + by) / 2) * 0.28], tips[i]);
+  }
+  const lt = tips[tips.length - 1];
+  poly.push([(lt[0] + root[0]) / 2 + (wr[0] - (lt[0] + root[0]) / 2) * 0.3, (lt[1] + root[1]) / 2 + (wr[1] - (lt[1] + root[1]) / 2) * 0.3], root);
+  let s = fx(poly, mem, L, { size: 15, relief: 0.5, seed, base2: mix(mem, '#000000', 0.3) });
+  const r = prng(seed);
+  for (let i = 0; i < (near ? 16 : 8); i++) {
+    const t = tips[Math.floor(r() * tips.length)], u = 0.2 + r() * 0.6, v = r() * 0.4;
+    const x = wr[0] + (t[0] - wr[0]) * u + (root[0] - wr[0]) * v * (1 - u), y = wr[1] + (t[1] - wr[1]) * u + (root[1] - wr[1]) * v * (1 - u);
+    s += `<circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(0.5 + r() * 0.9)}" fill="#FFFFFF" opacity="${n1(0.5 + r() * 0.5)}"/>`;
+  }
+  if (near && st >= 2) s += constel(tips.slice(1).map(([x, y], i) => [x + (wr[0] - x) * (0.3 + i * 0.05), y + (wr[1] - y) * (0.3 + i * 0.05)] as Pt), 2.6);
+  const bl: Light = { ...L, rim: undefined };
+  s += fx(limb([sh, [(sh[0] + el[0]) / 2, (sh[1] + el[1]) / 2], el, wr], [w.w * 3.6, w.w * 3, w.w * 2.4, w.w * 2]), bone, bl, { size: 5.5, relief: 0.6, seed: seed + 1 });
+  tips.forEach((t, i) => { s += fx(limb([wr, [(wr[0] + t[0]) / 2, (wr[1] + t[1]) / 2 - 3], t], [w.w * 1.6, w.w * 1, w.w * 0.4]), bone, bl, { size: 5, relief: 0.4, seed: seed + 2 + i }); });
+  s += `<path d="M${n1(wr[0])} ${n1(wr[1] - 2)} l-9 -8 l3 9 z" fill="${CRYSTAL}"/>`;
+  return s;
+}
+
+const claws = (e: Pt, dir: number, col: string) => [-1, 0, 1].map((k) =>
+  `<path d="M${n1(e[0] + k * 2.4)} ${n1(e[1] - 1)} L${n1(e[0] + dir * 8 + k * 3)} ${n1(e[1] + 3)} L${n1(e[0] + k * 2.4 + dir * 2)} ${n1(e[1] + 2)} Z" fill="${col}"/>`).join('');
+
+function dragon(c: DrawCtx, P: Pose, st: number, extra = ''): string {
+  const h = c.hue;
+  const L = LIGHTS[st];
+  const base = hsl(h, 34, 46), deep = hsl(h + 14, 40, 22), mem = hsl(h + 210, 38, 15);
+  const far: Light = { ...L, color: mix(L.color, deep, 0.45), rim: undefined };
+  let s = '';
+  // Aile de l'arrière : miroir de l'aile avant autour de l'épaule.
+  const m = (p: Pt): Pt => [P.wing.sh[0] - (p[0] - P.wing.sh[0]) * P.farWing.s + P.farWing.dx, P.wing.sh[1] + (p[1] - P.wing.sh[1]) * P.farWing.s + P.farWing.dy];
+  const fw = { ...P.wing, sh: m(P.wing.sh), el: m(P.wing.el), wr: m(P.wing.wr), tips: P.wing.tips.map(m), root: m(P.wing.root) };
+  s += wing(fw, deep, mix(mem, '#000000', 0.25), far, 80, st, false);
+  if (P.hindFar) s += fx(limb(sp(P.hindFar), wd(P.hindFar)), deep, far, { size: 5, relief: 0.6, seed: 81 }) + claws(sp(P.hindFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
+  if (P.armFar) s += fx(limb(sp(P.armFar), wd(P.armFar)), deep, far, { size: 4, relief: 0.6, seed: 82 }) + claws(sp(P.armFar).slice(-1)[0], -1, mix(CRYSTAL, deep, 0.5));
+  // Queue, épines dorsales.
+  s += fx(limb(sp(P.tail), wd(P.tail)), base, L, { size: 6, relief: 0.8, seed: 83, base2: deep });
+  for (let i = 1; i < P.tail.length - 1; i++) {
+    const [x, y, w] = P.tail[i], [x2, y2] = P.tail[i + 1], a = Math.atan2(y2 - y, x2 - x), nx = Math.sin(a), ny = -Math.cos(a), hh = w * 0.9 + 1.5;
+    s += `<path d="M${n1(x + nx * w - Math.cos(a) * hh * 0.6)} ${n1(y + ny * w - Math.sin(a) * hh * 0.6)} L${n1(x + nx * (w + hh) + Math.cos(a) * hh * 0.4)} ${n1(y + ny * (w + hh) + Math.sin(a) * hh * 0.4)} L${n1(x + nx * w + Math.cos(a) * hh * 0.6)} ${n1(y + ny * w + Math.sin(a) * hh * 0.6)} Z" fill="${deep}"/>`;
+  }
+  // Corps et cou ; plastron ventral clair.
+  s += fx(limb(sp(P.body), wd(P.body)), base, L, { size: 8, relief: 1.2, seed: 84, base2: deep });
+  s += fx(limb(sp(P.neck), wd(P.neck)), base, L, { size: 6, relief: 1, seed: 85 });
+  const belly = [...P.body.slice().reverse(), ...P.neck.slice(1)].map(([x, y, w], i, arr) => {
+    const b = arr[Math.min(i + 1, arr.length - 1)], a0 = arr[Math.max(i - 1, 0)], a = Math.atan2(b[1] - a0[1], b[0] - a0[0]);
+    return [x + Math.sin(a) * w * 0.55, y - Math.cos(a) * w * 0.55, w * 0.7] as Pw;
+  });
+  s += fx(limb(sp(belly), wd(belly).map((v) => v * 0.55)), mix(base, '#F2E6D8', 0.35), L, { size: 5, relief: 0.5, seed: 86 });
+  // Épines du dos et du cou.
+  const dors = [...P.neck.slice().reverse(), ...P.body.slice(1)];
+  for (let i = 1; i < dors.length; i++) {
+    const [x, y, w] = dors[i], [x0, y0] = dors[i - 1], a = Math.atan2(y - y0, x - x0), nx = -Math.sin(a), ny = Math.cos(a), hh = 3 + w * 0.3;
+    const px = x - nx * w, py = y - ny * w;
+    s += `<path d="M${n1(px - Math.cos(a) * hh * 0.5)} ${n1(py - Math.sin(a) * hh * 0.5)} L${n1(px - nx * hh)} ${n1(py - ny * hh)} L${n1(px + Math.cos(a) * hh * 0.6)} ${n1(py + Math.sin(a) * hh * 0.6)} Z" fill="${deep}"/>`;
+  }
+  if (st >= 2) s += constel(P.body.slice(1).map(([x, y, w]) => [x + 3, y - w * 0.2] as Pt), 2.6);
+  s += extra;
+  // Membres de devant.
+  s += fx(limb(sp(P.hind), wd(P.hind)), base, L, { size: 5, relief: 0.8, seed: 87 }) + claws(sp(P.hind).slice(-1)[0], -1, CRYSTAL);
+  if (P.arm) s += fx(limb(sp(P.arm), wd(P.arm)), base, L, { size: 4, relief: 0.8, seed: 88 }) + claws(sp(P.arm).slice(-1)[0], -1, CRYSTAL);
+  // Aile de devant et tête.
+  s += wing(P.wing, mix(base, '#FFFFFF', 0.08), mem, L, 90, st, true);
+  s += head(P.head, base, deep, L, far, st);
+  return s;
+}
+
+const draw = (c: DrawCtx): string => {
   const st = Math.min(c.stage, 2);
+  const h = c.hue;
   let s = '';
   if (st === 2) {
-    s += aura(120, 80, 70, pal.glow);
-    s += ground(118, 206, 70);
+    // Comethéon : dressé sur son pic, ailes ouvertes, il rugit un souffle d'étoiles.
+    s += `<ellipse cx="118" cy="205" rx="70" ry="7" fill="#05030C" opacity="0.45"/>`;
     const P: Pose = {
       body: [[96, 112, 17], [108, 130, 20], [122, 146, 18], [136, 156, 13]],
       neck: [[96, 112, 14], [84, 96, 10.5], [74, 78, 8.5], [72, 62, 7.5], [78, 50, 7]],
-      tail: [[134, 156, 12], [158, 170, 9.5], [174, 188, 7], [162, 200, 5.2], [130, 204, 4.2], [98, 200, 3.2], [72, 190, 2.4], [56, 178, 1.4]],
-      head: { x: 80, y: 50, s: 1.02, r: 6 },
+      tail: [[134, 156, 12], [158, 170, 9.5], [174, 188, 7], [162, 200, 5.2], [130, 204, 4.2], [98, 200, 3.2], [72, 190, 2.4], [56, 178, 1.2]],
+      head: { x: 80, y: 50, s: 1.05, r: 4, roar: true },
       hind: [[130, 148, 13], [118, 170, 8], [128, 188, 5.5], [122, 200, 4]],
       hindFar: [[142, 152, 10], [150, 174, 6], [150, 192, 4.5], [146, 200, 3.5]],
       arm: [[94, 124, 8], [104, 142, 5.5], [88, 152, 4.5], [76, 150, 3.5]],
       armFar: [[104, 122, 6], [90, 134, 4.5], [76, 132, 3.6], [68, 126, 3]],
       wing: { sh: [110, 106], el: [148, 74], wr: [146, 30], tips: [[104, 8], [180, 6], [210, 38], [212, 80], [196, 112]], root: [150, 140], w: 3.2 },
-      farWing: { dx: -8, dy: -4, s: 0.82, mirror: true },
-      horn: 1.2, spines: 6,
+      farWing: { dx: -8, dy: -4, s: 0.82 },
+      horn: 1.2,
     };
-    s += dragon(c, P, 2, comet(c, 56, 178, 150, 46));
-    // Souffle de poussière d'étoiles : il rugit vers le ciel.
-    for (const [da, l, w, col] of [[0, 34, 5, pal.glow], [0.14, 28, 3.4, pal.accent2], [-0.12, 26, 3, '#FFF6D8']] as const) {
-      const a = (200 * Math.PI) / 180 + da, x0 = 32, y0 = 46;
-      s += `<path d="${tube([[x0, y0, 0.6], [x0 + Math.cos(a) * l * 0.5, y0 + Math.sin(a) * l * 0.5, w * 0.7], [x0 + Math.cos(a) * l, y0 + Math.sin(a) * l, w]])}" fill="${col}" opacity="0.4"/>`;
+    s += dragon(c, P, 2, comet(56, 178, 150, 46));
+    // Souffle de poussière d'étoiles.
+    for (const [da, l, w, col, op] of [[0, 34, 6, CRYSTAL, 0.5], [0.16, 28, 4, '#FFFFFF', 0.55], [-0.14, 26, 3.6, '#E58CFF', 0.45]] as [number, number, number, string, number][]) {
+      const a = (205 * Math.PI) / 180 + da, x0 = 30, y0 = 52, ex = x0 + Math.cos(a) * l, ey = y0 + Math.sin(a) * l, nx = -Math.sin(a) * w, ny = Math.cos(a) * w;
+      s += `<path d="M${x0} ${y0} L${n1(ex + nx)} ${n1(ey + ny)} L${n1(ex - nx)} ${n1(ey - ny)} Z" fill="${col}" opacity="${op}"/>`;
     }
-    for (let i = 0; i < 8; i++) s += sparkle(4 + c.r() * 26, 30 + c.r() * 22, 1 + c.r() * 2, '#FFF6D8', false);
-    s += constellation([[16, 30], [28, 18], [44, 22], [52, 8]], pal.gold) + sparkle(200, 150, 3, pal.glow, false) + speckles(c, 110, 40, 90, 30, 6, pal.glow);
+    const r = prng(9);
+    for (let i = 0; i < 7; i++) s += gem(2 + r() * 26, 34 + r() * 26, 1.2 + r() * 2, '#FFFFFF', CRYSTAL);
+    s += constel([[16, 22], [28, 12], [44, 16], [52, 4]]);
     return s;
   }
   if (st === 1) {
-    // Astéroïde-perchoir.
-    const rock = 'M60 204 C56 192 64 180 78 176 C96 170 124 172 142 176 C158 180 168 190 166 204 Z';
-    let ri = shadow('M60 190 C90 200 140 200 170 186 L170 210 L60 210 Z', pal.deep, 0.8, 'xhatch');
-    ri += shadow('M120 170 C150 176 168 188 168 204 L140 204 C150 192 140 180 120 170 Z', pal.deep, 0.5, 'fine');
-    ri += `<circle cx="90" cy="190" r="6" fill="none" stroke="#140F24" stroke-width="0.8" opacity="0.6"/><circle cx="132" cy="186" r="4" fill="none" stroke="#140F24" stroke-width="0.8" opacity="0.6"/>`;
-    ri += `<path d="M82 182 l6 -10 l5 9 Z" fill="${pal.accent2}" stroke="#140F24" stroke-width="0.8"/><path d="M90 180 l3 -14 l6 13 Z" fill="${pal.glow}" stroke="#140F24" stroke-width="0.8"/>`;
+    // Wyvernova : jeune wyverne qui guette, perchée sur son astéroïde.
+    const rockL: Light = { dir: [-0.6, 0.2, 0.6], color: '#9FD8F0', shade: '#05061A', rim: '#7CE8FF' };
+    let g = fx(curve([60, 204], [[[56, 192], [64, 180], [78, 176]], [[96, 170], [124, 172], [142, 176]], [[158, 180], [168, 190], [166, 204]], [[130, 210], [90, 210], [60, 204]]]), hsl(h + 200, 14, 34), rockL, { size: 10, relief: 0.9, seed: 30, base2: '#141428' });
+    for (const [x, y, k] of [[86, 180, 1], [94, 177, 1.4], [134, 180, 0.9]] as [number, number, number][]) g += fx([[x - 3 * k, y], [x, y - 12 * k], [x + 3 * k, y]], CRYSTAL, { dir: [-0.6, -0.3, 0.6], color: '#FFFFFF', shade: '#3A5BC0' }, { size: 3, relief: 0.4, seed: x });
     const P: Pose = {
       body: [[104, 124, 14], [112, 140, 16], [122, 156, 13], [132, 166, 9]],
       neck: [[104, 124, 11], [96, 108, 8.5], [88, 92, 7], [86, 78, 6.4], [92, 68, 6]],
       tail: [[132, 166, 9], [152, 176, 7], [176, 172, 5], [194, 156, 3.6], [200, 136, 2.4], [194, 120, 1.2]],
       head: { x: 93, y: 68, s: 0.92, r: -4 },
-      hind: [[122, 156, 11], [108, 170, 6.5], [118, 180, 4.5], [110, 176, 3.4]],
-      hindFar: [[132, 160, 8], [142, 172, 5], [140, 180, 3.8], [134, 178, 3]],
-      wing: { sh: [120, 122], el: [152, 104], wr: [142, 62], tips: [[116, 40], [168, 30], [194, 58], [196, 92], [178, 120]], root: [140, 150], w: 1.8 },
-      farWing: { dx: -6, dy: -2, s: 0.7, mirror: true },
-      horn: 0.5, spines: 4.5,
+      hind: [[122, 156, 11], [108, 170, 6.5], [118, 180, 4.5], [110, 178, 3.4]],
+      hindFar: [[132, 160, 8], [142, 172, 5], [140, 180, 3.8], [134, 179, 3]],
+      wing: { sh: [120, 122], el: [152, 104], wr: [142, 62], tips: [[116, 40], [168, 30], [194, 58], [196, 92], [178, 120]], root: [140, 150], w: 2.2 },
+      farWing: { dx: -6, dy: -2, s: 0.7 },
+      horn: 0.5,
     };
-    s += part('drakomet-1-r', rock, pal.shade, ri, 1.6);
-    s += dragon(c, P, 1, '');
-    s += comet(c, 194, 120, -70, 28);
-    s += sparkle(30, 60, 3, pal.glow, false) + sparkle(46, 140, 2.4, '#FFF6D8', false);
-    return `<g transform="translate(116 205) scale(1.12) translate(-116 -205)">${s}</g>`;
+    g += dragon(c, P, 1);
+    g += comet(194, 120, -70, 28);
+    return `<g transform="translate(116 205) scale(1.12) translate(-116 -205)">${g}</g>`;
   }
-  // Stade 0 : nouveau-né dans un œuf-météorite fendu.
-  s += ground(112, 205, 70);
-  const egg = 'M48 204 C40 176 44 144 62 128 L72 138 L80 124 L92 136 L104 120 L114 136 L128 122 L138 136 L150 126 L160 138 C176 154 180 182 172 204 Z';
-  const eggBack = 'M64 130 C76 104 100 92 116 92 C136 92 156 108 160 132 L150 126 L138 136 L128 122 L114 136 L104 120 L92 136 L80 124 L72 138 Z';
-  let bk = shadow(eggBack, pal.deep, 0.9, 'xhatch');
-  for (let i = 0; i < 6; i++) bk += `<path d="M${f(80 + i * 12)} ${f(128 - (i % 2) * 4)} l3 -9 l4 8 Z" fill="${i % 2 ? pal.glow : pal.accent2}" opacity="0.8"/>`;
-  s += part('drakomet-0-eb', eggBack, pal.deep, bk, 1.3);
+  // Drakomet : nouveau-né qui sort de son œuf-météorite.
+  const eggL: Light = { dir: [0.2, 0.5, 0.7], color: '#FFB26B', shade: '#0E0610', rim: '#FF8A4A' };
+  let g = `<ellipse cx="112" cy="205" rx="70" ry="7" fill="#05030C" opacity="0.45"/>`;
+  g += fx([[64, 130], [76, 104], [100, 92], [116, 92], [136, 92], [156, 108], [160, 132], [150, 126], [138, 136], [128, 122], [114, 136], [104, 120], [92, 136], [80, 124], [72, 138]], '#1A1020', eggL, { size: 8, relief: 0.4, seed: 40 });
+  for (let i = 0; i < 6; i++) g += fx([[80 + i * 12, 128 - (i % 2) * 4], [83 + i * 12, 119 - (i % 2) * 4], [87 + i * 12, 127 - (i % 2) * 4]], i % 2 ? '#FFE27A' : CRYSTAL, eggL, { size: 3, relief: 0.3, seed: 41 + i });
   const P: Pose = {
     body: [[112, 150, 20], [116, 162, 20]],
     neck: [[110, 146, 12], [100, 128, 9], [92, 110, 8], [92, 96, 7.5], [98, 86, 7.2]],
     tail: [[150, 150, 6], [168, 140, 4.6], [178, 124, 3.2], [176, 110, 1.6]],
-    head: { x: 100, y: 86, s: 0.9, r: -6 },
+    head: { x: 100, y: 86, s: 0.95, r: -6 },
     hind: [[120, 160, 8], [124, 168, 5], [126, 172, 4]],
     arm: [[96, 140, 5], [86, 134, 3.6], [78, 132, 3]],
-    wing: { sh: [116, 132], el: [134, 118], wr: [130, 98], tips: [[118, 90], [144, 88], [154, 104], [150, 120]], root: [134, 138], w: 2 },
-    farWing: { dx: -24, dy: -2, s: 0.8 },
-    horn: 0, spines: 3,
+    wing: { sh: [116, 132], el: [134, 118], wr: [130, 98], tips: [[118, 90], [144, 88], [154, 104], [150, 120]], root: [134, 138], w: 1.6 },
+    farWing: { dx: -4, dy: -2, s: 0.8 },
+    horn: 0,
   };
-  s += dragon(c, P, 0, '');
-  let ei = shadow('M40 180 C80 196 140 196 180 176 L180 210 L40 210 Z', pal.deep, 0.85, 'xhatch');
-  ei += shadow('M150 130 C172 150 180 182 172 204 L150 204 C164 182 160 154 140 136 Z', pal.deep, 0.6, 'fine');
-  for (const [x, y, r] of [[70, 172, 7], [118, 182, 5], [150, 162, 4], [92, 154, 3.4]] as const) ei += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="#140F24" stroke-width="0.8" opacity="0.6"/><path d="M${x - r} ${y} a${r} ${r} 0 0 1 ${r * 2} 0" fill="none" stroke="${pal.light}" stroke-width="0.7" opacity="0.5"/>`;
-  ei += line('M96 150 l-6 14 l8 6 l-4 12', 0.8, pal.glow, ' opacity="0.9"') + line('M140 146 l6 12 l-6 8', 0.8, pal.glow, ' opacity="0.9"');
-  s += part('drakomet-0-e', egg, pal.shade, ei + bloom(96, 164, 8, pal.glow, 0.5) + bloom(144, 154, 6, pal.glow, 0.5), 1.7) + gloss(66, 156, 6, 20, 18, 0.3);
-  s += rim('M48 204 C40 176 44 144 62 128', pal.glow, 1.2);
-  // Patte posée sur le bord de la coquille.
-  s += limb(c, 'drakomet-0-lp', [[88, 142, 4], [78, 136, 3.2], [72, 134, 2.8]], pal.body, false);
-  s += sparkle(40, 80, 3, pal.glow, false) + sparkle(182, 70, 2.4, '#FFF6D8', false) + speckles(c, 112, 112, 60, 20, 5, pal.glow);
-  return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${s}</g>`;
-}
-
-export const drakomet: Species = (c) => {
-  const st = Math.min(c.stage, 2);
-  setLook(`drakomet-${st}`, c.pal, ['#FFA060', '#7CE8FF', '#FFC4A0'][st]);
-  return noInk(drawDrak(c));
+  g += dragon(c, P, 0);
+  // Coquille de devant (roche météoritique) et fêlures incandescentes.
+  g += fx([[48, 204], [42, 176], [46, 150], [62, 128], [72, 138], [80, 124], [92, 136], [104, 120], [114, 136], [128, 122], [138, 136], [150, 126], [160, 138], [176, 154], [180, 182], [172, 204]], mix('#3A4C78', hsl(h + 180, 30, 40), 0.25), { ...eggL, rim: CRYSTAL }, { size: 10, relief: 1, seed: 50, base2: '#120A18' });
+  for (const d of [[[96, 150], [90, 164], [98, 170], [94, 182]], [[140, 146], [146, 158], [140, 166]], [[64, 160], [72, 170], [68, 184]]] as Pt[][]) {
+    g += fx(limb(d, [2.4, 1.8, 1.4, 1]), '#FFD27A', { dir: [0, 0, 1], color: '#FFFFFF', shade: '#FF8A4A' }, { size: 2, relief: 0.2, seed: 55 });
+  }
+  g += fx(limb([[88, 142], [78, 136], [72, 134]], [8, 6, 5]), hsl(h, 34, 46), LIGHTS[0], { size: 3, relief: 0.6, seed: 56 }) + claws([72, 134], -1, CRYSTAL);
+  return `<g transform="translate(112 205) scale(1.08) translate(-112 -205)">${g}</g>`;
 };
 
 // ---------------------------------------------------------------------------------------------------------------
-// Décor : cratère d'impact fumant (éclosion), champ d'astéroïdes au-dessus d'une planète (perchoir), pic rocheux
-// au-dessus d'une mer de nuages traversée de comètes (rugissement).
+// Décor : cratère d'impact fumant (éclosion), champ d'astéroïdes au-dessus d'une planète (perchoir), pic rocheux au-
+// dessus d'une mer de nuages traversée de comètes (rugissement).
 
-/** Astéroïde irrégulier, ombré à droite, cratères au trait. */
-function asteroid(c: DrawCtx, x: number, y: number, r: number, fill: string, det: number): string {
-  const pts: [number, number][] = [];
-  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, rr = r * (0.78 + c.r() * 0.3); pts.push([x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.86]); }
-  const d = spl([...pts, pts[0], pts[1]]) + ' Z';
-  let o = `<path d="${d}" fill="${fill}" stroke="#140F24" stroke-width="${f(0.4 + det * 0.8)}" opacity="${f(0.55 + det * 0.45)}"/>`;
-  if (det > 0) {
-    o += `<path d="M${f(x - r * 0.1)} ${f(y - r)} A${f(r)} ${f(r * 0.9)} 0 0 1 ${f(x - r * 0.1)} ${f(y + r * 0.9)} A${f(r * 0.7)} ${f(r * 0.86)} 0 0 0 ${f(x - r * 0.1)} ${f(y - r)} Z" fill="#000" opacity="0.3"/>`;
-    for (let i = 0; i < 3; i++) { const cx = x + (c.r() - 0.6) * r, cy = y + (c.r() - 0.5) * r * 0.8, cr = r * (0.1 + c.r() * 0.14); o += `<circle cx="${f(cx)}" cy="${f(cy)}" r="${f(cr)}" fill="none" stroke="#140F24" stroke-width="0.6" opacity="0.6"/>`; }
+const stars = (b: Bounds, n: number, ymax: number, seed: number) => {
+  const r = prng(seed);
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const x = b.x0 + r() * (b.x1 - b.x0), y = b.y0 + r() * (ymax - b.y0), z = r();
+    s += z > 0.8 ? gem(x, y, 1.6 + r() * 2, '#FFFFFF', '#BFD7FF') : `<circle cx="${n1(x)}" cy="${n1(y)}" r="${n1(0.5 + z)}" fill="#FFFFFF" opacity="${n1(0.4 + r() * 0.5)}"/>`;
   }
-  return o;
+  return s;
+};
+function rock(x: number, y: number, rr: number, col: string, L: Light, seed: number): string {
+  const r = prng(seed);
+  const pts: Pt[] = [];
+  for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, k = rr * (0.75 + r() * 0.35); pts.push([x + Math.cos(a) * k, y + Math.sin(a) * k * 0.85]); }
+  return fx(pts, col, L, { size: Math.max(3, rr / 2.4), relief: 0.9, seed });
 }
 
-drakomet.scene = (c: DrawCtx, b: Bounds) => noInk(drakScene(c, b), '#05030C');
-function drakScene(c: DrawCtx, b: Bounds): string {
+const scene = (c: DrawCtx, b: Bounds): string => {
   const st = Math.min(c.stage, 2);
-  const id = `drakomet-${st}-bg`;
   const h = c.hue;
-  const W = b.x1 - b.x0;
-  let o = '';
+  const r = prng(90 + st);
+  let s = '';
   if (st === 0) {
-    // Cratère d'impact encore fumant, la nuit ; braises et éclats de l'œuf-météorite.
-    o += skyGrad(`${id}-s`, b, [[0, '#0E0C22'], [0.5, '#2A1A2E'], [0.7, '#4A2A2A']]);
-    o += stars(c, b, 40, 110);
-    o += `<path d="M150 10 L210 -10" stroke="#FFE6B0" stroke-width="1.2" opacity="0.8"/><path d="M120 22 L150 10" stroke="#FFE6B0" stroke-width="0.5" opacity="0.4"/>`;
-    // Fumée qui monte du cratère.
-    for (let i = 0; i < 6; i++) o += `<ellipse cx="${f(80 + c.r() * 70)}" cy="${f(40 + i * 14)}" rx="${f(26 + c.r() * 20)}" ry="${f(10 + c.r() * 6)}" fill="#6A5470" opacity="${f(0.12 + i * 0.03)}" filter="url(#soft)"/>`;
-    // Collines lointaines, puis lèvre du cratère.
-    o += `<path d="M${b.x0} 136 C40 124 70 132 100 126 C140 118 180 130 ${b.x1} 122 L${b.x1} 160 L${b.x0} 160 Z" fill="#3A2A3C"/>`;
-    o += `<path d="M${b.x0} 150 C30 136 70 140 111 142 C150 144 190 136 ${b.x1} 146 L${b.x1} ${b.y1} L${b.x0} ${b.y1} Z" fill="#4A3436" stroke="#140F24" stroke-width="0.8"/>`;
-    o += `<path d="M${b.x0} 150 C30 136 70 140 111 142 C150 144 190 136 ${b.x1} 146 L${b.x1} 160 L${b.x0} 162 Z" fill="${hsl(20, 80, 60)}" opacity="0.3"/>`;
-    // Cuvette du cratère (plus sombre au fond), lueur chaude sous l'œuf.
-    o += `<ellipse cx="111" cy="196" rx="112" ry="34" fill="#2A1E26" stroke="#140F24" stroke-width="0.8"/><ellipse cx="111" cy="196" rx="112" ry="34" fill="url(#xhatch)" opacity="0.35"/>`;
-    o += `<ellipse cx="111" cy="198" rx="70" ry="16" fill="${hsl(25, 90, 60)}" opacity="0.4" filter="url(#soft)"/>`;
-    // Fissures incandescentes et braises.
-    o += `<path d="M20 206 l18 -4 l10 6 l14 -2 M170 214 l14 -6 l12 4 l10 -6 M60 226 l12 -4 l10 2" fill="none" stroke="${hsl(30, 95, 65)}" stroke-width="1.2" opacity="0.85"/>`;
-    for (let i = 0; i < 14; i++) o += `<circle cx="${f(20 + c.r() * 180)}" cy="${f(60 + c.r() * 130)}" r="${f(0.6 + c.r() * 0.9)}" fill="${hsl(30, 95, 70)}" opacity="${f(0.5 + c.r() * 0.5)}"/>`;
-    o += asteroid(c, 22, 222, 9, '#4A3A40', 1) + asteroid(c, 196, 228, 12, '#4A3A40', 1) + asteroid(c, 186, 150, 4, '#4A3A40', 0.6);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0C22', '#22162E', '#3A2230', '#2A1620', '#140A12'], 3, 32);
+    s += stars(b, 28, 110, 6);
+    s += `<path d="M150 14 L210 -8 L212 -5 Z" fill="#FFE6B0" opacity="0.8"/>`;
+    for (let i = 0; i < 5; i++) s += `<ellipse cx="${n1(80 + r() * 70)}" cy="${n1(40 + i * 16)}" rx="${n1(26 + r() * 18)}" ry="${n1(9 + r() * 5)}" fill="#6A5470" opacity="${n1(0.08 + i * 0.03)}"/>`;
+    const hL: Light = { dir: [0.2, 0.6, 0.6], color: '#E08A5A', shade: '#0A0610' };
+    s += fx([[b.x0, 140], [40, 126], [80, 134], [120, 122], [170, 132], [b.x1, 124], [b.x1, 166], [b.x0, 166]], '#3A2A3C', hL, { size: 18, relief: 0.5, seed: 10 });
+    s += fx([[b.x0, 154], [40, 140], [111, 144], [180, 138], [b.x1, 148], [b.x1, b.y1], [b.x0, b.y1]], '#4A3436', hL, { size: 28, relief: 0.6, seed: 11, base2: '#160C12' });
+    s += fx(ellipse(111, 198, 112, 34, 22), '#1C1218', { dir: [0.1, -0.7, 0.6], color: '#FF9A5A', shade: '#080408' }, { size: 16, relief: -0.6, seed: 12 });
+    s += `<ellipse cx="111" cy="200" rx="70" ry="16" fill="#FF9A4A" opacity="0.2"/>`;
+    for (const d of [[[18, 206], [36, 202], [46, 208], [60, 206]], [[168, 214], [182, 208], [194, 212], [206, 206]], [[60, 228], [72, 224], [84, 226]]] as Pt[][]) s += fx(limb(d, [2.2, 1.6, 1.2, 1]), '#FFB26B', { dir: [0, 0, 1], color: '#FFF0C0', shade: '#C8501A' }, { size: 2, relief: 0.2, seed: 13 });
+    for (let i = 0; i < 12; i++) { const x = 20 + r() * 180, y = 60 + r() * 130; s += `<path d="M${n1(x)} ${n1(y - 1.4)} L${n1(x + 1.2)} ${n1(y)} L${n1(x)} ${n1(y + 1.4)} L${n1(x - 1.2)} ${n1(y)} Z" fill="#FFB26B" opacity="${n1(0.5 + r() * 0.5)}"/>`; }
+    s += rock(22, 222, 9, '#4A3A40', hL, 14) + rock(198, 228, 12, '#4A3A40', hL, 15) + rock(186, 150, 4, '#4A3A40', hL, 16);
   } else if (st === 1) {
-    // Champ d'astéroïdes au-dessus d'une planète : la jeune wyverne guette sur son rocher.
-    o += skyGrad(`${id}-s`, b, [[0, '#08081C'], [1, '#141634']]);
-    o += `<ellipse cx="160" cy="60" rx="90" ry="40" fill="${hsl(h + 200, 60, 50)}" opacity="0.3" filter="url(#soft)"/><ellipse cx="60" cy="40" rx="60" ry="24" fill="${hsl(h + 140, 60, 56)}" opacity="0.2" filter="url(#soft)"/>`;
-    o += stars(c, b, 80, b.y1);
-    // Planète en bas à gauche, limbe éclairé.
-    o += `<circle cx="-20" cy="290" r="130" fill="${hsl(h + 180, 50, 60)}" opacity="0.25" filter="url(#soft)"/>`;
-    o += `<circle cx="-20" cy="290" r="118" fill="${hsl(h + 180, 34, 34)}"/><circle cx="-20" cy="290" r="118" fill="url(#fine)" opacity="0.4"/>`;
-    for (const k of [0, 14, 30]) o += `<path d="M${-138 + k} ${290 - k * 0.2} A118 118 0 0 1 ${98 - k * 0.2} ${290 - k * 0.2}" fill="none" stroke="${hsl(h + 170, 40, 60)}" stroke-width="3" opacity="0.25" transform="translate(0 ${k * 1.6})"/>`;
-    o += `<path d="M-138 290 A118 118 0 0 1 98 290" fill="none" stroke="${hsl(h + 170, 80, 80)}" stroke-width="2" opacity="0.8"/>`;
-    // Astéroïdes à plusieurs distances.
-    for (let i = 0; i < 9; i++) o += asteroid(c, b.x0 + c.r() * W, 10 + c.r() * 150, 2 + c.r() * 4, '#5A5A7A', 0);
-    o += asteroid(c, 30, 70, 12, '#4A4A66', 0.6) + asteroid(c, 196, 190, 16, '#3E3E58', 1) + asteroid(c, 186, 26, 8, '#4A4A66', 0.6);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#08081C', '#0E1030', '#141634', '#0C0E24'], 4, 32);
+    s += `<ellipse cx="160" cy="60" rx="90" ry="40" fill="${hsl(h + 200, 60, 50)}" opacity="0.14"/><ellipse cx="60" cy="40" rx="60" ry="24" fill="${hsl(h + 140, 60, 56)}" opacity="0.1"/>`;
+    s += stars(b, 50, b.y1, 7);
+    const pL: Light = { dir: [0.6, -0.6, 0.5], color: '#BFF6FF', shade: '#04081A', rim: '#7CE8FF' };
+    s += `<circle cx="-20" cy="300" r="132" fill="${hsl(h + 180, 70, 70)}" opacity="0.12"/>` + fx(ellipse(-20, 300, 120, 120, 40), hsl(h + 180, 34, 34), pL, { size: 28, relief: 1, seed: 20 });
+    const aL: Light = { dir: [-0.6, 0.3, 0.6], color: '#9FD8F0', shade: '#04040E' };
+    for (let i = 0; i < 8; i++) s += rock(b.x0 + r() * (b.x1 - b.x0), 10 + r() * 150, 2.5 + r() * 4, '#5A5A7A', aL, 21 + i);
+    s += rock(30, 70, 12, '#4A4A66', aL, 30) + rock(198, 190, 16, '#3E3E58', aL, 31) + rock(186, 26, 8, '#4A4A66', aL, 32);
   } else {
-    // Pic rocheux au-dessus d'une mer de nuages, à la lisière de l'aube ; des comètes traversent le ciel.
-    o += skyGrad(`${id}-s`, b, [[0, '#0E0E2C'], [0.45, hsl(h + 220, 40, 30)], [0.75, hsl(h + 330, 50, 56)], [0.85, '#F2C79A']]);
-    o += stars(c, b, 50, 120);
-    for (const [x, y, l] of [[190, 20, 60], [60, 60, 40], [150, 90, 30]] as const) {
-      o += `<path d="${tube([[x, y, 1.6], [x + l * 0.5, y - l * 0.3, 1], [x + l, y - l * 0.6, 0.1]])}" fill="#FFF6D8" opacity="0.7"/><circle cx="${x}" cy="${y}" r="2" fill="#FFF6D8"/><circle cx="${x}" cy="${y}" r="5" fill="${hsl(h + 180, 80, 80)}" opacity="0.4" filter="url(#glow)"/>`;
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0E2C', hsl(h + 220, 36, 28), hsl(h + 330, 44, 50), '#F2C79A', '#8A6A90', '#3A2A48'], 5, 32);
+    s += stars(b, 30, 120, 8);
+    for (const [x, y, l] of [[190, 20, 60], [60, 66, 40], [150, 92, 30]] as Pt3[]) {
+      s += `<path d="M${x} ${y - 1.4} L${x + l} ${y - l * 0.6} L${x} ${y + 1.4} Z" fill="#FFFFFF" opacity="0.6"/>` + gem(x, y, 3, '#FFFFFF', CRYSTAL);
     }
-    // Pics lointains et mer de nuages.
-    o += `<path d="M${b.x0} 170 L20 140 L36 158 L58 120 L80 160 L${b.x1 - 50} 164 L${b.x1 - 30} 130 L${b.x1} 150 L${b.x1} 180 L${b.x0} 180 Z" fill="${hsl(h + 260, 25, 40)}" opacity="0.8"/>`;
-    const cloud = (y: number, col: string, op: number) => {
-      let d = `M${b.x0 - 10} ${b.y1} L${b.x0 - 10} ${y}`;
-      let x = b.x0 - 10, yy = y;
-      while (x < b.x1 + 20) {
-        const r = 7 + c.r() * 12, ny = y + (c.r() - 0.5) * 8;
-        d += ` A${f(r)} ${f(r * 0.75)} 0 0 1 ${f(x + r * 2)} ${f(ny)}`;
-        x += r * 2; yy = ny;
-      }
-      void yy;
-      return `<path d="${d} L${b.x1 + 20} ${b.y1} Z" fill="${col}" opacity="${op}" stroke="#140F24" stroke-width="0.5"/>`;
+    const mL: Light = { dir: [-0.5, -0.6, 0.6], color: '#F2C0C8', shade: '#120A24' };
+    s += fx([[b.x0, 172], [20, 140], [36, 158], [58, 120], [80, 160], [160, 166], [b.x1 - 30, 130], [b.x1, 150], [b.x1, 182], [b.x0, 182]], hsl(h + 260, 22, 40), mL, { size: 22, relief: 0.6, seed: 40 });
+    // Mer de nuages (bourrelets facettés).
+    const cloud = (y: number, col: string, seed: number) => {
+      const pts: Pt[] = [[b.x0 - 10, b.y1]];
+      let x = b.x0 - 10;
+      const cr = prng(seed);
+      while (x < b.x1 + 20) { const w = 14 + cr() * 20; pts.push([x, y + (cr() - 0.5) * 6], [x + w * 0.5, y - 8 - cr() * 8]); x += w; }
+      pts.push([b.x1 + 20, y], [b.x1 + 20, b.y1]);
+      return fx(pts, col, { dir: [-0.4, -0.8, 0.5], color: '#FFE6E0', shade: '#3A2440' }, { size: 20, relief: 0.6, seed });
     };
-    o += cloud(172, '#C8A0B8', 0.7) + cloud(186, '#A07AA0', 0.9);
-    o += `<rect x="${b.x0}" y="160" width="${W}" height="20" fill="#F2C79A" opacity="0.3" filter="url(#soft)"/>`;
+    s += cloud(176, '#B890B0', 41) + cloud(194, '#9A7298', 42);
     // Le pic sous le dragon.
-    const peak = `M${b.x0 - 6} ${b.y1} L18 222 L40 206 L70 202 L120 200 L170 203 L196 210 L214 224 L${b.x1 + 6} ${b.y1} Z`;
-    o += `<path d="${peak}" fill="#2C2638" stroke="#140F24" stroke-width="1.1"/><path d="${peak}" fill="url(#xhatch)" opacity="0.4"/>`;
-    o += `<path d="M40 206 L70 202 L120 200 L170 203 L196 210" fill="none" stroke="${hsl(h + 330, 70, 75)}" stroke-width="1.6" opacity="0.85"/>`;
-    o += `<path d="M60 214 l10 10 M120 206 l-6 14 M160 210 l8 12" stroke="#140F24" stroke-width="0.7" opacity="0.6"/>`;
-    o += `<ellipse cx="30" cy="232" rx="60" ry="10" fill="#C8A0B8" opacity="0.45" filter="url(#soft)"/><ellipse cx="200" cy="234" rx="50" ry="9" fill="#C8A0B8" opacity="0.45" filter="url(#soft)"/>`;
+    s += fx([[b.x0 - 6, b.y1], [18, 222], [40, 206], [70, 202], [120, 200], [170, 203], [196, 210], [214, 224], [b.x1 + 6, b.y1]], '#3A3048', { dir: [-0.5, -0.6, 0.6], color: '#FFC4B0', shade: '#0A0612', rim: '#FFB0C8' }, { size: 20, relief: 0.8, seed: 43, base2: '#120C1C' });
   }
-  if (b.y1 > 240) o += `<rect x="${b.x0}" y="236" width="${W}" height="${b.y1 - 236}" fill="#0B0A18" opacity="0.5"/>`;
-  return o;
-}
+  return s;
+};
+type Pt3 = [number, number, number];
 
+export const drakomet: Species = Object.assign(draw, { scene });

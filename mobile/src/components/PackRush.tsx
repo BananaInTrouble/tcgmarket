@@ -2,7 +2,8 @@ import { Image } from 'expo-image';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from './ui';
-import { PR_RARITIES, RARITY_STYLE, cardImage, type PrRarity } from '../lib/packrush/art';
+import { PR_RARITIES, RARITY_STYLE, cardArtSvg, cardFrameImage, type PrRarity } from '../lib/packrush/art';
+import { catalogBase } from '../lib/catalog/static';
 import { PR_DESCRIPTIONS } from '../lib/packrush/descriptions';
 import { FX, PACK_H, PACK_TEAR_Y, PACK_W, cardBack, fragmentIcon, packFoil, packRushMark } from '../lib/packrush/brand';
 import type { PrCard, PrOpening } from '../lib/packrush/api';
@@ -19,14 +20,39 @@ export function cardDescription(id: string, lang: string): string | undefined {
   return d?.[lang] ?? d?.en;
 }
 
-/** Image d'une carte avec son niveau d'évolution (« Niv. 2 », Légende, Mythe) et son texte, dans la langue de l'appli. */
-export function useCardArt() {
+/** Version des illustrations pré-calculées (tools/packrush/render-art.ts) : à augmenter à chaque nouveau rendu. */
+const ART_VERSION = 1;
+
+/** Adresse de l'illustration pré-calculée d'une carte (publiée avec le site dans /packrush/<set>/). */
+export function cardArtUrl(card: PrCard, owned: boolean): string {
+  return `${catalogBase().replace(/\/catalog$/, '')}/packrush/${card.set_id}/${card.id}${owned ? '' : '-g'}.jpg?v=${ART_VERSION}`;
+}
+
+/** Cadre d'une carte avec son niveau d'évolution (« Niv. 2 », Légende, Mythe) et son texte, dans la langue de l'appli. */
+export function useCardFrame() {
   const { t, appLang } = useStore();
   return (card: PrCard, total: number, owned = true) => {
     const stage = card.art?.stage ?? 0;
     const level = stage >= 4 ? t(card.rarity === 'SSR' ? 'pr.myth' : 'pr.legend') : t('pr.level', { n: stage + 1 });
-    return cardImage(card, total, owned, { level, desc: cardDescription(card.id, appLang) });
+    return cardFrameImage(card, total, owned, { level, desc: cardDescription(card.id, appLang) });
   };
+}
+
+/**
+ * Carte Pack Rush : illustration pré-calculée (image) + cadre et textes par-dessus. Si l'image n'est pas encore
+ * publiée, l'illustration est calculée sur place (plus lent).
+ */
+export function PrCardPic({ card, total, owned = true, width, style }: { card: PrCard; total: number; owned?: boolean; width: number; style?: object }) {
+  const frame = useCardFrame();
+  const [fallback, setFallback] = useState(false);
+  const art = useMemo(() => (fallback ? `data:image/svg+xml;utf8,${encodeURIComponent(cardArtSvg(card, owned))}` : cardArtUrl(card, owned)), [card.id, owned, fallback]);
+  const h = width * 1.4, radius = (width * 14) / 250;
+  return (
+    <View style={[{ width, height: h, borderRadius: radius, overflow: 'hidden', backgroundColor: '#0B0716' }, style]}>
+      <Image source={art} style={{ position: 'absolute', width, height: h }} contentFit="cover" onError={() => setFallback(true)} transition={120} />
+      <Image source={frame(card, total, owned)} style={{ position: 'absolute', width, height: h }} contentFit="contain" />
+    </View>
+  );
 }
 
 /** Icône de Fragment (étoile de cristal). */
@@ -80,7 +106,6 @@ const NO_TOUCH_SCROLL = { touchAction: 'none' } as object;
  */
 export function Opening({ result, byId, total, setId, title, onClose }: { result: PrOpening; byId: Map<string, PrCard>; total: number; setId: string; title: string; onClose(): void }) {
   const { t } = useStore();
-  const art = useCardArt();
   const { width, height } = useWindowDimensions();
   const packW = Math.min(width * 0.62, 250, (height - 220) * PACK_W / PACK_H);
   const k = packW / PACK_W;
@@ -253,7 +278,7 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
                   ...(ssr ? [{ rotate: burst.interpolate({ inputRange: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 1], outputRange: ['0deg', '-3deg', '3deg', '-3deg', '3deg', '0deg', '0deg'] }) }, { scale: burst.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1.06, 1] }) }] : []),
                 ],
               }}>
-                <Image source={hidden || !curCard ? BACK : art(curCard, total)} style={{ width: cardW, height: cardW * 1.4, borderRadius: 12 }} contentFit="contain" />
+                {hidden || !curCard ? <Image source={BACK} style={{ width: cardW, height: cardW * 1.4, borderRadius: 12 }} contentFit="contain" /> : <PrCardPic card={curCard} total={total} width={cardW} />}
               </Animated.View>
             </Animated.View>
             {ssr && (
@@ -273,7 +298,7 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
                 const c = byId.get(p.id);
                 return c ? (
                   <View key={p.i} style={{ alignItems: 'center', gap: 4 }}>
-                    <Image source={art(c, total)} style={{ width: 96, height: 134 }} contentFit="contain" />
+                    <PrCardPic card={c} total={total} width={96} />
                     <PullTag pull={p} small />
                   </View>
                 ) : null;

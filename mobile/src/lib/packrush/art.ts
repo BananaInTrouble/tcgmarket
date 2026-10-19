@@ -96,45 +96,48 @@ function wrap(text: string, max: number, lines: number): string[] {
   return out;
 }
 
-export function cardSvg(card: { name: string; number: number; rarity: PrRarity; art: PrArt }, total: number, owned = true, text: CardText = {}): string {
+type CardLike = { name: string; number: number; rarity: PrRarity; art: PrArt };
+const WIN = { x: 8, y: 8, w: W - 16, h: H - 16 };
+
+/** Couche « illustration » seule (décor + créature), pleine carte, sans cadre ni texte. Silhouette si `owned` faux. */
+export function cardArtSvg(card: CardLike, owned = true): string {
   const { kind = 'lumikit', hue = 200, seed = 1, stage = 0 } = card.art ?? {};
-  const r = rng(seed);
+  const full = card.rarity === 'SSR';
+  const draw = SPECIES[kind] ?? SPECIES.lumikit;
+  const creature = draw({ r: rng(seed * 7 + 1), hue, pal: paletteAdult(hue), stage });
+  // La créature est dessinée dans un repère décalé de (14, oy) ; le décor couvre toute la fenêtre.
+  const ox = 14, oy = full ? 44 : 14;
+  const ctx = { r: rng(seed * 13 + 5), hue, pal: paletteAdult(hue), stage };
+  const bounds = { x0: WIN.x - ox, y0: WIN.y - oy, x1: WIN.x + WIN.w - ox, y1: WIN.y + WIN.h - oy };
+  const backdrop = draw.scene
+    ? `<g transform="translate(${ox} ${oy})">${draw.scene(ctx, bounds)}</g>`
+    : `<g transform="translate(${WIN.x} ${WIN.y})">${sky(hue, rng(seed), WIN.w, WIN.h)}</g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>${STYLE_DEFS}
+    <radialGradient id="sky" cx="45%" cy="40%" r="80%"><stop offset="0%" stop-color="${hsl(hue + 200, 45, 24)}"/><stop offset="100%" stop-color="${hsl(hue + 220, 55, 7)}"/></radialGradient>
+    <radialGradient id="mood" cx="50%" cy="40%" r="75%"><stop offset="40%" stop-color="#0B0716" stop-opacity="0"/><stop offset="100%" stop-color="#0B0716" stop-opacity="0.7"/></radialGradient>
+    <filter id="ghost"><feColorMatrix values="0 0 0 0 0.16  0 0 0 0 0.13  0 0 0 0 0.26  0 0 0 1 0"/></filter>
+  </defs>
+  <rect width="${W}" height="${H}" fill="#0B0716"/>
+  ${backdrop}
+  <rect x="${WIN.x}" y="${WIN.y}" width="${WIN.w}" height="${WIN.h}" fill="url(#mood)" opacity="0.6"/>
+  <g transform="translate(${ox} ${oy})"${owned ? '' : ' filter="url(#ghost)"'}>${creature}</g>
+  ${owned ? '' : `<rect width="${W}" height="${H}" fill="#07050F" opacity="0.4"/>`}
+</svg>`;
+}
+
+/**
+ * Couche « cadre » : bordure de rareté, filets dorés, orbes, niveau, nom, texte d'ambiance, numéro. La fenêtre de
+ * l'illustration reste transparente : on la pose par-dessus `cardArtSvg` (ou l'image pré-calculée de la carte).
+ */
+export function cardFrameSvg(card: CardLike, total: number, owned = true, text: CardText = {}): string {
   const st = RARITY_STYLE[card.rarity] ?? RARITY_STYLE.C;
   const full = card.rarity === 'SSR';
   const gold = card.rarity === 'C' || card.rarity === 'U' ? '#C9D6DE' : '#E9C25B';
   const stops = st.frame.map((c, i) => `<stop offset="${(i / Math.max(1, st.frame.length - 1)) * 100}%" stop-color="${c}"/>`).join('');
-  const draw = SPECIES[kind] ?? SPECIES.lumikit;
-  const creature = draw({ r: rng(seed * 7 + 1), hue, pal: paletteAdult(hue), stage });
-  // Illustration pleine carte pour toutes les raretés ; la créature descend un peu pour laisser respirer le haut.
-  const win = { x: 8, y: 8, w: W - 16, h: H - 16 };
-  const ox = 14, oy = full ? 44 : 14;
-  const ctx = { r: rng(seed * 13 + 5), hue, pal: paletteAdult(hue), stage };
-  const bounds = { x0: win.x - ox, y0: win.y - oy, x1: win.x + win.w - ox, y1: win.y + win.h - oy };
-  const backdrop = draw.scene
-    ? `<g transform="translate(${ox} ${oy})">${draw.scene(ctx, bounds)}</g>`
-    : `<g transform="translate(${win.x} ${win.y})">${sky(hue, r, win.w, win.h)}</g>`;
-  // Particules lumineuses et petits orbes, façon poussière d'étoiles.
-  let motes = '';
-  for (let i = 0; i < 26; i++) {
-    const x = win.x + r() * win.w, y = win.y + r() * win.h * 0.8, rad = 0.6 + r() * 1.8;
-    const col = ['#7CF5E0', '#FFE27A', '#E58CFF', '#FFFFFF'][i % 4];
-    motes += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(rad * 2.6).toFixed(1)}" fill="${col}" opacity="0.18" filter="url(#bl3)"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${rad.toFixed(1)}" fill="${col}" opacity="${(0.5 + r() * 0.5).toFixed(2)}"/>`;
-  }
-  const cg = `translate(${ox} ${oy})`;
-  const art = `<g clip-path="url(#win)">`
-    + `<g filter="url(#night)">${backdrop}</g>`
-    + `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#mood)"/>`
-    + `<ellipse cx="${W / 2}" cy="${oy + 100}" rx="95" ry="85" fill="url(#halo)"/>`
-    + motes
-    + (owned
-      ? `<g transform="${cg}"><use href="#cr" filter="url(#bloom)" style="mix-blend-mode:screen" opacity="0.45"/><use href="#cr" class="ink"/>`
-        + `</g>`
-      : `<g transform="${cg}"><use href="#cr" filter="url(#ghost)"/></g>`)
-    + (owned && (card.rarity === 'SR' || full) ? `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.35"/>` : '')
-    + `<rect x="${win.x}" y="${H - 116}" width="${win.w}" height="108" fill="url(#fade)"/>`
-    + (owned ? '' : `<rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" fill="#07050F" opacity="0.4"/>`)
-    + `</g>`;
-  // Cadre : filet doré fin, équerres Art nouveau et orbes aux quatre coins.
+  const rr = (x: number, y: number, w: number, h: number, r: number) =>
+    `M${x + r} ${y} H${x + w - r} A${r} ${r} 0 0 1 ${x + w} ${y + r} V${y + h - r} A${r} ${r} 0 0 1 ${x + w - r} ${y + h} H${x + r} A${r} ${r} 0 0 1 ${x} ${y + h - r} V${y + r} A${r} ${r} 0 0 1 ${x + r} ${y} Z`;
+  const border = `<path d="${rr(0, 0, W, H, 14)} ${rr(WIN.x, WIN.y, WIN.w, WIN.h, 9)}" fill="url(#frame)" fill-rule="evenodd"/>`;
   const orb = (x: number, y: number) => `<circle cx="${x}" cy="${y}" r="7.5" fill="#0B0716" stroke="${gold}" stroke-width="1"/><circle cx="${x}" cy="${y}" r="4.6" fill="url(#orb)"/><circle cx="${x - 1.2}" cy="${y - 1.2}" r="1.2" fill="#FFFFFF"/>`;
   const bracket = (x: number, y: number, sx: number, sy: number) =>
     `<path d="M${x + sx * 14} ${y} h${sx * 22} l${sx * 6} ${sy * 6} M${x} ${y + sy * 14} v${sy * 22} l${sx * 6} ${sy * 6}" fill="none" stroke="${gold}" stroke-width="0.9" stroke-linecap="round"/>`
@@ -144,7 +147,6 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
     + `<rect x="${fi + 4}" y="${fi + 4}" width="${W - fi * 2 - 8}" height="${H - fi * 2 - 8}" rx="4" fill="none" stroke="${gold}" stroke-width="0.4" opacity="0.5"/>`
     + bracket(fi + 4, fi + 4, 1, 1) + bracket(W - fi - 4, fi + 4, -1, 1) + bracket(fi + 4, H - fi - 4, 1, -1) + bracket(W - fi - 4, H - fi - 4, -1, -1)
     + orb(fi + 6, fi + 6) + orb(W - fi - 6, fi + 6) + orb(fi + 6, H - fi - 6) + orb(W - fi - 6, H - fi - 6);
-  // Niveau d'évolution, en haut à gauche (à côté de l'orbe).
   const lv = text.level ? esc(text.level) : '';
   const lvW = lv.length * 5.4 + 14;
   const level = lv
@@ -154,39 +156,33 @@ export function cardSvg(card: { name: string; number: number; rarity: PrRarity; 
   const name = owned ? esc(card.name.toUpperCase()) : '? ? ?';
   const nameSize = card.name.length > 11 ? 14 : 16;
   const lines = owned && text.desc ? wrap(text.desc, 48, 3) : [];
-  const desc = lines.map((l, i) => `<text x="${W / 2}" y="${300 + i * 10}" text-anchor="middle" font-family="${SERIF}" font-size="8.4" font-style="italic" fill="#EDE6FF" fill-opacity="0.82">${esc(l)}</text>`).join('');
+  const desc = lines.map((l, i) => `<text x="${W / 2}" y="${300 + i * 10}" text-anchor="middle" font-family="${SERIF}" font-size="8.4" font-style="italic" fill="#EDE6FF" fill-opacity="0.85">${esc(l)}</text>`).join('');
   const body = `<text x="${W / 2}" y="278" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize}" font-weight="700" letter-spacing="3.2" fill="${owned ? '#FFF1D0' : '#6E6890'}" filter="url(#txtglow)">${name}</text>`
     + `<path d="M62 287 h52 M136 287 h52" stroke="${gold}" stroke-width="0.7" opacity="0.8"/><path d="M${W / 2 - 5} 287 l5 -3.5 l5 3.5 l-5 3.5 z" fill="${gold}"/>`
     + desc
     + `<text x="34" y="${H - 22}" font-family="${SERIF}" font-size="8" font-weight="700" letter-spacing="1" fill="${gold}" opacity="0.9">${String(card.number).padStart(3, '0')}/${String(total).padStart(3, '0')}</text>`
     + `<text x="${W - 34}" y="${H - 22}" text-anchor="end" font-family="${SERIF}" font-size="9" font-weight="700" fill="${st.glow}">${st.symbol}</text>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
-  <defs>${STYLE_DEFS}
-    <g id="cr">${creature}</g>
-    <filter id="white" x="-50%" y="-50%" width="200%" height="200%"><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0"/></filter>
-    <mask id="crm" maskUnits="userSpaceOnUse" x="-60" y="-80" width="350" height="420"><use href="#cr" filter="url(#white)"/></mask>
-    <filter id="bloom" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/><feColorMatrix type="saturate" values="1.8"/></filter>
-    <filter id="bl3" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5"/></filter>
-    <filter id="night"><feColorMatrix values="0.62 0 0.08 0 0  0 0.58 0.08 0 0  0.08 0.06 0.82 0 0.02  0 0 0 1 0"/></filter>
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">
+  <defs>
     <filter id="txtglow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <linearGradient id="iri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${hsl(hue + 150, 75, 60)}"/><stop offset="40%" stop-color="${hsl(hue + 230, 80, 65)}"/><stop offset="75%" stop-color="${hsl(hue, 85, 62)}"/><stop offset="100%" stop-color="#FFD66B"/></linearGradient>
-    <pattern id="fili" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(18)"><path d="M13 13 m-8 0 a8 8 0 1 1 8 8 a5 5 0 1 1 -5 -5 a2.5 2.5 0 1 1 2.5 2.5" fill="none" stroke="#9FF3E8" stroke-width="0.5"/><path d="M0 0 q6 6 13 0 t13 0" fill="none" stroke="#FFE08A" stroke-width="0.4"/></pattern>
-    <radialGradient id="halo" cx="50%" cy="45%" r="50%"><stop offset="0%" stop-color="#B9A2FF" stop-opacity="0.45"/><stop offset="60%" stop-color="#6B4FD8" stop-opacity="0.12"/><stop offset="100%" stop-color="#6B4FD8" stop-opacity="0"/></radialGradient>
-    <radialGradient id="mood" cx="50%" cy="40%" r="75%"><stop offset="40%" stop-color="#0B0716" stop-opacity="0"/><stop offset="100%" stop-color="#0B0716" stop-opacity="0.7"/></radialGradient>
     <radialGradient id="orb" cx="40%" cy="40%" r="60%"><stop offset="0%" stop-color="#BFF6FF"/><stop offset="45%" stop-color="#3A7BD5"/><stop offset="100%" stop-color="#101A3A"/></radialGradient>
     <linearGradient id="frame" x1="0" y1="0" x2="1" y2="1">${stops}</linearGradient>
     <linearGradient id="holo" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#FF7EB6"/><stop offset="30%" stop-color="#FFE27A"/><stop offset="55%" stop-color="#7CF5D0"/><stop offset="80%" stop-color="#8FA8FF"/><stop offset="100%" stop-color="#E58CFF"/></linearGradient>
     <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0B0716" stop-opacity="0"/><stop offset="45%" stop-color="#0B0716" stop-opacity="0.82"/><stop offset="100%" stop-color="#0B0716" stop-opacity="0.95"/></linearGradient>
-    <radialGradient id="sky" cx="45%" cy="40%" r="80%"><stop offset="0%" stop-color="${hsl(hue + 200, 45, 24)}"/><stop offset="100%" stop-color="${hsl(hue + 220, 55, 7)}"/></radialGradient>
-    <style>.ink [stroke="#140F24"], .ink [stroke="#1A1230"] { stroke-opacity: 0.55; }</style>
-    <filter id="ghost"><feColorMatrix values="0 0 0 0 0.16  0 0 0 0 0.13  0 0 0 0 0.26  0 0 0 1 0"/></filter>
-    <clipPath id="win"><rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" rx="9"/></clipPath>
   </defs>
-  <rect width="${W}" height="${H}" rx="14" fill="url(#frame)"/>
-  <rect x="${win.x}" y="${win.y}" width="${win.w}" height="${win.h}" rx="9" fill="#0B0716"/>
-  ${art}${frame}${level}${body}
+  ${owned && (card.rarity === 'SR' || full) ? `<rect x="${WIN.x}" y="${WIN.y}" width="${WIN.w}" height="${WIN.h}" rx="9" fill="url(#holo)" style="mix-blend-mode:soft-light" opacity="0.3"/>` : ''}
+  <rect x="${WIN.x}" y="${H - 116}" width="${WIN.w}" height="108" fill="url(#fade)"/>
+  ${border}${frame}${level}${body}
 </svg>`;
 }
 
-export const cardImage = (card: Parameters<typeof cardSvg>[0], total: number, owned = true, text: CardText = {}) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(cardSvg(card, total, owned, text))}`;
+/** Carte complète (illustration + cadre) en un seul SVG : aperçus et outils. */
+export function cardSvg(card: CardLike, total: number, owned = true, text: CardText = {}): string {
+  const inner = (svg: string) => svg.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><defs><clipPath id="cardclip"><rect width="${W}" height="${H}" rx="14"/></clipPath></defs>`
+    + `<g clip-path="url(#cardclip)">${inner(cardArtSvg(card, owned))}</g>${inner(cardFrameSvg(card, total, owned, text))}</svg>`;
+}
+
+const uri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+export const cardImage = (card: CardLike, total: number, owned = true, text: CardText = {}) => uri(cardSvg(card, total, owned, text));
+export const cardFrameImage = (card: CardLike, total: number, owned = true, text: CardText = {}) => uri(cardFrameSvg(card, total, owned, text));

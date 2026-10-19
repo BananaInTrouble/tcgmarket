@@ -1,218 +1,177 @@
-import { bloom, gloss, hsl, softShadow, speckles, type Bounds, type DrawCtx, type Species } from './style.ts';
-import { kit } from './mythkit.ts';
+import type { Bounds, DrawCtx, Species } from './style.ts';
+import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
-type Pt = [number, number];
-const f = (v: number) => v.toFixed(1);
-const P = (p: Pt) => `${f(p[0])} ${f(p[1])}`;
+/** Tracé SVG simple (M, L, C absolus, Z) → polygone échantillonné. */
+function pathPts(d: string, step = 6): Pt[] {
+  const t = d.match(/[MLCZ]|-?\d*\.?\d+/g) ?? [];
+  let i = 0, cmd = '', start: Pt = [0, 0], cur: Pt = [0, 0];
+  const segs: [Pt, Pt, Pt][] = [];
+  const num = () => +t[i++];
+  while (i < t.length) {
+    if (/[MLCZ]/.test(t[i])) cmd = t[i++];
+    if (cmd === 'M') { start = cur = [num(), num()]; cmd = 'L'; continue; }
+    if (cmd === 'Z') break;
+    if (cmd === 'L') { const p: Pt = [num(), num()]; segs.push([cur, p, p]); cur = p; }
+    else if (cmd === 'C') { const a: Pt = [num(), num()], b: Pt = [num(), num()], p: Pt = [num(), num()]; segs.push([a, b, p]); cur = p; }
+  }
+  return curve(start, segs, step);
+}
 
-/** Courbe lisse (Catmull-Rom → Bézier) passant par les points. */
-function smooth(pts: Pt[], start = true): string {
-  let d = start ? `M${P(pts[0])}` : `L${P(pts[0])}`;
+/** Lissage Catmull-Rom d'une colonne de points (sous-échantillonnée). */
+function spline(pts: Pt[], per = 3): Pt[] {
+  const out: Pt[] = [];
   for (let i = 0; i < pts.length - 1; i++) {
     const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
-    d += ` C${P([p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6])} ${P([p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6])} ${P(p2)}`;
+    for (let k = 0; k < per; k++) {
+      const t = k / per, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((j) => 0.5 * (2 * p1[j] + (-p0[j] + p2[j]) * t + (2 * p0[j] - 5 * p1[j] + 4 * p2[j] - p3[j]) * t2 + (-p0[j] + 3 * p1[j] - 3 * p2[j] + p3[j]) * t3)) as Pt);
+    }
   }
-  return d;
+  out.push(pts[pts.length - 1]);
+  return out;
 }
 
-/** Corps tubulaire : contour lisse autour d'une colonne, épaisseur par point. Renvoie aussi les deux bords. */
-function tube(pts: Pt[], w: number[]): { d: string; L: Pt[]; R: Pt[] } {
-  const L: Pt[] = [], R: Pt[] = [];
-  pts.forEach((p, i) => {
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
-    const tx = b[0] - a[0], ty = b[1] - a[1], k = Math.hypot(tx, ty) || 1;
-    L.push([p[0] - ty / k * w[i] / 2, p[1] + tx / k * w[i] / 2]);
-    R.push([p[0] + ty / k * w[i] / 2, p[1] - tx / k * w[i] / 2]);
-  });
-  const d = `${smooth(L)} L${P(R[R.length - 1])}${smooth(R.slice().reverse(), false).replace(/^L[^C]*/, '')} Z`;
-  return { d, L, R };
-}
-
-/** Mise à l'échelle commune créature + soleil du décor : tout tient au-dessus du nom (SSR, nom vers y 234). */
+const GOLD = '#E9C25B', CREAM = '#FFF6D8';
+const SX = 112, SY = 112, SR = 46;
+/** Créature et soleil réduits ensemble pour laisser le bas de la carte au nom. */
 const FIT = 'translate(111 -36) scale(0.9) translate(-111 36)';
 
 /**
- * Ophalia : serpent ailé céleste (mythique, carte plein cadre). Un grand serpent à plumes, six ailes de séraphin
- * déployées, s'enroule autour d'un soleil qu'il garde : une boucle passe devant l'astre, l'autre derrière. Tête de
- * profil, crête de longues plumes, barbillons d'or. Style gravure : écailles et plumes au trait, hachures, or.
+ * Ophalia (low-poly) : grand serpent à plumes et à six ailes de séraphin, enroulé autour du soleil qu'il garde ;
+ * une boucle passe devant l'astre, l'autre derrière. Tête de profil, cornes-plumes, barbillons d'or.
  */
-export const ophalia: Species = (c: DrawCtx) => {
-  const { pal } = c;
-  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4');
-  const CREAM = '#FFF6D8', INK = '#140F24';
-  const id = 'ophalia-4';
-  const SUN = hsl(42, 95, 70), TEAL = hsl(c.hue + 160, 70, 64);
+const draw = (c: DrawCtx): string => {
+  const h = c.hue;
+  const body = hsl(h, 48, 40), deep = hsl(h + 20, 50, 16), pale = hsl(h - 10, 50, 70);
+  // Lumière principale : le soleil au centre ; contour rosé de la couronne.
+  const light: Light = { dir: [-0.55, -0.35, 0.5], color: '#FFD9A0', shade: '#0E0414', rim: '#FF9A5A' };
+  const far: Light = { ...light, color: mix('#FFE3A8', deep, 0.5), rim: undefined };
   let s = '';
-  // ---------- Le soleil gardé (source de lumière principale) ----------
-  const SX = 112, SY = 112, SR = 46;
-  s += `<defs><radialGradient id="${id}-s" cx="42%" cy="40%" r="65%"><stop offset="0" stop-color="#FFFBEA"/><stop offset="0.5" stop-color="${hsl(44, 95, 76)}"/><stop offset="1" stop-color="${hsl(32, 90, 56)}"/></radialGradient></defs>`;
-  // Le soleil : couronne, rayons gravés, granulation, protubérances.
-  s += `<circle cx="${SX}" cy="${SY}" r="${SR + 40}" fill="${hsl(44, 100, 70)}" opacity="0.55" filter="url(#b8)"/>`;
-  for (let i = 0; i < 32; i++) {
-    const a = (i / 32) * Math.PI * 2, r2 = SR + (i % 2 ? 10 : 20) + c.r() * 6;
-    s += `<path d="M${f(SX + Math.cos(a - 0.05) * SR)} ${f(SY + Math.sin(a - 0.05) * SR)} L${f(SX + Math.cos(a) * r2)} ${f(SY + Math.sin(a) * r2)} L${f(SX + Math.cos(a + 0.05) * SR)} ${f(SY + Math.sin(a + 0.05) * SR)} Z" fill="${hsl(42, 95, 70)}" opacity="0.75"/>`;
-  }
-  s += `<circle cx="${SX}" cy="${SY}" r="${SR}" fill="url(#${id}-s)"/>` + glow(SX - 10, SY - 12, 22, '#FFFFFF', 0.7);
-  s += `<circle cx="${SX}" cy="${SY}" r="${SR - 7}" fill="none" stroke="${hsl(30, 85, 58)}" stroke-width="0.8" opacity="0.6"/>`;
-  for (let i = 0; i < 26; i++) {
-    const a = c.r() * Math.PI * 2, d = Math.sqrt(c.r()) * (SR - 6);
-    s += `<circle cx="${f(SX + Math.cos(a) * d)}" cy="${f(SY + Math.sin(a) * d)}" r="${f(1.5 + c.r() * 2.5)}" fill="none" stroke="${hsl(30, 85, 58)}" stroke-width="0.6" opacity="0.6"/>`;
-  }
-  s += shadow(`M${SX + 20} ${SY - SR + 4} A${SR} ${SR} 0 0 1 ${SX + 10} ${SY + SR - 1} C${SX + 50} ${SY + 20} ${SX + 50} ${SY - 20} ${SX + 20} ${SY - SR + 4} Z`, hsl(24, 85, 50), 0.45, 'fine');
-  s += line(`M${SX - 36} ${SY - 50} C${SX - 50} ${SY - 70} ${SX - 20} ${SY - 78} ${SX - 14} ${SY - 50}`, 2.2, hsl(40, 100, 72), ' opacity="0.8"');
-  s += line(`M${SX + 44} ${SY + 22} C${SX + 70} ${SY + 20} ${SX + 70} ${SY + 46} ${SX + 40} ${SY + 32}`, 1.8, hsl(40, 100, 72), ' opacity="0.7"');
 
+  // ---------- Soleil gardé ----------
+  s += `<circle cx="${SX}" cy="${SY}" r="${SR + 34}" fill="#FFB26B" opacity="0.12"/><circle cx="${SX}" cy="${SY}" r="${SR + 18}" fill="#FFD27A" opacity="0.16"/>`;
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2, r2 = SR + (i % 2 ? 12 : 24);
+    const P = (aa: number, rr: number) => `${(SX + Math.cos(aa) * rr).toFixed(1)} ${(SY + Math.sin(aa) * rr).toFixed(1)}`;
+    s += `<path d="M${P(a - 0.09, SR - 2)}L${P(a, r2)}L${P(a, SR - 2)}Z" fill="#FFE08A"/><path d="M${P(a, SR - 2)}L${P(a, r2)}L${P(a + 0.09, SR - 2)}Z" fill="#F0A24A"/>`;
+  }
+  s += facets(ellipse(SX, SY, SR, SR, 30), '#FFC65A', { dir: [-0.4, -0.5, 0.8], color: '#FFFBEA', shade: '#D2621E' }, { size: 16, relief: 1.6, seed: 2, base2: '#F2973C', jitter: 0.2 });
 
   // ---------- Ailes (repère local : bras le long de +x, rémiges vers +y) ----------
-  const feather = (bx: number, by: number, ang: number, len: number, w: number, fill: string, tip: string | null) => {
+  const feather = (bx: number, by: number, ang: number, len: number, w: number): Pt[] => {
     const r = (ang * Math.PI) / 180, ux = Math.cos(r), uy = Math.sin(r), nx = -uy, ny = ux;
     const at = (k: number, o: number): Pt => [bx + ux * len * k + nx * o, by + uy * len * k + ny * o];
-    const d = `M${P(at(0, -w * 0.35))} C${P(at(0.4, -w * 0.6))} ${P(at(0.8, -w * 0.55))} ${P(at(0.97, -w * 0.2))} Q${P(at(1.04, 0))} ${P(at(0.97, w * 0.25))} C${P(at(0.8, w * 0.6))} ${P(at(0.4, w * 0.55))} ${P(at(0, w * 0.35))} Z`;
-    let o = `<path d="${d}" fill="${fill}"/>`;
-    if (tip) o += `<path d="M${P(at(0.78, -w * 0.5))} C${P(at(0.9, -w * 0.4))} ${P(at(0.97, -w * 0.2))} ${P(at(1.0, 0))} C${P(at(0.97, w * 0.25))} ${P(at(0.9, w * 0.45))} ${P(at(0.78, w * 0.55))} Q${P(at(0.74, 0))} ${P(at(0.78, -w * 0.5))} Z" fill="${tip}" opacity="0.9"/>`;
-    o += `<path d="M${P(at(0.05, 0))} Q${P(at(0.5, w * 0.06))} ${P(at(0.92, 0))}" fill="none" stroke="${CREAM}" stroke-width="0.5" opacity="0.55"/>`;
-    o += `<path d="M${P(at(0, -w * 0.3))} Q${P(at(0.5, -w * 0.45))} ${P(at(0.95, -w * 0.12))}" fill="none" stroke="#05030C" stroke-width="0.8" opacity="0.35" filter="url(#b2)"/>`;
-    void line; //${f(nx * w * 0.35 + ux * 3)} ${f(ny * w * 0.35 + uy * 3)} M${P(at(0.55, 0))} l${f(nx * w * 0.4 + ux * 3)} ${f(ny * w * 0.4 + uy * 3)}`, 0.4, INK, ' opacity="0.45"');
-    return o;
+    return [at(0, -w * 0.4), at(0.45, -w * 0.55), at(0.85, -w * 0.4), at(1.03, 0), at(0.85, w * 0.45), at(0.45, w * 0.55), at(0, w * 0.4)];
   };
-  const wing = (x: number, y: number, rot: number, k: number, left: boolean, tone: number) => {
-    const prim = `url(#${id}-wp${tone})`, sec = `url(#${id}-ws${tone})`, cov = `url(#${id}-wc${tone})`;
+  const wing = (x: number, y: number, rot: number, k: number, left: boolean, near: boolean, seed: number) => {
+    const a = (rot * Math.PI) / 180, cr = Math.cos(a), sr = Math.sin(a), sy = left ? -1 : 1;
+    const T = (p: Pt): Pt => { const px = p[0] * k, py = p[1] * k * sy; return [x + px * cr - py * sr, y + px * sr + py * cr]; };
+    const L = near ? light : far;
+    const prim = near ? mix(pale, '#FFF3C8', 0.3) : mix(body, deep, 0.3), sec = near ? body : deep, cov = near ? pale : body;
     let w = '';
-    // Rémiges secondaires (bras), primaires (main), en éventail.
-    for (let i = 0; i < 6; i++) w += feather(8 + i * 7.5, -2, 96 - i * 4, 36 - i * 0.6, 9, sec, null);
-    for (let i = 6; i >= 0; i--) w += feather(52 + i * 7, -8 - i * 0.6, 72 - i * 9.5, 40 + i * 2.6, 9.5, prim, pal.gold);
-    // Couvertures : deux rangées d'écailles-plumes.
-    for (let i = 0; i < 9; i++) w += feather(4 + i * 9, -6 - Math.sin((i / 8) * Math.PI) * 6, 88 - i * 5, 18, 8, cov, null);
-    for (let i = 0; i < 10; i++) w += feather(2 + i * 8.6, -10 - Math.sin((i / 9) * Math.PI) * 8, 86 - i * 4, 9, 6.5, prim, null);
-    // Bord d'attaque.
-    w += V('M-2 -6 C14 -16 34 -20 50 -18 C70 -16 88 -10 104 -4 C88 -12 70 -22 50 -24 C30 -26 12 -20 -2 -10 Z', tone ? pal.shade : pal.body, { light: [0.4, 0.2], hi: pal.glow, lo: pal.deep });
-    w += rim('M-2 -10 C12 -20 30 -26 50 -24 C70 -22 88 -12 104 -4', pal.glow, 0.5);
-    w += gild('M10 -16 C24 -22 40 -24 56 -21', 0.8);
-    return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${k} ${left ? -k : k})">${w}</g>`;
+    for (let i = 0; i < 4; i++) w += facets(feather(10 + i * 11, -2, 96 - i * 4, 34, 11).map(T), sec, L, { size: 14, relief: 0.6, seed: seed + i });
+    for (let i = 5; i >= 0; i--) {
+      const f = feather(52 + i * 8, -8 - i * 0.6, 72 - i * 11, 40 + i * 3, 11);
+      w += facets(f.map(T), prim, L, { size: 14, relief: 0.7, seed: seed + 10 + i, base2: near ? GOLD : mix(prim, hsl(h + 160, 50, 50), 0.5) });
+    }
+    // Couvertures (une rangée de plumes courtes) et bord d'attaque.
+    for (let i = 0; i < 5; i++) w += facets(feather(4 + i * 17, -8 - Math.sin((i / 5) * Math.PI) * 6, 86 - i * 6, 20, 13).map(T), cov, L, { size: 12, relief: 0.6, seed: seed + 20 + i });
+    w += facets(pathPts('M-2 -6 C14 -16 34 -20 50 -18 C70 -16 88 -10 104 -4 C88 -12 70 -22 50 -24 C30 -26 12 -20 -2 -10 Z', 6).map(T), cov, L, { size: 9, relief: 0.6, seed: seed + 30 });
+    return w;
   };
-  // Dégradés des plumes (repère de l'aile) : racine profonde → corps → extrémités incandescentes.
-  const wg = (key: string, a: string, b2: string, c2: string) => `<radialGradient id="${id}-${key}" gradientUnits="userSpaceOnUse" cx="30" cy="-10" r="110"><stop offset="0" stop-color="${a}"/><stop offset="0.45" stop-color="${b2}"/><stop offset="1" stop-color="${c2}"/></radialGradient>`;
-  s += `<defs>${wg('wp0', pal.shade, pal.light, '#FFF3C8')}${wg('ws0', pal.deep, pal.body, pal.glow)}${wg('wc0', pal.body, pal.belly, '#FFFFFF')}`
-    + `${wg('wp1', pal.deep, pal.shade, TEAL)}${wg('ws1', '#05030C', pal.deep, pal.body)}${wg('wc1', pal.deep, pal.body, pal.light)}</defs>`;
-  // Ailes de l'arrière-plan (côté lointain, plus sombres), puis côté proche.
-  s += wing(144, 50, -172, 0.9, true, 1) + wing(144, 44, -128, 0.86, true, 1) + wing(150, 58, 18, 0.72, false, 1);
-  s += wing(152, 44, -60, 0.86, false, 0) + wing(154, 50, -24, 0.84, false, 0) + wing(140, 60, 168, 0.72, true, 0);
+  // Ailes lointaines (sombres), puis proches.
+  s += wing(144, 50, -172, 0.9, true, false, 100) + wing(144, 44, -128, 0.86, true, false, 140) + wing(150, 58, 18, 0.72, false, false, 180);
 
-  // ---------- Corps (colonne qui s'enroule autour du soleil, centre 112,112 r 46) ----------
+  // ---------- Corps : colonne enroulée autour du soleil ----------
   const spine: Pt[] = [[-2, 222], [28, 238], [68, 246], [116, 240], [160, 228], [192, 204], [206, 170], [200, 140], [180, 126], [150, 132], [118, 146], [86, 152], [58, 146], [38, 126], [30, 100], [42, 82], [74, 76], [110, 74], [138, 74], [150, 60], [150, 42], [144, 26]];
-  const width = [2, 5, 8, 11, 14, 17, 19, 21, 22, 22, 22, 22, 22, 22, 21, 21, 20, 20, 19, 18, 17, 15];
-  const back = tube(spine.slice(13), width.slice(13));
-  const front = tube(spine.slice(0, 16), width.slice(0, 16));
-  const scales = (t: { L: Pt[]; R: Pt[] }, seg: Pt[]) => {
-    let o = '';
-    for (let i = 1; i < seg.length - 1; i++) {
-      for (let k = 0; k < 3; k++) {
-        const u = k / 3;
-        const l: Pt = [t.L[i][0] + (t.L[i + 1][0] - t.L[i][0]) * u, t.L[i][1] + (t.L[i + 1][1] - t.L[i][1]) * u];
-        const r: Pt = [t.R[i][0] + (t.R[i + 1][0] - t.R[i][0]) * u, t.R[i][1] + (t.R[i + 1][1] - t.R[i][1]) * u];
-        const m: Pt = [(l[0] + r[0]) / 2, (l[1] + r[1]) / 2];
-        o += `<path d="M${P(l)} Q${P([m[0] + (seg[i + 1][0] - seg[i][0]) * 0.12, m[1] + (seg[i + 1][1] - seg[i][1]) * 0.12])} ${P(r)}" fill="none" stroke="#05030C" stroke-opacity="0.3" stroke-width="0.5" opacity="0.35"/>`;
-      }
+  const width = [2, 6, 9, 12, 15, 17, 19, 21, 22, 22, 22, 22, 22, 22, 21, 21, 20, 20, 19, 18, 17, 15];
+  const seg = (a: number, b: number) => { const sp = spline(spine.slice(a, b), 2); const wd = spline(width.slice(a, b).map((v) => [v, 0] as Pt), 2).map((p) => p[0]); return { sp, wd }; };
+  // Boucle arrière : seulement les parties hors du disque solaire (derrière).
+  const backS = seg(13, 22);
+  const scaleBand = (sp: Pt[], wd: number[], seed: number, L: Light, base: string) => {
+    let o = facets(limb(sp, wd), base, L, { size: 15, relief: 1.4, seed, base2: mix(base, deep, 0.35) });
+    // Ventre clair (bande du côté intérieur).
+    o += facets(limb(sp.map((p, i) => { const q = sp[Math.min(sp.length - 1, i + 1)], pr = sp[Math.max(0, i - 1)], dx = q[0] - pr[0], dy = q[1] - pr[1], l = Math.hypot(dx, dy) || 1; return [p[0] + dy / l * wd[i] * 0.3, p[1] - dx / l * wd[i] * 0.3] as Pt; }), wd.map((v) => v * 0.32)), pale, L, { size: 10, relief: 0.4, seed: seed + 1 });
+    // Losanges dorsaux sertis.
+    for (let i = 2; i < sp.length - 1; i += 2) {
+      const p = sp[i], q = sp[i + 1], dx = q[0] - p[0], dy = q[1] - p[1], l = Math.hypot(dx, dy) || 1, ox = -dy / l * wd[i] * 0.18, oy = dx / l * wd[i] * 0.18;
+      const m: Pt = [p[0] + ox, p[1] + oy], tx = dx / l * 3.2, ty = dy / l * 3.2, nx = ox * 0.6, ny = oy * 0.6;
+      o += `<path d="M${(m[0] - tx).toFixed(1)} ${(m[1] - ty).toFixed(1)}L${(m[0] + nx).toFixed(1)} ${(m[1] + ny).toFixed(1)}L${(m[0] + tx).toFixed(1)} ${(m[1] + ty).toFixed(1)}Z" fill="${GOLD}"/><path d="M${(m[0] - tx).toFixed(1)} ${(m[1] - ty).toFixed(1)}L${(m[0] - nx).toFixed(1)} ${(m[1] - ny).toFixed(1)}L${(m[0] + tx).toFixed(1)} ${(m[1] + ty).toFixed(1)}Z" fill="${deep}"/>`;
     }
     return o;
   };
-  // Motif dorsal : losanges sombres cernés d'or, entre la colonne et le flanc ombré.
-  const diamonds = (t: { L: Pt[]; R: Pt[] }, seg: Pt[]) => {
-    let o = '';
-    for (let i = 1; i < seg.length - 1; i++) {
-      for (let k = 0; k < 2; k++) {
-        const u = k / 2 + 0.25, a = seg[i], b2 = seg[i + 1];
-        const m: Pt = [a[0] + (b2[0] - a[0]) * u, a[1] + (b2[1] - a[1]) * u];
-        const l: Pt = [t.L[i][0] + (t.L[i + 1][0] - t.L[i][0]) * u, t.L[i][1] + (t.L[i + 1][1] - t.L[i][1]) * u];
-        const c0: Pt = [(m[0] * 0.6 + l[0] * 0.4), (m[1] * 0.6 + l[1] * 0.4)];
-        const tx = (b2[0] - a[0]) * 0.16, ty = (b2[1] - a[1]) * 0.16, nx = (l[0] - m[0]) * 0.25, ny = (l[1] - m[1]) * 0.25;
-        o += `<path d="M${P([c0[0] - tx, c0[1] - ty])} L${P([c0[0] + nx, c0[1] + ny])} L${P([c0[0] + tx, c0[1] + ty])} L${P([c0[0] - nx, c0[1] - ny])} Z" fill="${pal.deep}" stroke="${pal.gold}" stroke-width="0.6" opacity="0.85"/>`;
-      }
-    }
-    return o;
-  };
-  const paint = (t: { d: string; L: Pt[]; R: Pt[] }, seg: Pt[], cid: string) =>
-    `<defs><clipPath id="${id}-${cid}"><path d="${t.d}"/></clipPath></defs>${V(t.d, pal.body, { light: [0.4, 0.3], hi: pal.glow, lo: pal.deep, rim: SUN, ao: 0.6 })}`
-    + `<g clip-path="url(#${id}-${cid})">`
-    + `<path d="${smooth(t.R)}" fill="none" stroke="${pal.belly}" stroke-width="12" opacity="0.85" filter="url(#b2)"/>`
-    + `<path d="${smooth(t.L)}" fill="none" stroke="${pal.deep}" stroke-width="10" opacity="0.6" filter="url(#b2)"/>`
-    + diamonds(t, seg)
-    + scales(t, seg) + `</g>` + ink(t.d, 'none', 1.5) + rim(smooth(t.R), pal.glow, 1.1);
-  // Boucle arrière : masquée par le disque solaire.
-  s += `<defs><clipPath id="${id}-sun"><path clip-rule="evenodd" d="M-40 -60 H260 V320 H-40 Z M66 112 A46 46 0 1 0 158 112 A46 46 0 1 0 66 112 Z"/></clipPath></defs>`;
-  s += `<g clip-path="url(#${id}-sun)">${paint(back, spine.slice(13), 'bk')}</g>`;
-  s += paint(front, spine.slice(0, 16), 'fr');
-  // Crête de plumes le long de la nuque et nageoire caudale en plumes.
-  for (let i = 0; i < 6; i++) {
-    const p = spine[16 + Math.min(5, i)], q = spine[Math.min(21, 17 + i)];
-    s += feather(p[0] + (q[0] - p[0]) * 0.5, p[1] + (q[1] - p[1]) * 0.5 - 6, -150 + i * 12, 14 - i, 5, pal.light, pal.gold);
-  }
-  for (let i = 0; i < 5; i++) s += feather(0, 224, 196 + i * 12, 26 - i * 2, 6, i % 2 ? pal.light : pal.body, pal.gold);
-  s += constellation([[40, 252], [64, 256], [92, 254], [120, 250]], pal.gold);
+  s += `<defs><clipPath id="ophalia-4-sun"><path clip-rule="evenodd" d="M-60 -80 H280 V340 H-60 Z M${SX - SR} ${SY} A${SR} ${SR} 0 1 0 ${SX + SR} ${SY} A${SR} ${SR} 0 1 0 ${SX - SR} ${SY} Z"/></clipPath></defs>`;
+  s += `<g clip-path="url(#ophalia-4-sun)">${scaleBand(backS.sp, backS.wd, 30, light, body)}</g>`;
+  const frontS = seg(0, 16);
+  s += scaleBand(frontS.sp, frontS.wd, 40, light, body);
+  // Nageoire caudale en éventail de plumes.
+  for (let i = 0; i < 5; i++) s += facets(feather(0, 224, 196 + i * 12, 26 - i * 2, 7), i % 2 ? pale : GOLD, light, { size: 10, relief: 0.5, seed: 50 + i });
+  // Constellation sur la boucle avant.
+  const cst: Pt[] = [[40, 252], [64, 256], [92, 254], [120, 250]];
+  s += `<polyline points="${cst.map((p) => p.join(',')).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.8"/>` + cst.map(([x, y]) => gem(x, y, 3, '#FFFFFF', GOLD)).join('');
 
-  for (let i = 0; i < 9; i++) s += feather(140 + (i % 3) * 6, 46 + Math.floor(i / 3) * 7, 100 + i * 14, 16, 6, i % 2 ? pal.light : pal.belly, i % 3 ? null : pal.gold);
-  // ---------- Tête (profil, regard vers la gauche) ----------
-  let hd = '';
-  for (let i = 0; i < 5; i++) hd += feather(4, -4 + i * 1.5, 192 - i * 9, 34 - i * 3, 6, i % 2 ? pal.light : pal.body, pal.gold);
-  // Mâchoire inférieure fine, entrouverte ; langue fourchue.
-  hd += `<path d="M30 3 L52 2.5 C47 6 38 8 26 9 C16 10 8 9 2 7 Z" fill="#12060A"/>`;
-  hd += line('M54 4 L63 6 L68 4 M63 6 L68 9', 0.9, pal.accent);
-  hd += V('M52 4 C47 8 38 10 26 11 C16 12 8 11 2 8 C10 8 22 7 34 6 Z', pal.belly, { light: [0.5, 0.9], hi: SUN, lo: pal.shade, ao: 0.3 });
-  hd += `<path d="M47 3.4 L48 6.6 L49.4 3.2 Z M41 3.8 L42 6.2 L43.2 3.7 Z" fill="${CREAM}"/>`;
-  // Crâne effilé de serpent-dragon : arcade marquée, museau fin.
-  const skull = 'M0 -7 C6 -13 17 -15 27 -13 C33 -12 38 -9 44 -7 C50 -5 55 -3 57 -1 C57 1 55 2.5 52 2.5 L30 3 C20 4 10 6 2 7 C-2 4 -2 -2 0 -7 Z';
-  hd += V(skull, pal.body, { light: [0.55, 0.05], hi: SUN, lo: pal.deep, rim: TEAL, ao: 0.55 });
-  hd += `<path d="M2 6 C12 5 24 3.5 34 3 L52 2.5 C46 1 36 0.5 24 1 C14 1.5 6 3 0 3 Z" fill="${pal.belly}" opacity="0.8" filter="url(#b2)"/>`;
-  hd += shadow('M44 -7 C40 -4 36 -2 30 -1 C38 -1 46 -2 52 -2 Z', pal.deep, 0.5);
-  for (const [x, y] of [[8, -9], [14, -11], [20, -12], [11, -5], [17, -7]] as const) hd += `<ellipse cx="${x}" cy="${y}" rx="2.6" ry="1.6" fill="${pal.light}" opacity="0.28" filter="url(#b2)"/>`;
-  // Arcade et cornes-plumes au-dessus de l'œil.
-  hd += V('M20 -12 C26 -16 32 -16 38 -11 C33 -12 27 -12 21 -9 Z', pal.light, { light: [0.4, 0.1], hi: '#FFFFFF', lo: pal.shade, ao: 0.3 });
-  hd += feather(24, -13, 200, 26, 4.5, pal.light, pal.gold) + feather(27, -14, 206, 20, 3.5, pal.belly, pal.gold);
-  hd += eyeA(31, -8, 4.6, SUN, { angle: 8, slit: true, open: 0.42 });
-  hd += `<ellipse cx="52" cy="-2.6" rx="1.3" ry="0.6" fill="#12060A" transform="rotate(16 52 -2.6)"/>`;
-  hd += gloss(40, -8, 5, 1.2, 12, 0.5);
-  hd += gild('M18 8 C16 16 20 24 14 32 M10 8 C6 16 10 22 4 28', 0.8);
-  hd += rim('M0 -7 C6 -13 17 -15 27 -13 C33 -12 38 -9 44 -7 C50 -5 55 -3 57 -1', SUN, 0.9);
-  s += `<ellipse cx="122" cy="22" rx="40" ry="20" fill="#05030C" opacity="0.55" filter="url(#b8)" transform="rotate(20 122 22)"/>`;
-  s += `<g transform="translate(146 30) rotate(200) scale(1.45 -1.45)">${hd}</g>`;
+  // Ailes proches, puis collerette de plumes à leur racine.
+  s += wing(152, 44, -60, 0.86, false, true, 200) + wing(154, 50, -24, 0.84, false, true, 240) + wing(140, 60, 168, 0.72, true, true, 280);
+  for (let i = 0; i < 7; i++) s += facets(feather(140 + (i % 3) * 6, 46 + Math.floor(i / 3) * 7, 100 + i * 18, 18, 7), i % 2 ? pale : body, light, { size: 10, relief: 0.6, seed: 60 + i });
 
-  s += sparkle(20, 40, 3.5, CREAM, false) + sparkle(214, 120, 3, pal.glow, false) + sparkle(200, 250, 2.6, CREAM, false);
+  // ---------- Tête : profil effilé, regard vers la gauche ----------
+  const HX = 146, HY = 30, HA = (200 * Math.PI) / 180, HK = 1.6;
+  const H = (x: number, y: number): Pt => { const yy = -y; return [HX + (x * Math.cos(HA) - yy * Math.sin(HA)) * HK, HY + (x * Math.sin(HA) + yy * Math.cos(HA)) * HK]; };
+  const HM = (pts: Pt[]) => pts.map((p) => H(p[0], p[1]));
+  const Pd = (pts: Pt[]) => 'M' + HM(pts).map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L') + 'Z';
+  // Plumes de crête (vers l'arrière de la tête).
+  for (let i = 0; i < 4; i++) s += facets(HM(feather(4, -4 + i * 2, 192 - i * 10, 30 - i * 3, 6)), i % 2 ? pale : GOLD, light, { size: 10, relief: 0.5, seed: 70 + i });
+  // Gueule entrouverte, langue fourchue, mâchoire fine.
+  s += `<path d="${Pd([[30, 3], [52, 2.5], [46, 6], [26, 9], [8, 9], [2, 7]])}" fill="#16050C"/>`;
+  s += `<path d="${Pd([[53, 3.6], [63, 5.6], [68, 3.4], [63.6, 6.4], [68, 9], [62.6, 7], [53, 4.8]])}" fill="#E8607A"/>`;
+  s += facets(HM(pathPts('M52 4 C47 8 38 10 26 11 C16 12 8 11 2 8 C10 8 22 7 34 6 Z', 4)), pale, light, { size: 7, relief: 0.5, seed: 75 });
+  s += `<path d="${Pd([[47, 3.4], [48, 6.6], [49.4, 3.2]])}" fill="${CREAM}"/><path d="${Pd([[41, 3.8], [42, 6.2], [43.2, 3.7]])}" fill="${CREAM}"/>`;
+  // Crâne : dessus sombre écaillé, flanc de la mâchoire clair.
+  const skull = HM(pathPts('M0 -7 C6 -13 17 -15 27 -13 C33 -12 38 -9 44 -7 C50 -5 55 -3 57 -1 C57 1 55 2.5 52 2.5 L30 3 C20 4 10 6 2 7 C-2 4 -2 -2 0 -7 Z', 4));
+  s += facets(skull, body, light, { size: 8, relief: 1.1, seed: 76, base2: pale });
+  s += facets(HM(pathPts('M0 -7 C6 -13 17 -15 27 -13 C33 -12 38 -9 44 -7 C50 -5 55 -3 57 -1 C46 -2 34 -2 24 -1 C14 0 6 2 0 2 Z', 4)), deep, light, { size: 7, relief: 0.8, seed: 77 });
+  // Arcade claire et cornes-plumes au-dessus de l'œil.
+  s += facets(HM([[20, -12], [26, -16], [32, -16], [38, -11], [30, -11], [22, -9]]), pale, light, { size: 6, relief: 0.5, seed: 78 });
+  s += facets(HM(feather(24, -13, 200, 26, 4.5)), pale, light, { size: 7, relief: 0.4, seed: 79 }) + facets(HM(feather(27, -14, 206, 20, 3.5)), GOLD, light, { size: 7, relief: 0.4, seed: 80 });
+  // Œil incandescent (gemme), narine.
+  const [ex, ey] = H(31, -8);
+  s += `<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="6" fill="#FFD27A" opacity="0.22"/><path d="${Pd([[26, -8], [31, -11], [36, -8.5], [31, -6]])}" fill="#FFC84A"/><path d="${Pd([[30.4, -10.4], [31.6, -10.4], [31.6, -6.6], [30.4, -6.6]])}" fill="#1A0606"/><circle cx="${(ex - 1).toFixed(1)}" cy="${(ey - 1.2).toFixed(1)}" r="0.7" fill="#FFFFFF"/>`;
+  s += `<path d="${Pd([[50.6, -3.2], [53.2, -2.6], [50.8, -2]])}" fill="#16050C"/>`;
+  // Barbillons d'or.
+  for (const [sp, sd] of [[[[18, 8], [16, 16], [20, 24], [14, 32]], 81], [[[10, 8], [6, 16], [10, 22], [4, 28]], 82]] as [Pt[], number][])
+    s += facets(limb(HM(sp), [2.4, 2, 1.4, 0.6]), GOLD, light, { size: 6, relief: 0.3, seed: sd });
+
+  s += gem(20, 40, 3.5, '#FFFFFF', '#FFE2A0') + gem(214, 120, 3, '#FFFFFF', '#FFE2A0') + gem(200, 250, 2.6, '#FFFFFF', '#FFE2A0');
   return `<g transform="${FIT}">${s}</g>`;
 };
 
-/** Décor : le cœur d'un système solaire gravé comme un astrolabe (orbites d'or, planètes, éruptions), oiseaux-soleil. */
-ophalia.scene = (c: DrawCtx, b: Bounds) => {
-  const { pal } = c;
-  const { V, glow, uid, ink, shadow, line, rim, gild, fur, eyeA, constellation, sparkle } = kit(c, 'ophalia-4-bg');
-  const CREAM = '#FFF6D8', INK = '#140F24';
-  const id = 'ophalia-4-bg';
-  const W = b.x1 - b.x0, H = b.y1 - b.y0;
-  const SX = 112, SY = 112, SR = 46;
-  let s = `<defs><radialGradient id="${id}-g" cx="${f((SX - b.x0) / W * 100)}%" cy="${f((SY - b.y0) / H * 100)}%" r="80%"><stop offset="0" stop-color="${hsl(36, 70, 42)}"/><stop offset="0.35" stop-color="${hsl(c.hue - 10, 55, 20)}"/><stop offset="1" stop-color="${hsl(c.hue + 240, 50, 6)}"/></radialGradient>`
-    + `<radialGradient id="${id}-s" cx="42%" cy="40%" r="65%"><stop offset="0" stop-color="#FFFBEA"/><stop offset="0.5" stop-color="${hsl(44, 95, 76)}"/><stop offset="1" stop-color="${hsl(32, 90, 56)}"/></radialGradient></defs>`;
-  s += `<rect x="${b.x0}" y="${b.y0}" width="${W}" height="${H}" fill="url(#${id}-g)"/>`;
-  for (let i = 0; i < 60; i++) {
-    const x = b.x0 + c.r() * W, y = b.y0 + c.r() * H;
-    if (Math.hypot(x - SX, y - SY) < 90) continue;
-    s += `<circle cx="${f(x)}" cy="${f(y)}" r="${f(0.3 + c.r() * c.r() * 1.3)}" fill="${CREAM}" opacity="${f(0.3 + c.r() * 0.6)}"/>`;
-  }
+/** Décor : cœur d'un système solaire en astrolabe (orbites d'or, planètes facettées) et oiseaux-soleil. */
+const scene = (c: DrawCtx, b: Bounds): string => {
+  const h = c.hue, r = prng(23);
+  let s = facetSky(b.x0, b.y0, b.x1, b.y1, ['#08051A', hsl(h + 250, 45, 14), '#3A1A2E', '#5A2A24', '#2A1430', '#07040F'], 13, 30);
+  for (let i = 0; i < 40; i++) s += `<circle cx="${(b.x0 + r() * (b.x1 - b.x0)).toFixed(1)}" cy="${(b.y0 + r() * (b.y1 - b.y0)).toFixed(1)}" r="${(0.4 + r() * r() * 1.3).toFixed(1)}" fill="#FFF2DA" opacity="${(0.35 + r() * 0.6).toFixed(2)}"/>`;
   s += `<g transform="${FIT}">`;
-  // Orbites gravées (astrolabe) et planètes.
-  for (const [r, k, a] of [[70, 0.42, -16], [96, 0.42, -16], [128, 0.42, -16], [160, 0.42, -16]] as const) {
-    s += `<ellipse cx="${SX}" cy="${SY}" rx="${r}" ry="${f(r * k)}" fill="none" stroke="${pal.gold}" stroke-width="0.7" opacity="0.45" transform="rotate(${a} ${SX} ${SY})"/>`;
-  }
-  s += `<circle cx="${SX}" cy="${SY}" r="104" fill="none" stroke="${pal.gold}" stroke-width="0.5" stroke-dasharray="1.5 3" opacity="0.4"/>`;
+  // Orbites d'or (astrolabe) et graduations.
+  for (const rr of [70, 98, 130, 162]) s += `<ellipse cx="${SX}" cy="${SY}" rx="${rr}" ry="${(rr * 0.42).toFixed(1)}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.4" transform="rotate(-16 ${SX} ${SY})"/>`;
   for (let i = 0; i < 36; i++) {
     const a = (i / 36) * Math.PI * 2, r1 = 108, r2 = i % 3 ? 112 : 118;
-    s += `<line x1="${f(SX + Math.cos(a) * r1)}" y1="${f(SY + Math.sin(a) * r1)}" x2="${f(SX + Math.cos(a) * r2)}" y2="${f(SY + Math.sin(a) * r2)}" stroke="${pal.gold}" stroke-width="0.6" opacity="0.4"/>`;
+    s += `<line x1="${(SX + Math.cos(a) * r1).toFixed(1)}" y1="${(SY + Math.sin(a) * r1).toFixed(1)}" x2="${(SX + Math.cos(a) * r2).toFixed(1)}" y2="${(SY + Math.sin(a) * r2).toFixed(1)}" stroke="${GOLD}" stroke-width="0.6" opacity="0.35"/>`;
   }
-  const planet = (x: number, y: number, r: number, h: number) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${hsl(h, 30, 55)}"/>`
-    + shadow(`M${x} ${y - r} A${r} ${r} 0 0 1 ${x} ${y + r} C${x + r * 0.7} ${y + r * 0.5} ${x + r * 0.7} ${y - r * 0.5} ${x} ${y - r} Z`, hsl(h, 30, 25), 0.6, 'fine');
-  s += planet(24, 168, 6, c.hue + 180) + planet(214, 30, 8, c.hue + 120) + planet(36, 220, 4, c.hue + 60) + planet(196, 262, 5, c.hue + 220);
+  // Planètes facettées sur les orbites, éclairées par le soleil.
+  const planet = (x: number, y: number, rad: number, col: string, seed: number) => {
+    const dx = SX - x, dy = SY - y, l = Math.hypot(dx, dy) || 1;
+    return facets(ellipse(x, y, rad, rad, 12), col, { dir: [dx / l, dy / l, 0.5], color: '#FFE3A8', shade: '#07040F' }, { size: Math.max(3, rad * 0.7), relief: 1.4, seed });
+  };
+  s += planet(24, 168, 7, hsl(h + 180, 35, 45), 31) + planet(214, 30, 9, hsl(h + 120, 35, 45), 32) + planet(36, 220, 5, hsl(h + 60, 40, 45), 33) + planet(196, 262, 6, hsl(h + 220, 35, 45), 34);
+  s += `<ellipse cx="214" cy="30" rx="16" ry="3" fill="none" stroke="#E8C9A0" stroke-width="1" opacity="0.6" transform="rotate(-20 214 30)"/>`;
   s += '</g>';
-  // Oiseaux-soleil en vol sur les orbites (petites créatures secondaires).
-  const bird = (x: number, y: number, k: number, r: number) => `<path transform="translate(${x} ${y}) rotate(${r}) scale(${k})" d="M0 0 C-4 -6 -10 -7 -14 -4 C-9 -4 -5 -2 -2 1 L-8 4 L0 3 C4 3 8 1 10 -1 L13 -1 L10 1 C6 4 2 5 0 5 C4 -2 10 -6 16 -6 C10 -3 6 -1 0 0 Z" fill="${hsl(c.hue + 30, 70, 70)}" opacity="0.85"/>`;
-  s += bird(30, 10, 0.9, -8) + bird(200, 214, 0.8, 12) + bird(46, 194, 0.6, -20) + bird(186, 6, 0.65, 6);
-  s += `<ellipse cx="${SX}" cy="282" rx="130" ry="26" fill="${hsl(c.hue + 240, 50, 5)}" opacity="0.5" filter="url(#b8)"/>`;
+  // Oiseaux-soleil en vol (petites créatures facettées).
+  const bird = (x: number, y: number, k: number, seed: number) =>
+    facets([[x, y], [x - 12 * k, y - 6 * k], [x - 4 * k, y + 1 * k]], '#F2A85A', { dir: [0, -1, 0.5], color: '#FFF1C8', shade: '#3A1408' }, { size: 6, seed })
+    + facets([[x, y], [x + 12 * k, y - 7 * k], [x + 4 * k, y + 1 * k]], '#E58A3E', { dir: [0, -1, 0.5], color: '#FFF1C8', shade: '#3A1408' }, { size: 6, seed: seed + 1 })
+    + `<path d="M${x - 2 * k} ${y}L${x} ${y + 3 * k}L${x + 2 * k} ${y}Z" fill="#FFD27A"/>`;
+  s += bird(30, 10, 0.9, 40) + bird(200, 214, 0.8, 42) + bird(46, 196, 0.6, 44) + bird(186, 4, 0.65, 46);
   return s;
 };
+
+export const ophalia: Species = Object.assign(draw, { scene });

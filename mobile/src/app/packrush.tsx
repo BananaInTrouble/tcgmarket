@@ -5,7 +5,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View, useWindowD
 import { colors, fonts, s } from '../components/ui';
 import { PR_RARITIES, RARITY_STYLE, type PrRarity } from '../lib/packrush/art';
 import { setEmblem } from '../lib/packrush/brand';
-import { FragmentIcon, Opening, Pack, PackRushLogo, cardDescription, useCardArt } from '../components/PackRush';
+import { FragmentIcon, Opening, Pack, PackRushLogo, PrCardPic, cardDescription } from '../components/PackRush';
 import { PackRushError, claimQuests, craftCard, loadCatalog, loadStatus, openPack, perCardChance, type PrCard, type PrOpening, type PrSet, type PrStatus } from '../lib/packrush/api';
 import { useStore } from '../lib/store';
 import type { TKey } from '../lib/i18n';
@@ -29,7 +29,6 @@ function useCountdown(target: string | null | undefined, serverNow: string | und
 /** Pack Rush : packs gratuits toutes les 12 h, Pièces, Fragments, quêtes du jour et collection virtuelle. */
 export default function PackRush() {
   const { t, appLang, locale } = useStore();
-  const art = useCardArt();
   const { width } = useWindowDimensions();
   const [set, setSet] = useState<PrSet | null>(null);
   const [cards, setCards] = useState<PrCard[]>([]);
@@ -209,7 +208,7 @@ export default function PackRush() {
               const n = owned(c);
               return (
                 <Pressable key={c.id} onPress={() => setDetail(c)} style={{ width: tile }}>
-                  <Image source={art(c, cards.length, n > 0)} style={{ width: tile, height: tile * 1.4, borderRadius: 8, opacity: n > 0 ? 1 : 0.55 }} contentFit="contain" />
+                  <PrCardPic card={c} total={cards.length} owned={n > 0} width={tile} style={{ opacity: n > 0 ? 1 : 0.6 }} />
                   {n > 1 && (
                     <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: colors.accent, borderRadius: 9, paddingHorizontal: 6 }}>
                       <Text style={{ color: colors.bg, fontFamily: fonts.heavy, fontSize: 11 }}>×{n}</Text>
@@ -227,7 +226,7 @@ export default function PackRush() {
       <Modal visible={!!detail} transparent animationType="fade" onRequestClose={() => setDetail(null)}>
         {detail && (
           <Pressable onPress={() => setDetail(null)} style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.88)', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
-            <Image source={art(detail, cards.length, owned(detail) > 0)} style={{ width: 250, height: 350 }} contentFit="contain" />
+            <PrCardPic card={detail} total={cards.length} owned={owned(detail) > 0} width={250} />
             <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 18 }}>{owned(detail) > 0 ? detail.name : '???'}</Text>
             <Text style={s.muted}>{t(`pr.r.${detail.rarity}` as TKey)} · {owned(detail) > 0 ? t('pr.owned', { n: owned(detail) }) : t('pr.missing')}</Text>
             {owned(detail) > 0 && !!cardDescription(detail.id, appLang) && (
