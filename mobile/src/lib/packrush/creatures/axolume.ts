@@ -1,5 +1,9 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { curve, ellipse, facetSky as facetSky0, facets as facets0, gem, hsl, limb, mix, prng, type Light, type Pt, type FacetOpts } from './lowpoly.ts';
+
+/** Facettes un peu plus grandes que la taille demandée (budget ≈ 1500 facettes par carte). */
+const facets = (poly: Pt[], col: string, li: Light, o: FacetOpts = {}) => facets0(poly, col, li, { ...o, size: Math.max(2.6, (o.size ?? 11) * 1.3) });
+const facetSky = (x0: number, y0: number, x1: number, y1: number, cols: string[], seed = 3, size = 26) => facetSky0(x0, y0, x1, y1, cols, seed, size * 1.4);
 
 /* ---------- Géométrie (squelettes lissés → polygones pour les facettes) ---------- */
 type Fn = (t: number) => number;

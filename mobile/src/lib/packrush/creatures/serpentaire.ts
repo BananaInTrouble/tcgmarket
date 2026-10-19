@@ -1,5 +1,5 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { ellipse, facetSky, facets as lpFacets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
  * Serpentaire → Nébulisse → Astrocoatl (low-poly) : serpent de poussière d'étoiles.
@@ -22,6 +22,9 @@ function sm(q: Pt[], per = 3, closed = true): Pt[] {
   if (!closed) out.push(q[n - 1]);
   return out;
 }
+/** Facettes un peu plus grandes que la valeur demandée (budget ≈ 1500 facettes par carte). */
+const facets = (p: Pt[], col: string, L: Light, o: Parameters<typeof lpFacets>[3] = {}) => lpFacets(p, col, L, { ...o, size: (o.size ?? 11) * 1.4 });
+
 const flat = (q: Pt[], col: string, op = 1) => `<path d="M${q.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
 const GOLD = '#E9C25B';
 const constel = (pts: Pt[]) => `<polyline points="${pts.map((p) => p.join(',')).join(' ')}" fill="none" stroke="${GOLD}" stroke-width="0.7" opacity="0.85"/>` + pts.map(([x, y]) => gem(x, y, 3, '#FFFFFF', GOLD)).join('');
@@ -182,7 +185,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   let s = '';
   if (st === 0) {
     // Dalles d'un temple en ruine au crépuscule, mousse, champignons luisants.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0A2A', '#24205A', '#3C3870', '#2A3050', '#121428'], 41, 24) + starsOf(35, 110);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#0E0A2A', '#24205A', '#3C3870', '#2A3050', '#121428'], 41, 32) + starsOf(35, 110);
     s += facets([[120, 140], [120, 70], [128, 52], [150, 42], [172, 52], [180, 70], [180, 140], [168, 140], [168, 76], [160, 62], [150, 58], [140, 62], [132, 76], [132, 140]], '#3A3866', stoneL, { size: 10, relief: 0.4, seed: 42 });
     s += column(30, 160, 18, 100, true, '#4A4A78', 43) + column(196, 168, 16, 60, true, '#4A4A78', 45);
     s += facets([[b.x0, 150], [b.x1, 150], [b.x1, b.y1], [b.x0, b.y1]], '#34365E', { dir: [-0.4, -0.8, 0.5], color: '#B8B0E0', shade: '#080818' }, { size: 20, relief: 0.2, seed: 46, base2: '#0E0E22' });
@@ -192,7 +195,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   }
   if (st === 1) {
     // Marais de nébuleuse, roseaux, lucioles.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#06041A', '#140A30', '#22184A', '#141A30', '#06080E'], 51, 24);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#06041A', '#140A30', '#22184A', '#141A30', '#06080E'], 51, 32);
     s += facets(ellipse(150, 50, 80, 30, 16), k.a2, { dir: [0, -0.6, 0.7], color: '#FFFFFF', shade: '#140A30' }, { size: 16, relief: 0.4, seed: 52, opacity: 0.3 });
     s += facets(ellipse(70, 70, 56, 20, 14), k.a1, { dir: [0, -0.6, 0.7], color: '#FFFFFF', shade: '#140A30' }, { size: 16, relief: 0.4, seed: 53, opacity: 0.25 });
     s += starsOf(50, 110);
@@ -207,7 +210,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     return s;
   }
   // Sanctuaire sous une coupole étoilée.
-  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#06041A', '#120A34', '#1E1450', '#140E30'], 61, 24) + starsOf(70, 200);
+  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#06041A', '#120A34', '#1E1450', '#140E30'], 61, 32) + starsOf(70, 200);
   const arch: Pt[] = [];
   for (let i = 0; i <= 12; i++) { const a = Math.PI + (i / 12) * Math.PI; arch.push([111 + Math.cos(a) * 85, 100 + Math.sin(a) * 85]); }
   s += facets([[b.x0 - 4, b.y0 - 4], [b.x1 + 4, b.y0 - 4], [b.x1 + 4, 200], [196, 200], ...arch.reverse(), [26, 200], [b.x0 - 4, 200]], '#24203E', stoneL, { size: 18, relief: 0.4, seed: 62 });

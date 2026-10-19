@@ -1,5 +1,5 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { ellipse, facetSky, facets as lpFacets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
  * Météorin → Cristallos → Astrolithe (low-poly) : golem de météorite et de cristal, cœur d'étoile.
@@ -7,6 +7,9 @@ import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type 
  * œil. 1 : le jeune traverse une caverne de cristal, une géode lumineuse brandie comme une lanterne. 2 : l'adulte
  * se dresse sur un astéroïde, bras ouverts, cœur embrasé, devant une planète à anneaux.
  */
+
+/** Facettes un peu plus grandes que la valeur demandée (budget ≈ 1500 facettes par carte). */
+const facets = (p: Pt[], col: string, L: Light, o: Parameters<typeof lpFacets>[3] = {}) => lpFacets(p, col, L, { ...o, size: (o.size ?? 11) * 1.4 });
 
 const flat = (q: Pt[], col: string, op = 1) => `<path d="M${q.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
 const GOLD = '#E9C25B', CRYSTAL = '#BFF6FF';
@@ -154,7 +157,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   let s = '';
   if (st === 0) {
     // Désert lunaire : planète bleue, traînée du météore, cratère.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#03040E', '#0A1028', '#141C3A', '#1A2240', '#0A0C18'], 71, 24) + starsOf(70, 140);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#03040E', '#0A1028', '#141C3A', '#1A2240', '#0A0C18'], 71, 32) + starsOf(70, 140);
     s += `<circle cx="168" cy="52" r="30" fill="#6AA8FF" opacity="0.12"/>` + facets(ellipse(168, 52, 22, 22, 16), '#3A6AA8', { dir: [-0.6, -0.4, 0.6], color: '#CFE6FF', shade: '#06102A' }, { size: 7, relief: 0.8, seed: 72 });
     s += flat([[6, 18], [10, 14], [98, 118], [94, 122]], k.glow, 0.35) + flat([[8, 16], [9, 15], [96, 120], [95, 121]], '#FFFFFF', 0.7);
     s += facets([[b.x0, 150], [10, 134], [40, 130], [60, 146], [100, 148], [120, 136], [150, 134], [170, 148], [b.x1, 144], [b.x1, 172], [b.x0, 172]], '#3A3E5A', gL, { size: 14, relief: 0.4, seed: 73 });
@@ -166,7 +169,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   }
   if (st === 1) {
     // Caverne de cristal.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#08061A', '#140E30', '#1C1640', '#100C24', '#06040E'], 81, 22);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#08061A', '#140E30', '#1C1640', '#100C24', '#06040E'], 81, 32);
     const wL: Light = { dir: [-0.7, -0.3, 0.6], color: k.c1, shade: '#04040C' };
     s += flat([[150, b.y0], [190, b.y0], [140, 220], [100, 220]], '#FFFFFF', 0.05);
     s += facets([[b.x0, b.y0], [b.x1, b.y0], [b.x1, 30], [190, 40], [176, 60], [164, 36], [140, 46], [124, 30], [100, 50], [86, 30], [60, 44], [44, 70], [30, 40], [b.x0, 50]], '#1E1A38', wL, { size: 16, relief: 0.5, seed: 82 });
@@ -178,7 +181,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     return s;
   }
   // Champ d'astéroïdes, planète à anneaux, gros astéroïde-piédestal.
-  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#04031A', '#0E0A30', '#1A1248', '#120C30', '#06041A'], 91, 24);
+  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#04031A', '#0E0A30', '#1A1248', '#120C30', '#06041A'], 91, 32);
   const nb: Light = { dir: [0, -0.6, 0.7], color: '#FFFFFF', shade: '#0E0A30' };
   s += facets(ellipse(60, 70, 80, 34, 16), hsl(c.hue + 160, 60, 50), nb, { size: 16, relief: 0.4, seed: 92, opacity: 0.22 });
   s += facets(ellipse(180, 150, 60, 44, 16), hsl(c.hue + 220, 60, 55), nb, { size: 16, relief: 0.4, seed: 93, opacity: 0.18 });

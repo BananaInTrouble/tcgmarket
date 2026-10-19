@@ -103,7 +103,7 @@ const claws = (e: Pt, dir: number, col: string) => [-1, 0, 1].map((k) =>
 function dragon(c: DrawCtx, P: Pose, st: number, extra = ''): string {
   const h = c.hue;
   const L = LIGHTS[st];
-  const base = hsl(h, 34, 46), deep = hsl(h + 14, 40, 22), mem = hsl(h + 220, 40, 22);
+  const base = hsl(h, 34, 46), deep = hsl(h + 14, 40, 22), mem = hsl(h + 210, 38, 15);
   const far: Light = { ...L, color: mix(L.color, deep, 0.45), rim: undefined };
   let s = '';
   // Aile de l'arrière : miroir de l'aile avant autour de l'épaule.
@@ -213,7 +213,7 @@ const draw = (c: DrawCtx): string => {
   };
   g += dragon(c, P, 0);
   // Coquille de devant (roche météoritique) et fêlures incandescentes.
-  g += facets([[48, 204], [42, 176], [46, 150], [62, 128], [72, 138], [80, 124], [92, 136], [104, 120], [114, 136], [128, 122], [138, 136], [150, 126], [160, 138], [176, 154], [180, 182], [172, 204]], hsl(h + 200, 12, 30), eggL, { size: 10, relief: 1, seed: 50, base2: '#120A18' });
+  g += facets([[48, 204], [42, 176], [46, 150], [62, 128], [72, 138], [80, 124], [92, 136], [104, 120], [114, 136], [128, 122], [138, 136], [150, 126], [160, 138], [176, 154], [180, 182], [172, 204]], mix('#2E3A56', hsl(h + 180, 30, 30), 0.3), eggL, { size: 10, relief: 1, seed: 50, base2: '#120A18' });
   for (const d of [[[96, 150], [90, 164], [98, 170], [94, 182]], [[140, 146], [146, 158], [140, 166]], [[64, 160], [72, 170], [68, 184]]] as Pt[][]) {
     g += facets(limb(d, [2.4, 1.8, 1.4, 1]), '#FFD27A', { dir: [0, 0, 1], color: '#FFFFFF', shade: '#FF8A4A' }, { size: 2, relief: 0.2, seed: 55 });
   }

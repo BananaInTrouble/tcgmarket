@@ -1,5 +1,5 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { ellipse, facetSky, facets as lpFacets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
  * Lynxaure → Boréalynx → Aurorion (low-poly) : lynx à crinière d'aurore boréale, dans la taïga.
@@ -23,6 +23,9 @@ function sm(q: Pt[], per = 3, closed = true): Pt[] {
   if (!closed) out.push(q[n - 1]);
   return out;
 }
+
+/** Facettes un peu plus grandes que la valeur demandée (budget ≈ 1500 facettes par carte). */
+const facets = (p: Pt[], col: string, L: Light, o: Parameters<typeof lpFacets>[3] = {}) => lpFacets(p, col, L, { ...o, size: (o.size ?? 11) * 1.4 });
 
 const flat = (q: Pt[], col: string, op = 1) => `<path d="M${q.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
 const GOLD = '#E9C25B';
@@ -153,7 +156,7 @@ const draw = (c: DrawCtx): string => {
     let g = curtain([[86, 120], [110, 112], [138, 110], [164, 102], [188, 88]], 40, k, 51);
     g += curtain([[96, 128], [124, 124], [150, 122], [176, 116], [196, 106]], 26, k, 52, 0.7);
     g += standing(k, L, { headRot: -6, tuft: 10, ruff: 0.4, young: 0.35, crouch: true, seed: 60 });
-    const refl = `<g transform="translate(0 410) scale(1 -1)" opacity="0.18">${g}</g>`;
+    const refl = `<ellipse cx="128" cy="222" rx="70" ry="14" fill="${k.base}" opacity="0.18"/>`;
     return `<g transform="translate(111 192) scale(0.84) translate(-121 -206)">${refl}<ellipse cx="128" cy="206" rx="78" ry="7" fill="#03101C" opacity="0.45"/>${g}</g>`;
   }
   let g = curtain([[66, 82], [100, 84], [134, 78], [164, 64], [186, 42], [196, 18], [190, 0]], 64, k, 71);
@@ -181,7 +184,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   const starsOf = (n: number, ymax: number) => { let t = ''; for (let i = 0; i < n; i++) t += `<circle cx="${(b.x0 + r() * W).toFixed(1)}" cy="${(b.y0 + r() * (ymax - b.y0)).toFixed(1)}" r="${(0.4 + r() * 0.9).toFixed(1)}" fill="#FFFFFF" opacity="${(0.4 + r() * 0.5).toFixed(2)}"/>`; return t; };
   if (st === 0) {
     // Clairière enneigée sous la lune, sapins.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#060820', '#101A44', '#22306A', '#2A3A72', '#0C122E'], 11, 24) + starsOf(40, 120);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#060820', '#101A44', '#22306A', '#2A3A72', '#0C122E'], 11, 32) + starsOf(40, 120);
     s += `<circle cx="58" cy="44" r="30" fill="#DDE6FF" opacity="0.14"/>` + facets(ellipse(58, 44, 14, 14, 14), '#EEF2FF', { dir: [-0.4, -0.4, 0.8], color: '#FFFFFF', shade: '#8A96C8' }, { size: 6, relief: 0.6, seed: 2 });
     const tL: Light = { dir: [-0.5, -0.6, 0.6], color: '#9FB4E8', shade: '#050818' };
     s += facets([[b.x0, 150], [40, 126], [90, 140], [140, 120], [190, 138], [b.x1, 128], [b.x1, 170], [b.x0, 170]], '#25325E', tL, { size: 18, relief: 0.4, seed: 3 });
@@ -194,7 +197,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   if (st === 1) {
     // Lac gelé sous les aurores.
     const k = colors(c.hue);
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#040A1C', '#0A1C34', '#123048', '#1C4A60', '#081624'], 12, 24) + starsOf(50, 120);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#040A1C', '#0A1C34', '#123048', '#1C4A60', '#081624'], 12, 32) + starsOf(50, 120);
     s += `<g opacity="0.5">${curtain([[b.x0 - 10, 70], [40, 56], [100, 66], [160, 48], [b.x1 + 10, 58]], 50, k, 13)}</g>`;
     const mL: Light = { dir: [-0.3, -0.8, 0.5], color: '#B8E8F0', shade: '#06101E' };
     s += facets([[b.x0, 130], [20, 104], [56, 122], [96, 92], [140, 120], [180, 98], [b.x1, 118], [b.x1, 150], [b.x0, 150]], '#2C4A66', mL, { size: 16, relief: 0.6, seed: 14 });
@@ -204,7 +207,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     return s;
   }
   // Sommet au-dessus d'une mer de nuages, à l'aube.
-  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#120C2E', '#33285E', '#7A4A86', '#E89A78', '#FFD7A0', '#6A4A80'], 16, 24) + starsOf(30, 90);
+  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#120C2E', '#33285E', '#7A4A86', '#E89A78', '#FFD7A0', '#6A4A80'], 16, 32) + starsOf(30, 90);
   s += `<circle cx="160" cy="168" r="50" fill="#FFC88A" opacity="0.25"/>` + gem(160, 168, 18, '#FFF3D6', '#FFC37A');
   const pL: Light = { dir: [0.6, -0.4, 0.5], color: '#FFC8A8', shade: '#2A1C48' };
   s += facets([[b.x0, 170], [20, 140], [50, 160], [80, 128], [116, 158], [150, 150], [b.x1, 166], [b.x1, 180], [b.x0, 180]], '#6A5088', pL, { size: 16, relief: 0.6, seed: 17 });

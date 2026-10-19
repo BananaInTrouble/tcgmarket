@@ -1,5 +1,5 @@
 import type { Bounds, DrawCtx, Species } from './style.ts';
-import { ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
+import { ellipse, facetSky, facets as lpFacets, gem, hsl, limb, mix, prng, type Light, type Pt } from './lowpoly.ts';
 
 /**
  * Phenova → Pyrastrel → Supernovis (low-poly) : rapace de supernova, crête de plumes-étoiles, plumes de braise.
@@ -22,6 +22,9 @@ function sm(q: Pt[], per = 3, closed = true): Pt[] {
   if (!closed) out.push(q[n - 1]);
   return out;
 }
+/** Facettes un peu plus grandes que la valeur demandée (budget ≈ 1500 facettes par carte). */
+const facets = (p: Pt[], col: string, L: Light, o: Parameters<typeof lpFacets>[3] = {}) => lpFacets(p, col, L, { ...o, size: (o.size ?? 11) * 1.4 });
+
 const flat = (q: Pt[], col: string, op = 1) => `<path d="M${q.map((p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('L')}Z" fill="${col}"${op < 1 ? ` opacity="${op}"` : ''}/>`;
 const GOLD = '#E9C25B';
 const dim = (L: Light, t = 0.45): Light => ({ ...L, color: mix(L.color, L.shade, t), rim: undefined });
@@ -193,7 +196,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   let s = '';
   if (st === 0) {
     // Corniche au crépuscule, volcan fumant et coulées de lave.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#140A2A', '#3A1E50', '#7A3A60', '#D8684A', '#FFB070', '#2A1420'], 21, 24) + starsOf(25, 80);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#140A2A', '#3A1E50', '#7A3A60', '#D8684A', '#FFB070', '#2A1420'], 21, 32) + starsOf(25, 80);
     const vL: Light = { dir: [0.5, -0.5, 0.6], color: '#FF9A6A', shade: '#120818' };
     for (let i = 0; i < 5; i++) s += facets(ellipse(150 + i * 6 + r() * 6, 86 - i * 16, 10 + i * 4, 8 + i * 3, 10), '#5A4060', vL, { size: 10, relief: 0.6, seed: 30 + i, opacity: 0.45 - i * 0.06 });
     s += facets([[92, 166], [136, 104], [146, 98], [158, 100], [168, 106], [214, 166]], '#3A2440', vL, { size: 14, relief: 0.8, seed: 22 });
@@ -206,7 +209,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
   }
   if (st === 1) {
     // Nuit au bord d'une caldeira : deux lunes, lueur de lave en contrebas.
-    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#070414', '#160A28', '#2A1030', '#6A2428', '#C2502A', '#3A1418'], 25, 24) + starsOf(50, 150);
+    s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#070414', '#160A28', '#2A1030', '#6A2428', '#C2502A', '#3A1418'], 25, 32) + starsOf(50, 150);
     s += facets(ellipse(44, 44, 13, 13, 14), '#E9DFC6', { dir: [-0.6, -0.4, 0.6], color: '#FFFFFF', shade: '#3A3460' }, { size: 6, relief: 0.6, seed: 26 });
     s += `<circle cx="51" cy="40" r="12" fill="#0C0618"/>` + facets(ellipse(72, 30, 5, 5, 10), '#D8CFC0', { dir: [-0.6, -0.4, 0.6], color: '#FFFFFF', shade: '#3A3460' }, { size: 3, seed: 27 });
     const kL: Light = { dir: [0.1, 0.8, 0.5], color: '#FF8A4A', shade: '#08040C' };
@@ -217,7 +220,7 @@ const scene = (c: DrawCtx, b: Bounds): string => {
     return s;
   }
   // Très haut au-dessus d'une planète, nébuleuse.
-  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#04031A', '#100A36', '#24145A', '#1A1040', '#0A0820'], 31, 24);
+  s += facetSky(b.x0, b.y0, b.x1, b.y1, ['#04031A', '#100A36', '#24145A', '#1A1040', '#0A0820'], 31, 32);
   const nb: Light = { dir: [0, -0.6, 0.7], color: '#FFFFFF', shade: '#100A30' };
   s += facets(ellipse(40, 50, 70, 34, 16, 0.3), colors(c.hue).cool, nb, { size: 16, relief: 0.4, seed: 32, opacity: 0.25 });
   s += facets(ellipse(190, 140, 50, 40, 14), colors(c.hue).ember, nb, { size: 16, relief: 0.4, seed: 33, opacity: 0.2 });
