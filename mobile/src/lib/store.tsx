@@ -4,7 +4,7 @@ import { FALLBACK_RATES, convert, fetchRates, formatMoney, type Currency, type R
 import { mergeCollections } from './cloud/merge';
 import { copiesOf, normalizeCopies, patchCopies, type CopyDetails } from './condition';
 import { isDeal, newDeals, wishKey, type WishEntry } from './wishlist';
-import { loadRemote, loadUsername, onLocalSignOut, saveRemote, supabase } from './cloud/supabase';
+import { loadDisplayName, loadRemote, loadUsername, onLocalSignOut, saveRemote, supabase } from './cloud/supabase';
 import { GAMES } from './games';
 import { APP_LOCALE, deviceLang, langLabel, translate, type AppLang, type T } from './i18n';
 import { refreshCollectionPrices } from './refreshPrices';
@@ -97,6 +97,9 @@ interface Store {
   /** Pseudo du compte : undefined en cours de lecture, '' à choisir, null si la base ne gère pas les pseudos. */
   username: string | null | undefined;
   setUsername(name: string): void;
+  /** Pseudo affiché, distinct de l'identifiant « @ » (null : pas encore choisi). */
+  displayName: string | null;
+  setDisplayName(name: string | null): void;
   /** État de la sauvegarde en ligne. */
   sync: 'off' | 'syncing' | 'ok' | 'error';
   /** Arrivée par le lien « mot de passe oublié » : choisir un nouveau mot de passe. */
@@ -141,6 +144,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [authReady, setAuthReady] = useState(!supabase());
   const [username, setUsernameState] = useState<string | null | undefined>(undefined);
   const setUsername = useCallback((name: string) => setUsernameState(name), []);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [sync, setSync] = useState<Store['sync']>('off');
   const [recovery, setRecovery] = useState(false);
   const endRecovery = useCallback(() => setRecovery(false), []);
@@ -230,6 +234,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     let alive = true;
     loadUsername(user.id).then((u) => alive && setUsernameState(u), () => alive && setUsernameState(null));
+    setDisplayName(null);
+    loadDisplayName(user.id).then((d) => alive && setDisplayName(d), () => {});
     return () => { alive = false; };
   }, [user?.id]);
 
@@ -411,8 +417,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [ready, settings.wishNotify, wishlist, convertTo, helpers]);
 
   const value = useMemo(
-    () => ({ ready, settings, setSettings, collection, add, remove, addMany, importEntries, removeMany, clear, setPaid, updateEntry, wishlist, inWishlist, toggleWish, setWishTarget, deals, user, authReady, username, setUsername, sync, recovery, endRecovery, ...helpers }),
-    [ready, settings, setSettings, collection, add, remove, addMany, importEntries, removeMany, clear, setPaid, updateEntry, wishlist, inWishlist, toggleWish, setWishTarget, deals, user, authReady, username, setUsername, sync, recovery, endRecovery, helpers],
+    () => ({ ready, settings, setSettings, collection, add, remove, addMany, importEntries, removeMany, clear, setPaid, updateEntry, wishlist, inWishlist, toggleWish, setWishTarget, deals, user, authReady, username, setUsername, displayName, setDisplayName, sync, recovery, endRecovery, ...helpers }),
+    [ready, settings, setSettings, collection, add, remove, addMany, importEntries, removeMany, clear, setPaid, updateEntry, wishlist, inWishlist, toggleWish, setWishTarget, deals, user, authReady, username, setUsername, displayName, setDisplayName, sync, recovery, endRecovery, helpers],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

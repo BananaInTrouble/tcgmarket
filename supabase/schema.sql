@@ -84,11 +84,15 @@ create trigger on_auth_user_created after insert on auth.users
 -- public_profile : pseudo, photo, collection (sans les prix payés, ni ceux de chaque exemplaire) et cartes recherchées
 -- (sans les prix cibles).
 alter table public.profiles add column if not exists is_public boolean not null default false;
+-- Pseudo affiché (libre, 1 à 30 caractères), distinct de l'identifiant « @pseudo » ; vide : on affiche l'identifiant.
+alter table public.profiles add column if not exists display_name text
+  check (display_name is null or char_length(btrim(display_name)) between 1 and 30);
 
 create or replace function public.public_profile(name text)
 returns jsonb language sql stable security definer set search_path = '' as $$
   select jsonb_build_object(
     'username', p.username,
+    'displayName', p.display_name,
     'since', p.created_at,
     'avatar', c.settings -> 'avatar',
     'collection', coalesce((select jsonb_agg(case when jsonb_typeof(e -> 'copies') = 'array'

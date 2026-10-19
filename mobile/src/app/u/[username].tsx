@@ -69,7 +69,8 @@ export default function PublicProfilePage() {
         ListHeaderComponent={
           <View style={{ gap: 12, marginBottom: 6, alignItems: 'center' }}>
             <Avatar value={profile.avatar} size={88} />
-            <Text style={s.h2}>@{profile.username}</Text>
+            <Text style={s.h2}>{profile.displayName || `@${profile.username}`}</Text>
+            {!!profile.displayName && <Text style={[s.muted, { marginTop: -8 }]}>@{profile.username}</Text>}
             {!!since && <Text style={s.muted}>{t('prof.since', { d: since })}</Text>}
             <View style={{ flexDirection: 'row', gap: 18 }}>
               <Text style={s.muted}>{t('acc.inCollection', { n: stats.count })}</Text>
