@@ -135,6 +135,21 @@ export async function saveUsername(userId: string, username: string) {
   if (error) throw error;
 }
 
+/** Pseudo affiché (distinct de l'identifiant « @ ») : null s'il n'est pas choisi ou si la base ne le gère pas encore. */
+export async function loadDisplayName(userId: string): Promise<string | null> {
+  const sb = supabase();
+  if (!sb) return null;
+  const { data, error } = await sb.from('profiles').select('display_name').eq('user_id', userId).maybeSingle();
+  return error ? null : ((data?.display_name as string | null | undefined) ?? null);
+}
+
+export async function saveDisplayName(userId: string, name: string) {
+  const sb = supabase();
+  if (!sb) throw new Error('cloud');
+  const { error } = await sb.from('profiles').update({ display_name: name.trim() || null }).eq('user_id', userId);
+  if (error) throw error;
+}
+
 /** Profil public : visible par tous avec le lien (voir supabase/schema.sql, fonction public_profile). */
 export async function loadProfilePublic(userId: string): Promise<boolean | null> {
   const sb = supabase();
@@ -152,6 +167,7 @@ export async function setProfilePublic(userId: string, isPublic: boolean) {
 
 export interface PublicProfile {
   username: string;
+  displayName?: string | null;
   since?: string;
   avatar?: string;
   collection: { card: import('../types').Card; quantity: number; addedAt: number; condition?: string; graded?: { by: string; grade: string }; value?: number; valueCurrency?: string; trade?: boolean }[];

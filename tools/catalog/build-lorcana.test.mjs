@@ -15,7 +15,8 @@ test('Lorcana : numéro, extension, rareté, attributs, visuel', () => {
   assert.equal(setOf({ setCode: 'Q2' }), 'Q2');
   assert.equal(rarityId('Super Rare'), 'super_rare');
   assert.deepEqual(attrsOf({ artistsText: 'A', cost: 4, strength: 3, willpower: 4, lore: 2, story: 'Frozen' }), { illustrator: 'A', cost: '4', strength: '3', willpower: '4', lore: '2', story: 'Frozen' });
-  assert.equal(smallImage('https://api.lorcana.ravensburger.com/images/fr/set1/1_x.jpg'), 'https://wsrv.nl/?url=api.lorcana.ravensburger.com%2Fimages%2Ffr%2Fset1%2F1_x.jpg&w=360&output=webp');
+  assert.equal(smallImage('https://api.lorcana.ravensburger.com/images/fr/set1/1_x.jpg'), 'https://api.lorcana.ravensburger.com/images/fr/set1/1_x.jpg');
+  assert.equal(smallImage('https://www.takaratomy.co.jp/a/1.png'), 'https://wsrv.nl/?url=www.takaratomy.co.jp%2Fa%2F1.png&w=360&output=webp');
 });
 
 test('Lorcana japonais : extensions', () => {

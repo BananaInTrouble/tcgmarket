@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { PROVIDERS, cloudEnabled } from '../lib/cloud/config';
-import { sendPasswordReset, signInWith, signInWithPassword, signUpWithPassword, updatePassword } from '../lib/cloud/supabase';
+import { saveDisplayName, sendPasswordReset, signInWith, signInWithPassword, signUpWithPassword, updatePassword } from '../lib/cloud/supabase';
 import { strongPassword } from '../lib/cloud/password';
 import { useStore } from '../lib/store';
 import { PasswordRules } from './PasswordRules';
@@ -52,7 +52,7 @@ export function AccountPanel() {
           <Ionicons name={user.provider === 'google' ? 'logo-google' : user.provider === 'apple' ? 'logo-apple' : 'mail'} size={20} color={colors.text} />
           <Text style={[s.name, { flex: 1 }]} numberOfLines={1}>{user.email ?? t('auth.connected')}</Text>
         </View>
-        {!!username && <Text style={[s.meta, { color: colors.accent }]}>@{username}</Text>}
+        {!!username && <DisplayName />}
         {!!label && (
           <Text style={[s.meta, { color: sync === 'error' ? colors.danger : sync === 'ok' ? colors.good : colors.muted }]}>
             {sync === 'ok' ? '✓ ' : ''}{label}
@@ -130,6 +130,52 @@ export function authError(e: unknown, t: ReturnType<typeof useStore>['t']): stri
   if (/rate limit|too many/i.test(m)) return t('auth.errRate');
   if (/password/i.test(m)) return t('auth.errPassword');
   return m || t('auth.error');
+}
+
+/** Pseudo affiché (libre) avec son bouton « modifier » juste à côté, et l'identifiant « @ » en dessous. */
+function DisplayName() {
+  const { t, user, username, displayName, setDisplayName } = useStore();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  if (!user || !username) return null;
+  const shown = displayName || username;
+  const valid = value.trim().length >= 1 && value.trim().length <= 30;
+  const save = async () => {
+    if (!valid || busy) return;
+    setBusy(true); setError(false);
+    try { await saveDisplayName(user.id, value); setDisplayName(value.trim()); setEditing(false); } catch { setError(true); } finally { setBusy(false); }
+  };
+  if (editing) {
+    return (
+      <View style={{ gap: 6 }}>
+        <Text style={[s.muted, { fontSize: 12 }]}>{t('acc.displayName')}</Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <TextInput style={[s.input, { flex: 1 }]} value={value} onChangeText={setValue} maxLength={30} autoFocus onSubmitEditing={save} placeholder={username} placeholderTextColor={colors.muted} />
+          <Pressable onPress={save} disabled={!valid || busy} style={[s.button, { paddingHorizontal: 14 }, (!valid || busy) && { opacity: 0.5 }]} accessibilityLabel={t('acc.saveName')}>
+            {busy ? <ActivityIndicator color={colors.bg} /> : <Ionicons name="checkmark" size={20} color={colors.bg} />}
+          </Pressable>
+          <Pressable onPress={() => { setEditing(false); setError(false); }} style={[s.ghost, { paddingHorizontal: 12 }]} accessibilityLabel={t('common.cancel')}>
+            <Ionicons name="close" size={20} color={colors.text} />
+          </Pressable>
+        </View>
+        <Text style={[s.muted, { fontSize: 11 }]}>{error ? t('acc.nameError') : t('acc.nameHint')}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={{ gap: 2 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 18, flexShrink: 1 }} numberOfLines={1}>{shown}</Text>
+        <Pressable onPress={() => { setValue(displayName ?? ''); setEditing(true); }} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: colors.line }} accessibilityLabel={t('acc.editName')}>
+          <Ionicons name="pencil" size={13} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontFamily: fonts.bold, fontSize: 12 }}>{t('acc.editName')}</Text>
+        </Pressable>
+      </View>
+      <Text style={[s.meta, { color: colors.muted }]}>@{username}</Text>
+    </View>
+  );
 }
 
 const st = StyleSheet.create({
