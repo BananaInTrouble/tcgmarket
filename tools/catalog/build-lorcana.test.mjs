@@ -42,7 +42,9 @@ test('Lorcana : fiches Cardmarket retrouvées par le nom pour une nouvelle exten
     { idProduct: 301, idExpansion: 10, name: 'Stitch - Pilot' },
     { idProduct: 305, idExpansion: 10, name: 'Mulan - Hero' },
     { idProduct: 999, idExpansion: 11, name: 'Other' },
+    { idProduct: 306, idExpansion: 10, name: 'Promo Mulan' },
   ];
+  cards.push({ id: 5, setCode: 'P3', number: 1, fullName: 'Promo Mulan', externalLinks: { cardmarketId: 306 } });
   assert.deepEqual([...cardmarketFallback(cards, products)].sort((a, b) => a[0] - b[0]), [[2, 300], [3, 305], [4, 301]]);
 });
 

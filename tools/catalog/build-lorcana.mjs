@@ -75,7 +75,8 @@ export function cardmarketFallback(cards, products) {
     byExp.get(p.idExpansion).push(p);
   }
   const usedExp = new Set();
-  for (const [exp, list] of byExp) if (list.some((p) => known.has(p.idProduct))) usedExp.add(exp);
+  // Extension déjà utilisée par un set relié (au moins la moitié de ses fiches connues ; une promo isolée ne compte pas).
+  for (const [exp, list] of byExp) if (list.filter((p) => known.has(p.idProduct)).length * 2 >= list.length) usedExp.add(exp);
   const missingBySet = new Map();
   for (const c of cards) {
     if (c.externalLinks?.cardmarketId) continue;
