@@ -7,7 +7,7 @@ import { PR_RARITIES, RARITY_STYLE, cardArtSvg, cardFrameImage, type PrRarity } 
 import { catalogBase } from '../lib/catalog/static';
 import { PR_DESCRIPTIONS } from '../lib/packrush/descriptions';
 import { FX, PACK_H, PACK_TEAR_Y, PACK_W, cardBack, fragmentIcon, packFoil, packRushMark } from '../lib/packrush/brand';
-import type { PrCard, PrOpening } from '../lib/packrush/api';
+import { preEvolution, type PrCard, type PrOpening } from '../lib/packrush/api';
 import { useStore } from '../lib/store';
 import type { TKey } from '../lib/i18n';
 
@@ -47,11 +47,18 @@ export function PrCardPic({ card, total, owned = true, width, style }: { card: P
   const frame = useCardFrame();
   const [fallback, setFallback] = useState(false);
   const art = useMemo(() => (fallback ? `data:image/svg+xml;utf8,${encodeURIComponent(cardArtSvg(card, owned))}` : cardArtUrl(card, owned)), [card.id, owned, fallback]);
-  const h = width * 1.4, radius = (width * 14) / 250;
+  const h = width * 1.4, radius = (width * 14) / 250, u = width / 250;
+  const prev = preEvolution(card);
   return (
     <View style={[{ width, height: h, borderRadius: radius, overflow: 'hidden', backgroundColor: '#0B0716' }, style]}>
       <Image source={art} style={{ position: 'absolute', width, height: h }} contentFit="cover" onError={() => setFallback(true)} transition={120} />
       <Image source={frame(card, total, owned)} style={{ position: 'absolute', width, height: h }} contentFit="contain" />
+      {owned && !!prev && (
+        // Pré-évolution en médaillon sous le niveau (cartes de niveau 2 et 3) ; cadrage sur la créature : centre de l'illustration (125, 195), 140 unités de large dans 40 unités.
+        <View style={{ position: 'absolute', left: u * 32, top: u * 42, width: u * 40, height: u * 40, borderRadius: u * 20, borderWidth: Math.max(1, u * 1.6), borderColor: '#E9C25B', overflow: 'hidden', backgroundColor: '#0B0716' }}>
+          <Image source={cardArtUrl(prev, true)} style={{ position: 'absolute', left: u * (20 - 125 * (40 / 140)), top: u * (20 - 195 * (40 / 140)), width: u * 250 * (40 / 140), height: u * 350 * (40 / 140) }} contentFit="cover" />
+        </View>
+      )}
     </View>
   );
 }
