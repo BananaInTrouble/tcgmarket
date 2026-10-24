@@ -63,7 +63,7 @@ const constel = (pts: Pt[], s = 3) => `<polyline points="${pts.map((p) => `${f1(
 /** Œil : pupille sombre, iris lumineux, reflet. */
 const eyeLP = (x: number, y: number, r: number, iris: string) => disc(x, y, r * 1.9, iris, 0.22) + disc(x, y, r * 1.25, iris) + disc(x + r * 0.1, y, r * 0.8, '#0B0618') + disc(x - r * 0.4, y - r * 0.45, r * 0.38, '#FFFFFF');
 
-/** Cétoile → Baleinelle → Nébulène → Abyssiale : baleine à bosse du vide (sillons ventraux, très longues pectorales) ; le flanc de l'éveillée s'ouvre sur une nébuleuse. */
+/** Cétoile → Baleinelle → Nébulène : baleine à bosse du vide (sillons ventraux, très longues pectorales) ; le flanc de l'éveillée s'ouvre sur une nébuleuse. */
 const draw = (c: DrawCtx): string => {
   const st = Math.min(c.stage, 3), h = c.hue;
   const base = hsl(h, 34, 44), deep = hsl(h + 10, 40, 20), belly = hsl(h - 10, 24, 78);
