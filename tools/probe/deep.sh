@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : liens directs CardTrader et TCGplayer (tcgcsv).
+# Exploration ponctuelle : API CardTrader (la clé n'est jamais affichée).
 set -u
-UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
-h() { echo "== $1"; curl -sL -A "$UA" -o /tmp/x -D - -m 30 "$1" | grep -iE "^HTTP|^location|content-type" | head -6; }
-echo "#### cardtrader"
-for u in "https://www.cardtrader.com/en/search?q=Pikachu" "https://www.cardtrader.com/en/cards?q=Pikachu" "https://www.cardtrader.com/search?q=Pikachu" "https://www.cardtrader.com/en/manasearch?q=Pikachu" "https://www.cardtrader.com/en/pokemon" ; do h "$u"; head -c 600 /tmp/x | tr '\n' ' '; echo; grep -oE '"/[a-z]{2}/cards/[^"]+"' /tmp/x | head -5; grep -oE '(api|autocomplete|search)[^"'"'"' ]{0,80}' /tmp/x | sort -u | head -15; done
-h "https://www.cardtrader.com/en/pokemon"; grep -oE 'href="[^"]+"' /tmp/x | sort -u | head -60
-echo "#### cardtrader api publique ?"
-for u in "https://api.cardtrader.com/api/v2/games" "https://api.cardtrader.com/api/v2/expansions" "https://www.cardtrader.com/api/v2/games"; do h "$u"; head -c 300 /tmp/x; echo; done
-echo "#### tcgcsv"
-curl -sL -m 30 https://tcgcsv.com/tcgplayer/categories | python3 -c "import json,sys;d=json.load(sys.stdin);[print(c['categoryId'],c['name']) for c in d['results'] if any(w in c['name'].lower() for w in ('pokemon','one piece','lorcana','riftbound','league'))]"
-curl -sL -m 30 https://tcgcsv.com/tcgplayer/71/groups | head -c 700; echo
+[ -n "${CARDTRADER_TOKEN:-}" ] && echo "clé présente (${#CARDTRADER_TOKEN} caractères)" || { echo "clé absente"; exit 0; }
+A="https://api.cardtrader.com/api/v2"
+c() { curl -s -m 60 -H "Authorization: Bearer $CARDTRADER_TOKEN" "$A/$1"; }
+echo "#### info"; c info | head -c 300; echo
+echo "#### games"; c games | python3 -c "import json,sys;d=json.load(sys.stdin);d=d.get('array',d);[print(g) for g in d]" | head -20
+echo "#### expansions"; c expansions > /tmp/e.json; python3 - <<'PY'
+import json;d=json.load(open('/tmp/e.json'));print(len(d))
+import collections;print(collections.Counter(x['game_id'] for x in d))
+for x in d[:3]: print(x)
+for x in d:
+  if x['name'] in ('Obsidian Flames','Romance Dawn','The First Chapter','Origins','Hyperia City','Pokemon Card 151','Storm Emerald'): print(x)
+PY
+EID=$(python3 -c "import json;d=json.load(open('/tmp/e.json'));print(next(x['id'] for x in d if x['name']=='Obsidian Flames'))")
+echo "#### blueprints $EID"; c "blueprints/export?expansion_id=$EID" > /tmp/b.json; python3 - <<'PY'
+import json;d=json.load(open('/tmp/b.json'));print(len(d));print(json.dumps(d[0])[:1500]);print(json.dumps(d[5])[:600])
+import collections;print(collections.Counter(x.get('category_id') for x in d))
+PY
+echo "#### categories"; c "categories?game_id=5" | head -c 800; echo

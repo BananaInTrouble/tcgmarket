@@ -289,6 +289,7 @@ export const ru: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "Редкая карта! Нажми, чтобы перевернуть",
   "pr.mythic": "МИФИЧЕСКАЯ КАРТА",
   "pr.level": "Ур. {n}",
+  "pr.evolvesFrom": "Эволюционирует из {name}",
   "pr.legend": "Легенда",
   "pr.myth": "Миф",
   "pr.cardOf": "Карта {i}/{n}",

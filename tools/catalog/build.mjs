@@ -12,6 +12,7 @@ import { buildRiftbound } from './build-riftbound.mjs';
 import { buildLorcana } from './build-lorcana.mjs';
 import { buildSearch } from './build-search.mjs';
 import { buildTcgplayer } from './build-tcgplayer.mjs';
+import { buildCardtrader } from './build-cardtrader.mjs';
 import { buildSetNames } from './set-names.mjs';
 import { buildPriceHistory } from './price-history.mjs';
 import { buildPrices } from './prices.mjs';
@@ -33,7 +34,7 @@ async function grab() {
 }
 
 const STEPS = {
-  grab, 'pokemon-ja': buildPokemonJa, 'pokemon-intl': () => buildPokemonIntl(), 'pokemon-cards': () => buildPokemonCards(), 'pokemon-details': () => buildPokemonDetails(), 'pokemon-zh': buildPokemonZh, onepiece: buildOnePiece, riftbound: buildRiftbound, lorcana: buildLorcana, tcgplayer: buildTcgplayer, visual: () => buildVisual(), assets: buildAssets, prices: buildPrices, 'set-names': () => buildSetNames(), search: buildSearch, 'price-history': () => buildPriceHistory() };
+  grab, 'pokemon-ja': buildPokemonJa, 'pokemon-intl': () => buildPokemonIntl(), 'pokemon-cards': () => buildPokemonCards(), 'pokemon-details': () => buildPokemonDetails(), 'pokemon-zh': buildPokemonZh, onepiece: buildOnePiece, riftbound: buildRiftbound, lorcana: buildLorcana, tcgplayer: buildTcgplayer, cardtrader: buildCardtrader, visual: () => buildVisual(), assets: buildAssets, prices: buildPrices, 'set-names': () => buildSetNames(), search: buildSearch, 'price-history': () => buildPriceHistory() };
 const wanted = (process.env.STEPS || Object.keys(STEPS).join(',')).split(',').map((s) => s.trim()).filter(Boolean);
 // Passage horaire des prix seul : recherche et historique refaits, rien d'autre (et rien si le guide n'a pas changé).
 const pricesOnly = wanted.length === 1 && wanted[0] === 'prices';

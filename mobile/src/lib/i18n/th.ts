@@ -289,6 +289,7 @@ export const th: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "การ์ดหายาก! แตะเพื่อพลิก",
   "pr.mythic": "การ์ดตำนาน",
   "pr.level": "Lv.{n}",
+  "pr.evolvesFrom": "วิวัฒนาการจาก {name}",
   "pr.legend": "ตำนาน",
   "pr.myth": "เทพนิยาย",
   "pr.cardOf": "การ์ด {i}/{n}",

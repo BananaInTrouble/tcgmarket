@@ -25,3 +25,4 @@ jobs:
       - run: if [ "${{ github.event.inputs.deep }}" = "1" ]; then tools/probe/deep.sh; else tools/probe/probe.sh; fi
         env:
           EXTRA_URLS: ${{ github.event.inputs.urls }}
+          CARDTRADER_TOKEN: ${{ secrets.CARDTRADER_TOKEN }}

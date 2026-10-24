@@ -289,6 +289,7 @@ export const ja: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "レアカード！タップでめくろう",
   "pr.mythic": "ミシックカード",
   "pr.level": "Lv.{n}",
+  "pr.evolvesFrom": "{name}から進化",
   "pr.legend": "伝説",
   "pr.myth": "神話",
   "pr.cardOf": "{i}/{n} 枚目",

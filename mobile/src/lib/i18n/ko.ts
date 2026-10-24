@@ -289,6 +289,7 @@ export const ko: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "레어 카드! 눌러서 뒤집어 보세요",
   "pr.mythic": "신화 카드",
   "pr.level": "Lv.{n}",
+  "pr.evolvesFrom": "{name}에서 진화",
   "pr.legend": "전설",
   "pr.myth": "신화",
   "pr.cardOf": "{i}/{n}번째 카드",

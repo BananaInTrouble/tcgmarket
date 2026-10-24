@@ -23,12 +23,12 @@ export function buildSearch() {
         const file = join(CATALOG, 'cards', key, `${s.id}.json`);
         if (!existsSync(file)) continue;
         for (const c of JSON.parse(readFileSync(file, 'utf8'))) {
-          rows.push([c.id, s.id, c.localId, c.number, c.name, c.nameEn ?? '', c.nameFr ?? '', c.rarity ?? '', c.image ?? '', c.price?.value ?? 0, c.facets ?? 0, c.attrs ?? 0, c.tcgplayer ?? 0, c.cm?.avg7 ?? c.cm?.avg30 ?? c.cm?.avg ?? c.cm?.trend ?? c.cm?.low ?? 0, c.cm?.id ?? 0, c.cmPath ?? 0, c.cm?.avg7 ? 7 : c.cm?.avg30 ? 30 : c.cm?.avg ? 0 : c.cm?.trend ? -1 : -2, c.v?.length ? c.v.map((v) => [v.k, v.id ?? 0, v.p ?? 0, v.tp ?? 0, v.t ?? 0, v.img ?? 0, v.o ?? 0]) : 0, c.n ?? 0]);
+          rows.push([c.id, s.id, c.localId, c.number, c.name, c.nameEn ?? '', c.nameFr ?? '', c.rarity ?? '', c.image ?? '', c.price?.value ?? 0, c.facets ?? 0, c.attrs ?? 0, c.tcgplayer ?? 0, c.cm?.avg7 ?? c.cm?.avg30 ?? c.cm?.avg ?? c.cm?.trend ?? c.cm?.low ?? 0, c.cm?.id ?? 0, c.cmPath ?? 0, c.cm?.avg7 ? 7 : c.cm?.avg30 ? 30 : c.cm?.avg ? 0 : c.cm?.trend ? -1 : -2, c.v?.length ? c.v.map((v) => [v.k, v.id ?? 0, v.p ?? 0, v.tp ?? 0, v.t ?? 0, v.img ?? 0, v.o ?? 0]) : 0, c.n ?? 0, c.ct ?? 0]);
         }
       }
     }
     if (!rows.length) continue;
-    writeJson(`search/${key}.json`, { columns: ['id', 'setId', 'localId', 'number', 'name', 'nameEn', 'nameFr', 'rarity', 'image', 'priceUsd', 'facets', 'attrs', 'tcgplayer', 'eur', 'cardmarket', 'cmPath', 'eurDays', 'variants', 'names'], rows });
+    writeJson(`search/${key}.json`, { columns: ['id', 'setId', 'localId', 'number', 'name', 'nameEn', 'nameFr', 'rarity', 'image', 'priceUsd', 'facets', 'attrs', 'tcgplayer', 'eur', 'cardmarket', 'cmPath', 'eurDays', 'variants', 'names', 'cardtrader'], rows });
     console.log(`search/${key}.json : ${rows.length} cartes`);
   }
 }

@@ -289,6 +289,7 @@ export const nl: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "Een zeldzame kaart! Tik om hem om te draaien",
   "pr.mythic": "MYTHISCHE KAART",
   "pr.level": "Niv. {n}",
+  "pr.evolvesFrom": "Evolueert uit {name}",
   "pr.legend": "Legende",
   "pr.myth": "Mythe",
   "pr.cardOf": "Kaart {i}/{n}",
