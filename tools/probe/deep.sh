@@ -1,21 +1,20 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : API CardTrader (la clé n'est jamais affichée).
+# Exploration ponctuelle : pages CardTrader ouvertes dans un vrai navigateur (M5 qui marche, M6 / M6a qui non).
 set -u
-[ -n "${CARDTRADER_TOKEN:-}" ] && echo "clé présente (${#CARDTRADER_TOKEN} caractères)" || { echo "clé absente"; exit 0; }
-A="https://api.cardtrader.com/api/v2"
-c() { curl -s -m 60 -H "Authorization: Bearer $CARDTRADER_TOKEN" "$A/$1"; }
-echo "#### info"; c info | head -c 300; echo
-echo "#### games"; c games | python3 -c "import json,sys;d=json.load(sys.stdin);d=d.get('array',d);[print(g) for g in d]" | head -20
-echo "#### expansions"; c expansions > /tmp/e.json; python3 - <<'PY'
-import json;d=json.load(open('/tmp/e.json'));print(len(d))
-import collections;print(collections.Counter(x['game_id'] for x in d))
-for x in d[:3]: print(x)
-for x in d:
-  if x['name'] in ('Obsidian Flames','Romance Dawn','The First Chapter','Origins','Hyperia City','Pokemon Card 151','Storm Emerald'): print(x)
-PY
-EID=$(python3 -c "import json;d=json.load(open('/tmp/e.json'));print(next(x['id'] for x in d if x['name']=='Obsidian Flames'))")
-echo "#### blueprints $EID"; c "blueprints/export?expansion_id=$EID" > /tmp/b.json; python3 - <<'PY'
-import json;d=json.load(open('/tmp/b.json'));print(len(d));print(json.dumps(d[0])[:1500]);print(json.dumps(d[5])[:600])
-import collections;print(collections.Counter(x.get('category_id') for x in d))
-PY
-echo "#### categories"; c "categories?game_id=5" | head -c 800; echo
+cd /tmp && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
+cat > /tmp/p.cjs <<'JS'
+const { chromium } = require('/tmp/node_modules/playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await (await b.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', locale: 'fr-FR' })).newPage();
+  for (const u of ['https://www.cardtrader.com/fr/cards/391089', 'https://www.cardtrader.com/fr/cards/403029', 'https://www.cardtrader.com/fr/cards/412352', 'https://www.cardtrader.com/fr/cards/403029-heracross-001-076-storm-emeralda', 'https://www.cardtrader.com/en/cards/403029']) {
+    try {
+      const r = await p.goto(u, { waitUntil: 'domcontentloaded', timeout: 45000 }); await p.waitForTimeout(6000);
+      const t = await p.title(); const h1 = await p.locator('h1').first().textContent().catch(() => '');
+      console.log(r?.status(), u, '→', p.url(), '|', t, '|', (h1 || '').trim().slice(0, 80));
+    } catch (e) { console.log('ERR', u, e.message.slice(0, 120)); }
+  }
+  await b.close();
+})();
+JS
+node /tmp/p.cjs

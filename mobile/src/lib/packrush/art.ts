@@ -156,9 +156,12 @@ export function cardFrameSvg(card: CardLike, total: number, owned = true, text: 
   const name = owned ? esc(card.name.toUpperCase()) : '? ? ?';
   const nameSize = card.name.length > 11 ? 14 : 16;
   const lines = owned && text.desc ? wrap(text.desc, 48, 3) : [];
-  const desc = lines.map((l, i) => `<text x="${W / 2}" y="${300 + i * 10}" text-anchor="middle" font-family="${SERIF}" font-size="8.4" font-style="italic" fill="#EDE6FF" fill-opacity="0.85">${esc(l)}</text>`).join('');
-  const evolves = owned && text.evolves
-    ? `<text x="${W / 2}" y="259" text-anchor="middle" font-family="${SERIF}" font-size="8" font-style="italic" letter-spacing="0.4" fill="${gold}" fill-opacity="0.95" filter="url(#txtglow)">${esc(text.evolves)}</text>`
+  // Mention d'évolution sous le nom (niveaux 2 et 3) : la description descend d'une ligne, plus serrée.
+  const evo = owned && text.evolves ? text.evolves : undefined;
+  const descY = (i: number) => (evo ? 309 + i * 9 : 300 + i * 10);
+  const desc = lines.map((l, i) => `<text x="${W / 2}" y="${descY(i)}" text-anchor="middle" font-family="${SERIF}" font-size="8.4" font-style="italic" fill="#EDE6FF" fill-opacity="0.85">${esc(l)}</text>`).join('');
+  const evolves = evo
+    ? `<text x="${W / 2}" y="298.5" text-anchor="middle" font-family="${SERIF}" font-size="8" font-style="italic" letter-spacing="0.4" fill="${gold}" fill-opacity="0.95" filter="url(#txtglow)">${esc(evo ?? "")}</text>`
     : '';
   const body = evolves + `<text x="${W / 2}" y="278" text-anchor="middle" font-family="${SERIF}" font-size="${nameSize}" font-weight="700" letter-spacing="3.2" fill="${owned ? '#FFF1D0' : '#6E6890'}" filter="url(#txtglow)">${name}</text>`
     + `<path d="M62 287 h52 M136 287 h52" stroke="${gold}" stroke-width="0.7" opacity="0.8"/><path d="M${W / 2 - 5} 287 l5 -3.5 l5 3.5 l-5 3.5 z" fill="${gold}"/>`
