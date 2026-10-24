@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { attrsOf, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
+import { attrsOf, cardmarketFallback, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
 
 test('Lorcana : variantes normale / foil selon les finitions', () => {
   assert.deepEqual(variantsOf({ foilTypes: ['None', 'Silver'] }, 7), [{ k: 'normal', id: 7 }, { k: 'foil', id: 7 }]);
@@ -27,4 +27,21 @@ test('Lorcana japonais : extensions', () => {
   assert.equal(jaSetOf({ sets_order: 1000, sets_array: ['ここからはじまる！スタートデッキ　家族のきずな'] }, st), 'SD1');
   assert.equal(jaSetOf({ sets_order: 100, sets_array: ['ＴＨＥ　ＦＩＲＳＴ　ＣＨＡＰＴＥＲ　物語のはじまり', 'ここからはじまる！スタートデッキ　家族のきずな'] }, st), '1');
   assert.equal(jaSetOf({ sets_order: 610, sets_array: ['-'] }, st), undefined);
+});
+
+test('Lorcana : fiches Cardmarket retrouvées par le nom pour une nouvelle extension', () => {
+  const cards = [
+    { id: 1, setCode: '13', number: 1, fullName: 'Ariel - Sea Star', externalLinks: { cardmarketId: 100 } },
+    { id: 2, setCode: '14', number: 3, fullName: 'Mulan - Hero' },
+    { id: 3, setCode: '14', number: 210, fullName: 'Mulan - Hero' },
+    { id: 4, setCode: '14', number: 7, fullName: 'Stitch - Pilot' },
+  ];
+  const products = [
+    { idProduct: 100, idExpansion: 9, name: 'Ariel - Sea Star' },
+    { idProduct: 300, idExpansion: 10, name: 'Mulan - Hero' },
+    { idProduct: 301, idExpansion: 10, name: 'Stitch - Pilot' },
+    { idProduct: 305, idExpansion: 10, name: 'Mulan - Hero' },
+    { idProduct: 999, idExpansion: 11, name: 'Other' },
+  ];
+  assert.deepEqual([...cardmarketFallback(cards, products)].sort((a, b) => a[0] - b[0]), [[2, 300], [3, 305], [4, 301]]);
 });

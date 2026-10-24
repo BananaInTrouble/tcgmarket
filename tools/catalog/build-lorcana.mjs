@@ -15,6 +15,64 @@ import { foilAsHolo } from './build-riftbound.mjs';
 export const LANGS = ['en', 'fr', 'de', 'it'];
 const SOURCE = (lang) => `https://lorcanajson.org/files/current/${lang}/allCards.json`;
 export const CM_PRICES = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json';
+const CM_PRODUCTS = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_19.json';
+
+const cmName = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
+
+/**
+ * Fiches Cardmarket des cartes que LorcanaJSON ne relie pas encore (nouvelle extension) : l'extension Cardmarket
+ * d'un set est celle qui contient le plus de ses noms (parmi celles qu'aucun set connu n'utilise déjà), puis chaque
+ * carte reçoit la fiche de même nom ; plusieurs cartes et fiches de même nom (version de base, Enchantée…) sont
+ * appariées dans l'ordre (numéro croissant, fiche la plus ancienne d'abord). Renvoie identifiant de carte → fiche.
+ */
+export function cardmarketFallback(cards, products) {
+  const known = new Map(cards.filter((c) => c.externalLinks?.cardmarketId).map((c) => [c.externalLinks.cardmarketId, c]));
+  const byExp = new Map();
+  for (const p of products) {
+    if (!byExp.has(p.idExpansion)) byExp.set(p.idExpansion, []);
+    byExp.get(p.idExpansion).push(p);
+  }
+  const usedExp = new Set();
+  for (const [exp, list] of byExp) if (list.some((p) => known.has(p.idProduct))) usedExp.add(exp);
+  const missingBySet = new Map();
+  for (const c of cards) {
+    if (c.externalLinks?.cardmarketId) continue;
+    const set = setOf(c);
+    if (!missingBySet.has(set)) missingBySet.set(set, []);
+    missingBySet.get(set).push(c);
+  }
+  const out = new Map();
+  for (const [, list] of missingBySet) {
+    const wanted = new Set(list.map((c) => cmName(c.fullName ?? c.name)));
+    let best = null, bestHits = 0;
+    for (const [exp, prods] of byExp) {
+      if (usedExp.has(exp)) continue;
+      const hits = new Set(prods.map((p) => cmName(p.name)).filter((n) => wanted.has(n))).size;
+      if (hits > bestHits) { best = exp; bestHits = hits; }
+    }
+    // Au moins la moitié des noms retrouvés : sinon l'extension n'est pas encore sur Cardmarket.
+    if (best == null || bestHits < wanted.size / 2) continue;
+    usedExp.add(best);
+    const prods = new Map();
+    for (const p of byExp.get(best)) {
+      const k = cmName(p.name);
+      if (!prods.has(k)) prods.set(k, []);
+      prods.get(k).push(p);
+    }
+    const group = new Map();
+    for (const c of list) {
+      const k = cmName(c.fullName ?? c.name);
+      if (!group.has(k)) group.set(k, []);
+      group.get(k).push(c);
+    }
+    for (const [k, cs] of group) {
+      const ps = (prods.get(k) ?? []).sort((a, b) => a.idProduct - b.idProduct);
+      cs.sort((a, b) => a.number - b.number);
+      cs.forEach((c, i) => { const p = ps[Math.min(i, ps.length - 1)]; if (p) out.set(c.id, p.idProduct); });
+    }
+  }
+  return out;
+}
 
 /**
  * Visuel officiel : direct pour Ravensburger (son serveur refuse le proxy wsrv.nl, 403, mais accepte l'affichage
@@ -88,7 +146,9 @@ export async function buildLorcana() {
   const setNames = new Map();
   for (const lang of LANGS) for (const [id, s] of Object.entries(data[lang]?.sets ?? {})) setNames.set(id, { ...(setNames.get(id) ?? {}), [lang]: s.name });
 
-  const guide = await getJson(CM_PRICES).catch(() => null);
+  const [guide, products] = await Promise.all([getJson(CM_PRICES).catch(() => null), getJson(CM_PRODUCTS).catch(() => null)]);
+  const fallbackCm = cardmarketFallback(en.cards, products?.products ?? []);
+  if (fallbackCm.size) console.log(`Lorcana : ${fallbackCm.size} cartes reliées à Cardmarket par leur nom`);
   const prices = { prices: new Map((guide?.priceGuides ?? []).map((x) => [x.idProduct, foilAsHolo(x)])) };
   if (!prices.prices.size) console.warn('Lorcana : guide des prix Cardmarket indisponible');
 
@@ -120,7 +180,7 @@ export async function buildLorcana() {
       const n = names.get(c.id) ?? {};
       const name = c.fullName ?? c.name;
       const other = Object.fromEntries(Object.entries(n).filter(([l, v]) => l !== lang && l !== 'en' && v !== name && v !== n.en));
-      const cm = r.externalLinks?.cardmarketId ?? c.externalLinks?.cardmarketId;
+      const cm = r.externalLinks?.cardmarketId ?? c.externalLinks?.cardmarketId ?? fallbackCm.get(c.id);
       const inks = [r.color, ...(r.colors ?? [])].filter(Boolean).flatMap((x) => String(x).split(/[-/]/)).map(idOf).filter(Boolean);
       bySet.get(setId).push({
         id: `${setId}-${String(c.number).padStart(3, '0')}${c.variant ? c.variant.toLowerCase() : ''}`,
