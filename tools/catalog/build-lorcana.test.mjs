@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { attrsOf, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
+import { attrsOf, cardmarketFallback, logoScore, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
 
 test('Lorcana : variantes normale / foil selon les finitions', () => {
   assert.deepEqual(variantsOf({ foilTypes: ['None', 'Silver'] }, 7), [{ k: 'normal', id: 7 }, { k: 'foil', id: 7 }]);
@@ -27,4 +27,33 @@ test('Lorcana japonais : extensions', () => {
   assert.equal(jaSetOf({ sets_order: 1000, sets_array: ['ここからはじまる！スタートデッキ　家族のきずな'] }, st), 'SD1');
   assert.equal(jaSetOf({ sets_order: 100, sets_array: ['ＴＨＥ　ＦＩＲＳＴ　ＣＨＡＰＴＥＲ　物語のはじまり', 'ここからはじまる！スタートデッキ　家族のきずな'] }, st), '1');
   assert.equal(jaSetOf({ sets_order: 610, sets_array: ['-'] }, st), undefined);
+});
+
+test('Lorcana : fiches Cardmarket retrouvées par le nom pour une nouvelle extension', () => {
+  const cards = [
+    { id: 1, setCode: '13', number: 1, fullName: 'Ariel - Sea Star', externalLinks: { cardmarketId: 100 } },
+    { id: 2, setCode: '14', number: 3, fullName: 'Mulan - Hero' },
+    { id: 3, setCode: '14', number: 210, fullName: 'Mulan - Hero' },
+    { id: 4, setCode: '14', number: 7, fullName: 'Stitch - Pilot' },
+  ];
+  const products = [
+    { idProduct: 100, idExpansion: 9, name: 'Ariel - Sea Star' },
+    { idProduct: 300, idExpansion: 10, name: 'Mulan - Hero' },
+    { idProduct: 301, idExpansion: 10, name: 'Stitch - Pilot' },
+    { idProduct: 305, idExpansion: 10, name: 'Mulan - Hero' },
+    { idProduct: 999, idExpansion: 11, name: 'Other' },
+    { idProduct: 306, idExpansion: 10, name: 'Promo Mulan' },
+  ];
+  cards.push({ id: 5, setCode: 'P3', number: 1, fullName: 'Promo Mulan', externalLinks: { cardmarketId: 306 } });
+  assert.deepEqual([...cardmarketFallback(cards, products)].sort((a, b) => a[0] - b[0]), [[2, 300], [3, 305], [4, 301]]);
+});
+
+test('Lorcana : choix du logo sur la page officielle', () => {
+  const logo = 'https://ravensburger.cloud/cms/gallery/lorcana-web/products/s11-winterspell/en/dlc_s11_logo_en.png';
+  assert.ok(logoScore(logo, { width: 648, height: 300, transparent: 0.7 }) > logoScore('https://ravensburger.cloud/x/en/abc_en.png', { width: 648, height: 300, transparent: 0.7 }));
+  assert.equal(logoScore('https://ravensburger.cloud/x/cards/en_1.png', { width: 648, height: 300, transparent: 1 }), -1);
+  assert.equal(logoScore(logo, { width: 537, height: 750, transparent: 1 }), -1);
+  assert.ok(logoScore('https://ravensburger.cloud/x/heroes-logos-and-backgrounds/dlc_s13_logo_en.png', { width: 648, height: 300, transparent: 0.6 }) > 10);
+  assert.equal(logoScore('https://ravensburger.cloud/x/products/pre-release/3pjwqt9fva_en-1.png', { width: 1920, height: 1080, transparent: 0.5 }), -1);
+  assert.equal(logoScore('https://ravensburger.cloud/x/abc_en.png', { width: 648, height: 300, transparent: 0.1 }), -1);
 });

@@ -21,7 +21,7 @@ export function cardDescription(id: string, lang: string): string | undefined {
 }
 
 /** Version des illustrations pré-calculées (tools/packrush/render-art.ts) : à augmenter à chaque nouveau rendu. */
-const ART_VERSION = 1;
+const ART_VERSION = 2;
 
 /** Adresse de l'illustration pré-calculée d'une carte (publiée avec le site dans /packrush/<set>/). */
 export function cardArtUrl(card: PrCard, owned: boolean): string {

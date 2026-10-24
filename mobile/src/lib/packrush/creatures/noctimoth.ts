@@ -5,7 +5,7 @@ import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Facet
 const F = (poly: Pt[], col: string, L: Light, o: FacetOpts = {}) => facets(poly, col, L, { ...o, size: (o.size ?? 11) * 1.6 });
 
 /**
- * Noctimoth → Phalénuit → Séléniaile → Astrophalène (low-poly) : bombyx de nuit. 0 chenille à tubercules d'étoiles
+ * Noctimoth → Phalénuit → Séléniaile (low-poly) : bombyx de nuit. 0 chenille à tubercules d'étoiles
  * cabrée sur un rameau du sous-bois, 1 jeune phalène au repos près de son cocon vide à l'aube, 2 adulte ailes
  * déployées devant la pleine lune d'un jardin de nuit, 3 éveillé constellé au-dessus des nuages sous les aurores.
  */

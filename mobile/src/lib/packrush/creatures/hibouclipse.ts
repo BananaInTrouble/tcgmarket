@@ -5,7 +5,7 @@ import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Facet
 const F = (poly: Pt[], col: string, L: Light, o: FacetOpts = {}) => facets(poly, col, L, { ...o, size: (o.size ?? 11) * 1.75 });
 
 /**
- * Hibouclipse → Éclipsule → Grand-Umbrel → Umbrelion (low-poly) : grand-duc des éclipses. 0 poussin en duvet tapi
+ * Hibouclipse → Éclipsule → Grand-Umbrel (low-poly) : grand-duc des éclipses. 0 poussin en duvet tapi
  * au creux d'un vieil arbre parmi les lucioles, 1 jeune « branchu » curieux qui guette une phalène au crépuscule,
  * 2 adulte dressé sur une colonne en ruine sous la pleine lune, 3 éveillé ailes levées devant une éclipse totale.
  */

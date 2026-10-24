@@ -22,6 +22,11 @@ import { sphinxlipse } from './sphinxlipse.ts';
 import { lunaphage } from './lunaphage.ts';
 import { aeonis } from './aeonis.ts';
 import { ophalia } from './ophalia.ts';
+import { colibrastre } from './colibrastre.ts';
+import { scarabolide } from './scarabolide.ts';
+import { hippocosme } from './hippocosme.ts';
+import { pangolune } from './pangolune.ts';
+import { ursaurore } from './ursaurore.ts';
 
 /** Espèces dessinées, par identifiant (`art.kind` des cartes sur le serveur). */
 export const SPECIES: Record<string, Species> = {
@@ -48,4 +53,9 @@ export const SPECIES: Record<string, Species> = {
   lunaphage,
   aeonis,
   ophalia,
+  colibrastre,
+  scarabolide,
+  hippocosme,
+  pangolune,
+  ursaurore,
 };

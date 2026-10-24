@@ -5,7 +5,7 @@ import { curve, ellipse, facetSky, facets, gem, hsl, limb, mix, prng, type Facet
 const F = (poly: Pt[], col: string, L: Light, o: FacetOpts = {}) => facets(poly, col, L, { ...o, size: (o.size ?? 11) * 1.6 });
 
 /**
- * Lumikit → Lunaréon → Selenvulpe → Astravulpe (low-poly) : renard des comètes dont la queue est une nébuleuse.
+ * Lumikit → Lunaréon → Selenvulpe (low-poly) : renard des comètes dont la queue est une nébuleuse.
  * 0 renardeau endormi dans son terrier, 1 sub-adulte à l'affût dans la prairie au crépuscule, 2 adulte assis sur
  * un promontoire sous une comète, 3 éveillé qui chante aux étoiles sur une cime sous les aurores.
  */

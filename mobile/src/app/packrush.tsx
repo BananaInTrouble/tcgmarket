@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from '../components/ui';
@@ -40,6 +41,18 @@ export default function PackRush() {
   const [showOdds, setShowOdds] = useState(false);
   const [opening, setOpening] = useState<PrOpening | null>(null);
   const [detail, setDetail] = useState<PrCard | null>(null);
+  // « ?view=shop » ouvre la boutique de Fragments, « ?view=collection » descend jusqu'à la collection (lien du profil).
+  const { view } = useLocalSearchParams<{ view?: string }>();
+  const [shop, setShop] = useState(view === 'shop');
+  const scroll = useRef<ScrollView>(null);
+  const [collectionY, setCollectionY] = useState(0);
+  const scrolled = useRef(false);
+  useEffect(() => {
+    if (view === 'collection' && collectionY > 0 && !scrolled.current) {
+      scrolled.current = true;
+      scroll.current?.scrollTo({ y: collectionY - 8, animated: true });
+    }
+  }, [view, collectionY]);
 
   const errText = (e: unknown) => t(`pr.err.${e instanceof PackRushError ? e.code : 'unavailable'}` as TKey);
   const refresh = useCallback(async () => {
@@ -116,7 +129,7 @@ export default function PackRush() {
 
   return (
     <View style={s.screen}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
+      <ScrollView ref={scroll} contentContainerStyle={{ padding: 16, paddingBottom: 48, gap: 14, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
         {/* Bloc, set et soldes. */}
         <View style={{ backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 12 }}>
           <View style={{ alignItems: 'center' }}><PackRushLogo size={20} /></View>
@@ -129,7 +142,7 @@ export default function PackRush() {
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Balance icon={<Text style={{ fontSize: 18 }}>🪙</Text>} value={status.coins} label={t('pr.coins')} />
-            <Balance icon={<FragmentIcon size={22} />} value={status.fragments} label={t('pr.fragments')} />
+            <Balance icon={<FragmentIcon size={22} />} value={status.fragments} label={t('pr.fragments')} onPress={() => setShop(true)} hint={t('pr.shopOpen')} />
             <Balance icon={<Text style={{ fontSize: 18 }}>🃏</Text>} value={totalOwned} label={`/ ${cards.length}`} />
           </View>
         </View>
@@ -194,7 +207,7 @@ export default function PackRush() {
         </View>
 
         {/* Collection. */}
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 10 }} onLayout={(e) => setCollectionY(e.nativeEvent.layout.y)}>
           <Text style={s.name}>{t('pr.collection')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {(['all', ...PR_RARITIES] as const).map((r) => (
@@ -246,18 +259,102 @@ export default function PackRush() {
         )}
       </Modal>
 
+      {/* Boutique de Fragments : cartes manquantes, prix selon la rareté. */}
+      <Modal visible={shop} transparent animationType="slide" onRequestClose={() => setShop(false)}>
+        <Shop
+          set={set}
+          cards={cards.filter((c) => owned(c) === 0)}
+          total={cards.length}
+          fragments={status.fragments}
+          busy={busy}
+          note={note}
+          onBuy={doCraft}
+          onClose={() => setShop(false)}
+        />
+      </Modal>
+
       {/* Ouverture d'un pack. */}
       {opening && <Opening result={opening} byId={byId} total={cards.length} setId={set.id} title={local(set.name, appLang)} onClose={() => setOpening(null)} />}
     </View>
   );
 }
 
-function Balance({ icon, value, label }: { icon: ReactNode; value: number; label: string }) {
+function Balance({ icon, value, label, onPress, hint }: { icon: ReactNode; value: number; label: string; onPress?(): void; hint?: string }) {
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, borderRadius: 12, padding: 10, alignItems: 'center', gap: 2 }}>
+    <Pressable
+      disabled={!onPress}
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={hint}
+      style={{ flex: 1, backgroundColor: colors.bg, borderRadius: 12, padding: 10, alignItems: 'center', gap: 2, borderWidth: 1, borderColor: onPress ? '#7F8CFF' : 'transparent' }}
+    >
       <View style={{ height: 24, justifyContent: 'center' }}>{icon}</View>
       <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 18 }}>{value}</Text>
       <Text style={{ color: colors.muted, fontFamily: fonts.bold, fontSize: 11 }}>{label}</Text>
+      {!!onPress && <Ionicons name="storefront-outline" size={13} color="#B9C2FF" style={{ position: 'absolute', top: 6, right: 6 }} />}
+    </Pressable>
+  );
+}
+
+/** Boutique de Fragments : prix par rareté puis cartes manquantes, rareté la plus haute en premier. */
+function Shop({ set, cards, total, fragments, busy, note, onBuy, onClose }: {
+  set: PrSet; cards: PrCard[]; total: number; fragments: number; busy: boolean; note: string | null; onBuy(c: PrCard): void; onClose(): void;
+}) {
+  const { t } = useStore();
+  const { width } = useWindowDimensions();
+  const order = [...PR_RARITIES].reverse();
+  const sorted = [...cards].sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity) || a.number - b.number);
+  const pic = Math.min(72, (Math.min(width, 700) - 32) / 5);
+  return (
+    <View style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.92)', paddingTop: 48 }}>
+      <View style={{ flex: 1, backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderColor: colors.line, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderBottomWidth: 1, borderColor: colors.line }}>
+          <FragmentIcon size={26} />
+          <View style={{ flex: 1 }}>
+            <Text style={s.h2}>{t('pr.shop')}</Text>
+            <Text style={{ color: '#B9C2FF', fontFamily: fonts.heavy }}>{fragments} {t('pr.fragments')}</Text>
+          </View>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityRole="button" accessibilityLabel={t('pr.continue')}>
+            <Ionicons name="close" size={26} color={colors.text} />
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 40 }}>
+          <Text style={s.muted}>{t('pr.shopIntro')}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {PR_RARITIES.map((r) => (
+              <View key={r} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.card, borderRadius: 10, borderWidth: 1, borderColor: colors.line, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <Text style={{ color: RARITY_STYLE[r].glow, fontFamily: fonts.heavy, fontSize: 13 }}>{RARITY_STYLE[r].symbol} {r}</Text>
+                <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 13 }}>{set.rates.craft[r]}</Text>
+                <FragmentIcon size={14} />
+              </View>
+            ))}
+          </View>
+          {!!note && <Text style={{ color: colors.accent, fontFamily: fonts.bold, textAlign: 'center' }}>{note}</Text>}
+          {!sorted.length && <Text style={{ color: colors.good, fontFamily: fonts.heavy, textAlign: 'center', marginTop: 20 }}>{t('pr.shopEmpty')}</Text>}
+          {sorted.map((c) => {
+            const cost = set.rates.craft[c.rarity];
+            const can = fragments >= cost;
+            return (
+              <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 12, borderWidth: 1, borderColor: colors.line, padding: 8 }}>
+                <PrCardPic card={c} total={total} owned={false} width={pic} />
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.text, fontFamily: fonts.heavy }}>N° {String(c.number).padStart(3, '0')}</Text>
+                  <Text style={{ color: RARITY_STYLE[c.rarity].glow, fontFamily: fonts.bold, fontSize: 12 }}>{RARITY_STYLE[c.rarity].symbol} {t(`pr.r.${c.rarity}` as TKey)}</Text>
+                </View>
+                <Pressable
+                  disabled={busy || !can}
+                  onPress={() => onBuy(c)}
+                  style={[s.button, { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, opacity: can ? 1 : 0.4 }]}
+                  accessibilityLabel={t('pr.craft', { n: cost })}
+                >
+                  <Text style={s.buttonText}>{t('pr.buy')} · {cost}</Text>
+                  <FragmentIcon size={16} />
+                </Pressable>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </View>
     </View>
   );
 }

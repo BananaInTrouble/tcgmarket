@@ -7,7 +7,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { CATALOG, getJson, writeJson } from './lib.mjs';
+import sharp from 'sharp';
+import { CATALOG, getBuffer, getJson, getText, writeJson } from './lib.mjs';
 import { saveLogos, scrydexLogo } from './logos.mjs';
 import { applyCardmarketPrices } from './variants.mjs';
 import { foilAsHolo } from './build-riftbound.mjs';
@@ -15,6 +16,106 @@ import { foilAsHolo } from './build-riftbound.mjs';
 export const LANGS = ['en', 'fr', 'de', 'it'];
 const SOURCE = (lang) => `https://lorcanajson.org/files/current/${lang}/allCards.json`;
 export const CM_PRICES = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json';
+const CM_PRODUCTS = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_19.json';
+
+/** Pages produits du site officiel (logo de chaque extension), par code d'extension. */
+const OFFICIAL_PAGES = {
+  1: 'the-first-chapter', 2: 'rise-of-the-floodborn', 3: 'into-the-inklands', 4: 'ursulas-return', 5: 'shimmering-skies',
+  6: 'azurite-sea', 7: 'archazias-island', 8: 'reign-of-jafar', 9: 'fabled', 10: 'whispers', 11: 'winterspell',
+  12: 'wilds-unknown', 13: 'attack-of-the-vine', 14: 'hyperia-city', Q1: 'deep-trouble', Q2: 'palace-heist', Q3: 'great-hunny-rescue',
+};
+
+/** Score d'une image candidate au titre de logo : bandeau large (648 × 300 sur le site), fond transparent, « logo » dans l'adresse. */
+export function logoScore(url, { width, height, transparent }) {
+  const ratio = width / height;
+  if (width < 300 || ratio < 1.6 || ratio > 4.2) return -1;
+  const file = url.split('/').pop();
+  const named = /logo/i.test(file);
+  // Bandeaux, visuels de cartes, photos de produits : écartés, sauf fichier nommé « logo ».
+  if (!named && (/card|background|header|teaser|product|playmat|photo|glimmer|vineling|encounter|snow|spill/i.test(url) || transparent < 0.3)) return -1;
+  return (named ? 10 : 0) + (/_en[._-]|\/en\//i.test(url) ? 3 : 0) + (width === 648 ? 4 : 0) + transparent * 5;
+}
+
+/** Logo d'une extension trouvé sur sa page produit officielle (anglaise), ou null. */
+async function officialLogo(setId) {
+  const slug = OFFICIAL_PAGES[setId];
+  if (!slug) return null;
+  const html = await getText(`https://www.disneylorcana.com/en-US/product/${slug}`).catch(() => null);
+  if (!html) return null;
+  const urls = [...new Set([...html.matchAll(/https:\/\/ravensburger\.cloud\/[^"' )]+?\.png/g)].map((m) => m[0]))]
+    .filter((u) => logoScore(u, { width: 648, height: 300, transparent: 1 }) >= 0)
+    .sort((a, b) => Number(/logo/i.test(b.split('/').pop())) - Number(/logo/i.test(a.split('/').pop())));
+  let best = null, bestScore = 0;
+  for (const u of urls.slice(0, 30)) {
+    const buf = await getBuffer(u).catch(() => null);
+    if (!buf) continue;
+    const img = sharp(buf);
+    const meta = await img.metadata().catch(() => null);
+    if (!meta?.width) continue;
+    const alpha = meta.hasAlpha ? (await img.extractChannel('alpha').stats().catch(() => null))?.channels[0]?.mean ?? 255 : 255;
+    const score = logoScore(u, { width: meta.width, height: meta.height, transparent: 1 - alpha / 255 });
+    if (score > bestScore) { best = u; bestScore = score; }
+  }
+  return best;
+}
+
+const cmName = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
+
+/**
+ * Fiches Cardmarket des cartes que LorcanaJSON ne relie pas encore (nouvelle extension) : l'extension Cardmarket
+ * d'un set est celle qui contient le plus de ses noms (parmi celles qu'aucun set connu n'utilise déjà), puis chaque
+ * carte reçoit la fiche de même nom ; plusieurs cartes et fiches de même nom (version de base, Enchantée…) sont
+ * appariées dans l'ordre (numéro croissant, fiche la plus ancienne d'abord). Renvoie identifiant de carte → fiche.
+ */
+export function cardmarketFallback(cards, products) {
+  const known = new Map(cards.filter((c) => c.externalLinks?.cardmarketId).map((c) => [c.externalLinks.cardmarketId, c]));
+  const byExp = new Map();
+  for (const p of products) {
+    if (!byExp.has(p.idExpansion)) byExp.set(p.idExpansion, []);
+    byExp.get(p.idExpansion).push(p);
+  }
+  const usedExp = new Set();
+  // Extension déjà utilisée par un set relié (au moins la moitié de ses fiches connues ; une promo isolée ne compte pas).
+  for (const [exp, list] of byExp) if (list.filter((p) => known.has(p.idProduct)).length * 2 >= list.length) usedExp.add(exp);
+  const missingBySet = new Map();
+  for (const c of cards) {
+    if (c.externalLinks?.cardmarketId) continue;
+    const set = setOf(c);
+    if (!missingBySet.has(set)) missingBySet.set(set, []);
+    missingBySet.get(set).push(c);
+  }
+  const out = new Map();
+  for (const [, list] of missingBySet) {
+    const wanted = new Set(list.map((c) => cmName(c.fullName ?? c.name)));
+    let best = null, bestHits = 0;
+    for (const [exp, prods] of byExp) {
+      if (usedExp.has(exp)) continue;
+      const hits = new Set(prods.map((p) => cmName(p.name)).filter((n) => wanted.has(n))).size;
+      if (hits > bestHits) { best = exp; bestHits = hits; }
+    }
+    // Au moins la moitié des noms retrouvés : sinon l'extension n'est pas encore sur Cardmarket.
+    if (best == null || bestHits < wanted.size / 2) continue;
+    usedExp.add(best);
+    const prods = new Map();
+    for (const p of byExp.get(best)) {
+      const k = cmName(p.name);
+      if (!prods.has(k)) prods.set(k, []);
+      prods.get(k).push(p);
+    }
+    const group = new Map();
+    for (const c of list) {
+      const k = cmName(c.fullName ?? c.name);
+      if (!group.has(k)) group.set(k, []);
+      group.get(k).push(c);
+    }
+    for (const [k, cs] of group) {
+      const ps = (prods.get(k) ?? []).sort((a, b) => a.idProduct - b.idProduct);
+      cs.sort((a, b) => a.number - b.number);
+      cs.forEach((c, i) => { const p = ps[Math.min(i, ps.length - 1)]; if (p) out.set(c.id, p.idProduct); });
+    }
+  }
+  return out;
+}
 
 /**
  * Visuel officiel : direct pour Ravensburger (son serveur refuse le proxy wsrv.nl, 403, mais accepte l'affichage
@@ -88,13 +189,15 @@ export async function buildLorcana() {
   const setNames = new Map();
   for (const lang of LANGS) for (const [id, s] of Object.entries(data[lang]?.sets ?? {})) setNames.set(id, { ...(setNames.get(id) ?? {}), [lang]: s.name });
 
-  const guide = await getJson(CM_PRICES).catch(() => null);
+  const [guide, products] = await Promise.all([getJson(CM_PRICES).catch(() => null), getJson(CM_PRODUCTS).catch(() => null)]);
+  const fallbackCm = cardmarketFallback(en.cards, products?.products ?? []);
+  if (fallbackCm.size) console.log(`Lorcana : ${fallbackCm.size} cartes reliées à Cardmarket par leur nom`);
   const prices = { prices: new Map((guide?.priceGuides ?? []).map((x) => [x.idProduct, foilAsHolo(x)])) };
   if (!prices.prices.size) console.warn('Lorcana : guide des prix Cardmarket indisponible');
 
-  // Logos : Scrydex quand il les a (sinon le code de l'extension est affiché).
   const allSets = [...new Set(en.cards.map(setOf))].map((id) => ({ id }));
-  const logos = await saveLogos(allSets, 'lorcana', (s) => scrydexLogo(`lorcana-${s.id}`.toLowerCase(), 'lorcana')).catch(() => new Map());
+  // Logo officiel (page produit du site Disney Lorcana), sinon Scrydex.
+  const logos = await saveLogos(allSets, 'lorcana', async (s) => [await officialLogo(s.id), scrydexLogo(`lorcana-${s.id}`.toLowerCase(), 'lorcana')]).catch(() => new Map());
   // Scrydex renvoie le même logo générique « Lorcana » pour les extensions qu'il n'a pas : écarté (code affiché).
   const hashes = new Map();
   for (const [id, rel] of logos) {
@@ -120,7 +223,7 @@ export async function buildLorcana() {
       const n = names.get(c.id) ?? {};
       const name = c.fullName ?? c.name;
       const other = Object.fromEntries(Object.entries(n).filter(([l, v]) => l !== lang && l !== 'en' && v !== name && v !== n.en));
-      const cm = r.externalLinks?.cardmarketId ?? c.externalLinks?.cardmarketId;
+      const cm = r.externalLinks?.cardmarketId ?? c.externalLinks?.cardmarketId ?? fallbackCm.get(c.id);
       const inks = [r.color, ...(r.colors ?? [])].filter(Boolean).flatMap((x) => String(x).split(/[-/]/)).map(idOf).filter(Boolean);
       bySet.get(setId).push({
         id: `${setId}-${String(c.number).padStart(3, '0')}${c.variant ? c.variant.toLowerCase() : ''}`,
