@@ -56,7 +56,7 @@ const draw = (c: DrawCtx): string => {
   let s = '';
 
   // Branche de corail-étoile (derrière la queue).
-  s += coral([[150, 244], [146, 220], [140, 200], [130, 184], [116, 172], [100, 166]], [11, 10, 9, 8, 6, 5], [[1, [178, 206]], [2, [168, 180]], [3, [150, 158]], [4, [110, 150]]], coralC, coralTip, far, 1);
+  s += coral([[150, 244], [140, 222], [128, 200], [116, 186], [100, 176], [84, 170]], [11, 10, 8, 7, 6, 5], [[1, [178, 210]], [2, [160, 176]], [3, [126, 160]], [4, [88, 154]]], coralC, coralTip, far, 1);
 
   // Nageoire dorsale : voile translucide à rayons, sur le dos.
   const D: Pt = [140, 118];
@@ -67,8 +67,8 @@ const draw = (c: DrawCtx): string => {
   for (let i = 0; i <= 8; i++) { const a = -0.9 + (i / 8) * 1.8; s += `<line x1="${D[0] - 4}" y1="${D[1]}" x2="${(D[0] + Math.cos(a) * 28 + 4).toFixed(1)}" y2="${(D[1] + Math.sin(a) * 26).toFixed(1)}" stroke="#E8FFFF" stroke-width="0.6" opacity="0.6"/>`; }
 
   // Corps en S : cou, ventre bombé, queue préhensile enroulée autour du corail.
-  const spine: Pt[] = [[110, 56], [122, 72], [128, 92], [128, 114], [122, 136], [112, 154], [104, 170], [104, 184], [112, 192], [122, 190], [124, 180], [118, 174]];
-  const wid = [26, 26, 32, 38, 36, 28, 20, 14, 10, 8, 6, 4];
+  const spine: Pt[] = [[110, 56], [122, 72], [128, 92], [128, 114], [122, 136], [112, 154], [104, 170], [100, 186], [106, 200], [120, 204], [132, 196], [132, 184], [124, 178]];
+  const wid = [26, 26, 32, 38, 36, 28, 20, 15, 12, 10, 8, 6, 4];
   s += facets(limb(spine, wid), base, light, { size: 7, relief: 1.3, seed: 3, base2: mix(base, deep, 0.4) });
   // Ventre (poitrail bombé, vers l'avant).
   s += facets(poly('M106 70 C98 84 98 104 104 124 C108 138 110 148 112 154 C118 142 120 128 118 112 C116 96 114 82 106 70 Z', 4), belly, light, { size: 6, relief: 0.9, seed: 4, base2: mix(belly, base, 0.4) });
@@ -85,7 +85,7 @@ const draw = (c: DrawCtx): string => {
   const cst: Pt[] = [[112, 96], [116, 110], [114, 124], [116, 138]];
   s += `<polyline points="${cst.map((p) => p.join(',')).join(' ')}" fill="none" stroke="${gold}" stroke-width="0.7" opacity="0.85"/>` + cst.map(([x, y]) => gem(x, y, 2.4, '#FFFFFF', gold)).join('');
   // Brin de corail devant la queue (l'enroulement passe derrière).
-  s += facets(limb([[114, 168], [104, 164]], [6, 5.5]), coralC, light, { size: 4.5, relief: 0.5, seed: 5 });
+  s += facets(limb([[128, 194], [118, 186], [110, 182]], [7, 6.5, 6]), coralC, light, { size: 4.5, relief: 0.5, seed: 5 });
 
   // Tête : crâne, museau en trompe, joue, couronne d'étoiles, œil.
   s += facets(poly('M96 46 C98 36 108 30 118 32 C126 36 130 46 128 56 C126 66 118 74 108 74 C100 72 94 64 94 56 Z', 4), base, light, { size: 6, relief: 1.2, seed: 6, base2: mix(base, deep, 0.25) });
