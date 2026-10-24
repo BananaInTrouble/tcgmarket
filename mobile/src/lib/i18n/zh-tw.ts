@@ -289,6 +289,7 @@ export const zhTw: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "稀有卡！點擊翻開",
   "pr.mythic": "神話卡",
   "pr.level": "Lv.{n}",
+  "pr.evolvesFrom": "由{name}進化",
   "pr.legend": "傳說",
   "pr.myth": "神話",
   "pr.cardOf": "第 {i}/{n} 張",

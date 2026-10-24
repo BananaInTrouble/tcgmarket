@@ -289,6 +289,7 @@ export const it: Partial<Record<Key, string>> = {
   "pr.tapToFlip": "Una carta rara! Toccala per girarla",
   "pr.mythic": "CARTA MITICA",
   "pr.level": "Liv. {n}",
+  "pr.evolvesFrom": "Si evolve da {name}",
   "pr.legend": "Leggenda",
   "pr.myth": "Mito",
   "pr.cardOf": "Carta {i}/{n}",

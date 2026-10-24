@@ -35,7 +35,10 @@ export function useCardFrame() {
   return (card: PrCard, total: number, owned = true) => {
     const stage = card.art?.stage ?? 0;
     const level = stage >= 4 ? t(card.rarity === 'SSR' ? 'pr.myth' : 'pr.legend') : t('pr.level', { n: stage + 1 });
-    return cardFrameImage(card, total, owned, { level, desc: cardDescription(card.id, appLang) });
+    // Niveaux 2 et 3 : « Évolue à partir de … » (nom de la pré-évolution).
+    const prev = preEvolution(card);
+    const evolves = prev ? t('pr.evolvesFrom', { name: prev.name }) : undefined;
+    return cardFrameImage(card, total, owned, { level, desc: cardDescription(card.id, appLang), evolves });
   };
 }
 
@@ -47,18 +50,11 @@ export function PrCardPic({ card, total, owned = true, width, style }: { card: P
   const frame = useCardFrame();
   const [fallback, setFallback] = useState(false);
   const art = useMemo(() => (fallback ? `data:image/svg+xml;utf8,${encodeURIComponent(cardArtSvg(card, owned))}` : cardArtUrl(card, owned)), [card.id, owned, fallback]);
-  const h = width * 1.4, radius = (width * 14) / 250, u = width / 250;
-  const prev = preEvolution(card);
+  const h = width * 1.4, radius = (width * 14) / 250;
   return (
     <View style={[{ width, height: h, borderRadius: radius, overflow: 'hidden', backgroundColor: '#0B0716' }, style]}>
       <Image source={art} style={{ position: 'absolute', width, height: h }} contentFit="cover" onError={() => setFallback(true)} transition={120} />
       <Image source={frame(card, total, owned)} style={{ position: 'absolute', width, height: h }} contentFit="contain" />
-      {owned && !!prev && (
-        // Pré-évolution en médaillon sous le niveau (cartes de niveau 2 et 3) ; cadrage sur la créature : centre de l'illustration (125, 195), 140 unités de large dans 40 unités.
-        <View style={{ position: 'absolute', left: u * 32, top: u * 42, width: u * 40, height: u * 40, borderRadius: u * 20, borderWidth: Math.max(1, u * 1.6), borderColor: '#E9C25B', overflow: 'hidden', backgroundColor: '#0B0716' }}>
-          <Image source={cardArtUrl(prev, true)} style={{ position: 'absolute', left: u * (20 - 125 * (40 / 140)), top: u * (20 - 195 * (40 / 140)), width: u * 250 * (40 / 140), height: u * 350 * (40 / 140) }} contentFit="cover" />
-        </View>
-      )}
     </View>
   );
 }
