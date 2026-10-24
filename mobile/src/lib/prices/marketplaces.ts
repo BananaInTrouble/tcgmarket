@@ -108,8 +108,10 @@ export function marketLinks(card: Card, userLang = 'fr'): MarketLink[] {
     {
       id: 'cardtrader',
       label: 'CardTrader',
-      // Sans n° de fiche CardTrader : recherche sur le seul nom (le format « nom (CODE n°) » ne donne rien chez eux).
-      url: `https://www.cardtrader.com/${siteLang}/search?q=${q(card.nameEn ?? card.name)}`,
+      // Fiche exacte (n° CardTrader du catalogue), sinon recherche sur le seul nom.
+      url: card.marketIds?.cardtrader
+        ? `https://www.cardtrader.com/${siteLang}/cards/${card.marketIds.cardtrader}`
+        : `https://www.cardtrader.com/${siteLang}/search?q=${q(card.nameEn ?? card.name)}`,
     },
     {
       id: 'ebay',
