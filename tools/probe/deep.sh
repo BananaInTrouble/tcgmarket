@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : fiches CardTrader des dernières extensions japonaises (la clé n'est jamais affichée).
+# Exploration ponctuelle : pages CardTrader ouvertes dans un vrai navigateur (M5 qui marche, M6 / M6a qui non).
 set -u
-[ -n "${CARDTRADER_TOKEN:-}" ] || { echo "clé absente"; exit 0; }
-A="https://api.cardtrader.com/api/v2"
-c() { curl -s -m 60 -H "Authorization: Bearer $CARDTRADER_TOKEN" "$A/$1"; }
-c expansions > /tmp/e.json
-python3 - <<'PY'
-import json;d=json.load(open('/tmp/e.json'))
-for x in d:
-  if x['game_id']==5 and any(w in x['name'].lower() for w in ('celebration','emerald','abyss','30th','storm')): print(x)
-PY
-for id in $(python3 -c "import json;d=json.load(open('/tmp/e.json'));print(' '.join(str(x['id']) for x in d if x['game_id']==5 and any(w in x['name'].lower() for w in ('celebration','emerald','abyss','30th','storm'))))"); do
-  c "blueprints/export?expansion_id=$id" > /tmp/b.json
-  python3 - "$id" <<'PY'
-import json,sys;d=json.load(open('/tmp/b.json'));eid=sys.argv[1]
-want={412352,412353,403029,403030,391089,391380}
-hit=[b for b in d if b['id'] in want]
-print('exp',eid,len(d),'hits',[(b['id'],b['name'],b.get('fixed_properties'),b.get('card_market_ids'),b.get('tcg_player_id'),[p for p in b.get('editable_properties',[]) if 'language' in p['name']]) for b in hit])
-s=[b for b in d if b.get('fixed_properties')][:2]
-for b in s: print('  ex',b['id'],b['name'],b.get('version'),b.get('fixed_properties'),b.get('card_market_ids'),[p for p in b.get('editable_properties',[]) if 'language' in p['name']], b.get('image_url'))
-PY
-done
+cd /tmp && npm init -y >/dev/null && npm i playwright@1.48.2 >/dev/null 2>&1 && npx playwright install --with-deps chromium >/dev/null 2>&1
+cat > /tmp/p.cjs <<'JS'
+const { chromium } = require('/tmp/node_modules/playwright');
+(async () => {
+  const b = await chromium.launch();
+  const p = await (await b.newContext({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1', locale: 'fr-FR' })).newPage();
+  for (const u of ['https://www.cardtrader.com/fr/cards/391089', 'https://www.cardtrader.com/fr/cards/403029', 'https://www.cardtrader.com/fr/cards/412352', 'https://www.cardtrader.com/fr/cards/403029-heracross-001-076-storm-emeralda', 'https://www.cardtrader.com/en/cards/403029']) {
+    try {
+      const r = await p.goto(u, { waitUntil: 'domcontentloaded', timeout: 45000 }); await p.waitForTimeout(6000);
+      const t = await p.title(); const h1 = await p.locator('h1').first().textContent().catch(() => '');
+      console.log(r?.status(), u, '→', p.url(), '|', t, '|', (h1 || '').trim().slice(0, 80));
+    } catch (e) { console.log('ERR', u, e.message.slice(0, 120)); }
+  }
+  await b.close();
+})();
+JS
+node /tmp/p.cjs
