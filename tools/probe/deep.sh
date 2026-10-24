@@ -1,26 +1,12 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : sources de logos des extensions Lorcana (suite).
+# Exploration ponctuelle : logos des extensions Lorcana sur les pages produits officielles.
 set -u
 UA='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36'
-T="The_First_Chapter|Rise_of_the_Floodborn|Into_the_Inklands|Ursula's_Return|Shimmering_Skies|Azurite_Sea|Archazia's_Island|The_Reign_of_Jafar|Reign_of_Jafar|Fabled|Whispers_in_the_Well|Winterspell|Wilds_Unknown|Attack_of_the_Vine!|Hyperia_City"
-echo "#### fandom pageimages"
-curl -sL -m 30 -G "https://lorcana.fandom.com/api.php" --data-urlencode "titles=$T" -d action=query -d prop=pageimages -d piprop=original -d redirects=1 -d format=json | python3 -c "import json,sys;d=json.load(sys.stdin);[print(p.get('title'),'|',(p.get('original') or {}).get('source'),(p.get('original') or {}).get('width')) for p in d['query']['pages'].values()]"
-echo "#### fandom images par page"
-curl -sL -m 30 -G "https://lorcana.fandom.com/api.php" --data-urlencode "titles=$T" -d action=query -d prop=images -d imlimit=500 -d redirects=1 -d format=json | python3 -c "
-import json,sys;d=json.load(sys.stdin)
-for p in d['query']['pages'].values():
-  ims=[i['title'] for i in p.get('images',[]) if any(w in i['title'].lower() for w in ('logo','set','title','wordmark'))]
-  print(p.get('title'),'->',ims[:12])"
-echo "#### fandom allimages logo"
-for pre in "" ; do
-curl -sL -m 30 "https://lorcana.fandom.com/api.php?action=query&list=allimages&aisort=name&ailimit=500&format=json&aiprop=url|size" | python3 -c "
-import json,sys;d=json.load(sys.stdin)
-for i in d['query']['allimages']:
-  n=i['name'].lower()
-  if 'logo' in n: print(i['name'],i['width'],i['url'])" | head -80
+for p in the-first-chapter rise-of-the-floodborn into-the-inklands ursulas-return shimmering-skies azurite-sea archazias-island reign-of-jafar fabled whispers winterspell wilds-unknown attack-of-the-vine hyperia-city deep-trouble palace-heist great-hunny-rescue; do
+  echo "#### $p"
+  curl -sL -A "$UA" -m 30 "https://www.disneylorcana.com/en-US/product/$p" -o /tmp/p.html
+  grep -oE 'https://ravensburger\.cloud/[^"'"'"' )]+\.(png|webp|svg)' /tmp/p.html | sort -u | while read -r u; do
+    curl -sL -m 20 "$u" -o /tmp/i; echo "$(file -b /tmp/i | cut -c1-60) $(stat -c %s /tmp/i) $u"
+  done | grep -iv "icon" | head -25
+  grep -oE '"/_nuxt/[^"]+\.(png|webp|svg)"' /tmp/p.html | sort -u | head -10
 done
-echo "#### disneylorcana html"
-curl -sL -A "$UA" -m 30 https://www.disneylorcana.com/en-US -o /tmp/h.html
-grep -oE 'https?://[^"'"'"' )]+\.(png|webp|svg|jpg)' /tmp/h.html | sort -u | head -80
-grep -oE '"/[^"]*(set|logo)[^"]*\.(png|webp|svg|jpg)"' /tmp/h.html | sort -u | head -40
-grep -oE 'href="/en-US/[^"]+"' /tmp/h.html | sort -u | head -60
