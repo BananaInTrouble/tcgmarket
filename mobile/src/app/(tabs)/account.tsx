@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
@@ -16,7 +17,10 @@ import { GAME_LIST, VISIBLE_LANGS } from '../../lib/games';
 import { APP_LANGS, APP_LANG_NAMES, deviceLang, type AppLang } from '../../lib/i18n';
 import { APP_VERSION } from '../../lib/version';
 import { useStore } from '../../lib/store';
+import { packRushMark } from '../../lib/packrush/brand';
 import type { CardLang, GameId } from '../../lib/types';
+
+const PR_MARK = packRushMark();
 
 const CARD_LANGS: CardLang[] = VISIBLE_LANGS;
 const CURRENCY_LABEL: Record<Currency, string> = { EUR: 'Euro (€)', USD: 'US Dollar ($)', JPY: 'Yen (¥)' };
@@ -106,6 +110,10 @@ export default function Account() {
         <Pressable style={[s.ghost, { flexDirection: 'row', justifyContent: 'center', gap: 8 }]} onPress={() => router.push('/wishlist')}>
           <Ionicons name="heart-outline" size={17} color={colors.text} />
           <Text style={s.ghostText}>{t('wish.see')}{wishlist.length ? ` (${wishlist.length})` : ''}</Text>
+        </Pressable>
+        <Pressable style={[s.ghost, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, borderColor: colors.accent }]} onPress={() => router.push('/packrush?view=collection')}>
+          <Image source={PR_MARK} style={{ width: 20, height: 20 }} />
+          <Text style={[s.ghostText, { color: colors.accent }]}>{t('pr.collection')}</Text>
         </Pressable>
         {!!user && (
           <Pressable style={[s.ghost, { flexDirection: 'row', justifyContent: 'center', gap: 8 }]} onPress={() => router.push('/trades')}>
