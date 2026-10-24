@@ -12,10 +12,12 @@ const app = JSON.parse(readFileSync(join(root, 'app.json'), 'utf8')).expo;
 const base = app.experiments.baseUrl;
 
 rmSync(dist, { recursive: true, force: true });
-// Numéro de version (0.0.1, 0.0.2…), augmenté à chaque construction et affiché dans l'onglet Compte.
+// Numéro de version (0.0.98, 0.0.99, 0.1.0, 0.1.1…), augmenté à chaque construction et affiché dans l'onglet Compte :
+// le dernier chiffre va de 0 à 99, puis le chiffre du milieu augmente.
 const versionFile = join(root, 'version.json');
 const [major, minor, patch] = JSON.parse(readFileSync(versionFile, 'utf8')).version.split('.').map(Number);
-const version = `${major}.${minor}.${patch + 1}`;
+const next = minor * 100 + patch + 1;
+const version = `${major}.${Math.floor(next / 100)}.${next % 100}`;
 writeFileSync(versionFile, `${JSON.stringify({ version }, null, 2)}\n`);
 // Numéro écrit dans un module de l'app : le cache de construction (Metro) le reprend à coup sûr,
 // contrairement à une variable d'environnement lue dans un fichier qui n'a pas changé.
