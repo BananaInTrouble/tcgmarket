@@ -7,7 +7,8 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { CATALOG, getJson, writeJson } from './lib.mjs';
+import sharp from 'sharp';
+import { CATALOG, getBuffer, getJson, getText, writeJson } from './lib.mjs';
 import { saveLogos, scrydexLogo } from './logos.mjs';
 import { applyCardmarketPrices } from './variants.mjs';
 import { foilAsHolo } from './build-riftbound.mjs';
@@ -16,6 +17,43 @@ export const LANGS = ['en', 'fr', 'de', 'it'];
 const SOURCE = (lang) => `https://lorcanajson.org/files/current/${lang}/allCards.json`;
 export const CM_PRICES = 'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json';
 const CM_PRODUCTS = 'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_19.json';
+
+/** Pages produits du site officiel (logo de chaque extension), par code d'extension. */
+const OFFICIAL_PAGES = {
+  1: 'the-first-chapter', 2: 'rise-of-the-floodborn', 3: 'into-the-inklands', 4: 'ursulas-return', 5: 'shimmering-skies',
+  6: 'azurite-sea', 7: 'archazias-island', 8: 'reign-of-jafar', 9: 'fabled', 10: 'whispers', 11: 'winterspell',
+  12: 'wilds-unknown', 13: 'attack-of-the-vine', 14: 'hyperia-city', Q1: 'deep-trouble', Q2: 'palace-heist', Q3: 'great-hunny-rescue',
+};
+
+/** Score d'une image candidate au titre de logo : bandeau large (648 × 300 sur le site), fond transparent, « logo » dans l'adresse. */
+export function logoScore(url, { width, height, transparent }) {
+  const ratio = width / height;
+  if (width < 300 || ratio < 1.6 || ratio > 4.2) return -1;
+  if (/card|background|header|teaser|product-shot|playmat|photo|glimmer|vineling|encounter|snow|spill/i.test(url)) return -1;
+  return (/logo/i.test(url) ? 10 : 0) + (/_en[._-]|\/en\//i.test(url) ? 3 : 0) + (width === 648 ? 4 : 0) + transparent * 5;
+}
+
+/** Logo d'une extension trouvé sur sa page produit officielle (anglaise), ou null. */
+async function officialLogo(setId) {
+  const slug = OFFICIAL_PAGES[setId];
+  if (!slug) return null;
+  const html = await getText(`https://www.disneylorcana.com/en-US/product/${slug}`).catch(() => null);
+  if (!html) return null;
+  const urls = [...new Set([...html.matchAll(/https:\/\/ravensburger\.cloud\/[^"' )]+?\.png/g)].map((m) => m[0]))]
+    .filter((u) => logoScore(u, { width: 648, height: 300, transparent: 0 }) >= 0);
+  let best = null, bestScore = 0;
+  for (const u of urls.slice(0, 30)) {
+    const buf = await getBuffer(u).catch(() => null);
+    if (!buf) continue;
+    const img = sharp(buf);
+    const meta = await img.metadata().catch(() => null);
+    if (!meta?.width) continue;
+    const alpha = meta.hasAlpha ? (await img.extractChannel('alpha').stats().catch(() => null))?.channels[0]?.mean ?? 255 : 255;
+    const score = logoScore(u, { width: meta.width, height: meta.height, transparent: 1 - alpha / 255 });
+    if (score > bestScore) { best = u; bestScore = score; }
+  }
+  return best;
+}
 
 const cmName = (s) => String(s ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]/g, '');
 
@@ -152,9 +190,9 @@ export async function buildLorcana() {
   const prices = { prices: new Map((guide?.priceGuides ?? []).map((x) => [x.idProduct, foilAsHolo(x)])) };
   if (!prices.prices.size) console.warn('Lorcana : guide des prix Cardmarket indisponible');
 
-  // Logos : Scrydex quand il les a (sinon le code de l'extension est affiché).
   const allSets = [...new Set(en.cards.map(setOf))].map((id) => ({ id }));
-  const logos = await saveLogos(allSets, 'lorcana', (s) => scrydexLogo(`lorcana-${s.id}`.toLowerCase(), 'lorcana')).catch(() => new Map());
+  // Logo officiel (page produit du site Disney Lorcana), sinon Scrydex.
+  const logos = await saveLogos(allSets, 'lorcana', async (s) => [await officialLogo(s.id), scrydexLogo(`lorcana-${s.id}`.toLowerCase(), 'lorcana')]).catch(() => new Map());
   // Scrydex renvoie le même logo générique « Lorcana » pour les extensions qu'il n'a pas : écarté (code affiché).
   const hashes = new Map();
   for (const [id, rel] of logos) {

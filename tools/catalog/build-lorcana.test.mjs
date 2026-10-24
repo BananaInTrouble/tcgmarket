@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { attrsOf, cardmarketFallback, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
+import { attrsOf, cardmarketFallback, logoScore, jaSetOf, printedNumber, rarityId, setOf, smallImage, variantsOf } from './build-lorcana.mjs';
 
 test('Lorcana : variantes normale / foil selon les finitions', () => {
   assert.deepEqual(variantsOf({ foilTypes: ['None', 'Silver'] }, 7), [{ k: 'normal', id: 7 }, { k: 'foil', id: 7 }]);
@@ -44,4 +44,11 @@ test('Lorcana : fiches Cardmarket retrouvées par le nom pour une nouvelle exten
     { idProduct: 999, idExpansion: 11, name: 'Other' },
   ];
   assert.deepEqual([...cardmarketFallback(cards, products)].sort((a, b) => a[0] - b[0]), [[2, 300], [3, 305], [4, 301]]);
+});
+
+test('Lorcana : choix du logo sur la page officielle', () => {
+  const logo = 'https://ravensburger.cloud/cms/gallery/lorcana-web/products/s11-winterspell/en/dlc_s11_logo_en.png';
+  assert.ok(logoScore(logo, { width: 648, height: 300, transparent: 0.7 }) > logoScore('https://ravensburger.cloud/x/en/abc_en.png', { width: 648, height: 300, transparent: 0.7 }));
+  assert.equal(logoScore('https://ravensburger.cloud/x/cards/en_1.png', { width: 648, height: 300, transparent: 1 }), -1);
+  assert.equal(logoScore(logo, { width: 537, height: 750, transparent: 1 }), -1);
 });
