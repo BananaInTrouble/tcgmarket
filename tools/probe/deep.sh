@@ -1,23 +1,13 @@
 #!/usr/bin/env bash
-# Exploration ponctuelle : Hyperia City (set 14) sur Cardmarket.
+# Exploration ponctuelle : liens directs CardTrader et TCGplayer (tcgcsv).
 set -u
-curl -sL -m 120 https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_19.json -o /tmp/p.json
-curl -sL -m 120 https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_19.json -o /tmp/g.json
-curl -sL -m 120 https://lorcanajson.org/files/current/en/allCards.json -o /tmp/a.json
-python3 - <<'PY'
-import json,re,collections
-p=json.load(open('/tmp/p.json'));prods=p['products'];print('produits',len(prods),p.get('createdAt'))
-g=json.load(open('/tmp/g.json'));print('guide',g.get('createdAt'),len(g['priceGuides']))
-a=json.load(open('/tmp/a.json'))
-n=lambda s:re.sub(r'[^a-z0-9]','',str(s).lower())
-s14=[c for c in a['cards'] if str(c.get('setCode'))=='14']
-print('cartes set 14',len(s14),'avec cardmarketId',sum(1 for c in s14 if c.get('externalLinks',{}).get('cardmarketId')))
-names={n(c.get('fullName') or c['name']) for c in s14}
-by=collections.defaultdict(list)
-for x in prods: by[x['idExpansion']].append(x)
-hits=sorted(((len({n(x['name']) for x in v}&names),k,len(v)) for k,v in by.items()),reverse=True)[:5]
-print('meilleures extensions (noms communs, id, nb):',hits)
-last=sorted(by.keys())[-6:]
-for k in last: print(k,len(by[k]),[x['name'] for x in by[k][:5]], by[k][0].get('dateAdded'))
-print('exemples noms set14',[c.get('fullName') for c in s14[:8]])
-PY
+UA='Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
+h() { echo "== $1"; curl -sL -A "$UA" -o /tmp/x -D - -m 30 "$1" | grep -iE "^HTTP|^location|content-type" | head -6; }
+echo "#### cardtrader"
+for u in "https://www.cardtrader.com/en/search?q=Pikachu" "https://www.cardtrader.com/en/cards?q=Pikachu" "https://www.cardtrader.com/search?q=Pikachu" "https://www.cardtrader.com/en/manasearch?q=Pikachu" "https://www.cardtrader.com/en/pokemon" ; do h "$u"; head -c 600 /tmp/x | tr '\n' ' '; echo; grep -oE '"/[a-z]{2}/cards/[^"]+"' /tmp/x | head -5; grep -oE '(api|autocomplete|search)[^"'"'"' ]{0,80}' /tmp/x | sort -u | head -15; done
+h "https://www.cardtrader.com/en/pokemon"; grep -oE 'href="[^"]+"' /tmp/x | sort -u | head -60
+echo "#### cardtrader api publique ?"
+for u in "https://api.cardtrader.com/api/v2/games" "https://api.cardtrader.com/api/v2/expansions" "https://www.cardtrader.com/api/v2/games"; do h "$u"; head -c 300 /tmp/x; echo; done
+echo "#### tcgcsv"
+curl -sL -m 30 https://tcgcsv.com/tcgplayer/categories | python3 -c "import json,sys;d=json.load(sys.stdin);[print(c['categoryId'],c['name']) for c in d['results'] if any(w in c['name'].lower() for w in ('pokemon','one piece','lorcana','riftbound','league'))]"
+curl -sL -m 30 https://tcgcsv.com/tcgplayer/71/groups | head -c 700; echo
