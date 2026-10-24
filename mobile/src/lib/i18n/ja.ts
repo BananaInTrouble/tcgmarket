@@ -252,6 +252,7 @@ export const ja: Partial<Record<Key, string>> = {
   "pr.freeLeft": "無料パック {n} 個",
   "pr.noFree": "今は無料パックがありません",
   "pr.nextFree": "次の無料パックまで {d}",
+  "pr.freeStock": "12時間ごとに無料パック1つ、最大2つまでストック",
   "pr.openFree": "無料パックを開封",
   "pr.openPaid": "開封・{n} コイン",
   "pr.odds": "確率を見る",

@@ -252,6 +252,7 @@ export const ko: Partial<Record<Key, string>> = {
   "pr.freeLeft": "무료 팩 {n}개",
   "pr.noFree": "지금은 무료 팩이 없어요",
   "pr.nextFree": "다음 무료 팩까지 {d}",
+  "pr.freeStock": "12시간마다 무료 팩 1개, 최대 2개까지 보관",
   "pr.openFree": "무료 팩 열기",
   "pr.openPaid": "열기 · {n} 코인",
   "pr.odds": "확률 보기",

@@ -56,6 +56,11 @@ const head = [
   '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
   `<meta name="apple-mobile-web-app-title" content="${app.web.shortName}">`,
   `<style>html,body{background:${app.web.backgroundColor}}</style>`,
+  // iPhone : la hauteur « 100 % » est parfois mal recalculée (retour dans l'appli, clavier refermé) et l'appli ne
+  // remplit plus l'écran (bande vide sous la barre d'onglets). Page fixée sur tout l'écran visible, remise en place
+  // après le clavier et au retour dans l'appli.
+  '<style>body{position:fixed;top:0;left:0;right:0;bottom:0;height:auto;width:auto}#root{position:absolute;top:0;left:0;right:0;bottom:0;height:auto}</style>',
+  "<script>(function(){var f=function(){if(window.scrollY||document.documentElement.scrollTop)window.scrollTo(0,0);window.dispatchEvent(new Event('resize'))};addEventListener('focusout',function(){setTimeout(f,120)});addEventListener('pageshow',f);document.addEventListener('visibilitychange',function(){if(!document.hidden)setTimeout(f,60)});if(window.visualViewport)visualViewport.addEventListener('resize',function(){setTimeout(f,60)})})()</script>",
   `<script>if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('${base}/sw.js',{scope:'${base}/'}).catch(()=>{}))</script>`,
 ].join('');
 const indexPath = join(dist, 'index.html');

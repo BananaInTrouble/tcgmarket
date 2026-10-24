@@ -252,6 +252,7 @@ export const es: Partial<Record<Key, string>> = {
   "pr.freeLeft": "{n} sobre gratis disponible|{n} sobres gratis disponibles",
   "pr.noFree": "Sin sobres gratis por ahora",
   "pr.nextFree": "Próximo sobre gratis en {d}",
+  "pr.freeStock": "1 sobre gratis cada 12 h, hasta 2 guardados",
   "pr.openFree": "Abrir un sobre gratis",
   "pr.openPaid": "Abrir · {n} monedas",
   "pr.odds": "Ver las probabilidades",

@@ -252,6 +252,7 @@ export const zhTw: Partial<Record<Key, string>> = {
   "pr.freeLeft": "可開免費卡包 {n} 包",
   "pr.noFree": "目前沒有免費卡包",
   "pr.nextFree": "下一包免費卡包：{d} 後",
+  "pr.freeStock": "每 12 小時 1 包免費卡包，最多可存 2 包",
   "pr.openFree": "開啟免費卡包",
   "pr.openPaid": "開啟・{n} 金幣",
   "pr.odds": "查看機率",

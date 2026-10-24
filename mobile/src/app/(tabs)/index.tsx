@@ -20,9 +20,10 @@ const PR_MARK = packRushMark();
  * les nouveautés du jeu choisi, et la répartition de la collection.
  */
 export default function Dashboard() {
-  const { ready, collection, settings, t, toCurrency } = useStore();
+  const { ready, collection, settings, t, toCurrency, displayName, username } = useStore();
   const st = useMemo(() => collectionStats(collection, toCurrency), [collection, toCurrency]);
-  const hello = settings.profileName ? `${t('dash.hello')} ${settings.profileName}` : t('dash.hello');
+  const who = displayName || username || settings.profileName;
+  const hello = who ? `${t('dash.hello')} ${who}` : t('dash.hello');
 
   if (!ready) return <View style={s.screen}><ActivityIndicator color={colors.accent} style={{ marginTop: 32 }} /></View>;
 

@@ -224,14 +224,15 @@ create table if not exists public.pr_openings (
   created_at timestamptz not null default now()
 );
 create index if not exists pr_openings_user on public.pr_openings (user_id, created_at);
--- Pack gratuit : moment où il est de nouveau disponible (1 pack, rechargé 12 h après son ouverture).
+-- Packs gratuits : 1 toutes les 12 h, mis de côté jusqu'à 2. Deux emplacements, chacun daté du moment où il est
+-- disponible ; un pack ouvert recharge 12 h après le dernier emplacement en attente (jamais deux en même temps).
 create table if not exists public.pr_state (
   user_id uuid primary key references auth.users (id) on delete cascade,
-  free_at timestamptz[] not null default array['-infinity'::timestamptz]
+  free_at timestamptz[] not null default array['-infinity'::timestamptz, now() + interval '12 hours']
 );
-alter table public.pr_state alter column free_at set default array['-infinity'::timestamptz];
--- Ancienne règle (2 packs) : on ne garde que l'emplacement le plus tardif.
-update public.pr_state set free_at = array[(select max(t) from unnest(free_at) t)] where cardinality(free_at) > 1;
+alter table public.pr_state alter column free_at set default array['-infinity'::timestamptz, now() + interval '12 hours'];
+-- Règle précédente (1 seul emplacement) : le second se recharge 12 h après le premier.
+update public.pr_state set free_at = array[free_at[1], greatest(free_at[1], now()) + interval '12 hours'] where cardinality(free_at) = 1;
 -- Récompenses uniques déjà versées (rareté complétée, paliers de quêtes) et connexions du jour.
 create table if not exists public.pr_claims (
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -369,7 +370,9 @@ begin
   if p_free then
     select i into idx from generate_subscripts(st.free_at, 1) i where st.free_at[i] <= now() order by st.free_at[i] limit 1;
     if idx is null then raise exception 'no_free_pack'; end if;
-    update public.pr_state set free_at[idx] = now() + interval '12 hours' where user_id = uid;
+    update public.pr_state
+      set free_at[idx] = greatest(now(), (select max(t) from unnest(st.free_at) t)) + interval '12 hours'
+      where user_id = uid;
   elsif public.pr_balance(uid, 'coins') < s.pack_cost then
     raise exception 'not_enough_coins';
   end if;

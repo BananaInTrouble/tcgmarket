@@ -252,6 +252,7 @@ export const it: Partial<Record<Key, string>> = {
   "pr.freeLeft": "{n} bustina gratis disponibile|{n} bustine gratis disponibili",
   "pr.noFree": "Nessuna bustina gratis per ora",
   "pr.nextFree": "Prossima bustina gratis tra {d}",
+  "pr.freeStock": "1 bustina gratis ogni 12 h, fino a 2 conservate",
   "pr.openFree": "Apri una bustina gratis",
   "pr.openPaid": "Apri · {n} monete",
   "pr.odds": "Vedi le probabilità",

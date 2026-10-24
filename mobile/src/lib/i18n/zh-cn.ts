@@ -252,6 +252,7 @@ export const zhCn: Partial<Record<Key, string>> = {
   "pr.freeLeft": "可开免费卡包 {n} 包",
   "pr.noFree": "目前没有免费卡包",
   "pr.nextFree": "下一包免费卡包：{d} 后",
+  "pr.freeStock": "每 12 小时 1 包免费卡包，最多可存 2 包",
   "pr.openFree": "开启免费卡包",
   "pr.openPaid": "开启・{n} 金币",
   "pr.odds": "查看概率",

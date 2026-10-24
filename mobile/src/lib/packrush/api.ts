@@ -76,7 +76,19 @@ export async function loadCatalog(): Promise<{ set: PrSet; cards: PrCard[] }> {
   const set = sets[0] as PrSet;
   const { data: cards, error: e2 } = await sb.from('pr_cards').select('id, set_id, number, rarity, name, art').eq('set_id', set.id).order('number');
   if (e2 || !cards?.length) fail(e2);
+  for (const c of cards as PrCard[]) KNOWN.set(c.id, c);
   return { set, cards: cards as PrCard[] };
+}
+
+/** Cartes du catalogue déjà chargées (pour retrouver la pré-évolution d'une carte). */
+const KNOWN = new Map<string, PrCard>();
+
+/** Pré-évolution d'une carte de niveau 2 ou 3 : même espèce, stade précédent, même set. */
+export function preEvolution(card: PrCard): PrCard | undefined {
+  const stage = card.art?.stage ?? 0;
+  if (stage < 1 || stage > 2) return undefined;
+  for (const c of KNOWN.values()) if (c.set_id === card.set_id && c.art?.kind === card.art?.kind && (c.art?.stage ?? 0) === stage - 1) return c;
+  return undefined;
 }
 
 export const loadStatus = (setId: string) => rpc<PrStatus>('pr_status', { p_set: setId });

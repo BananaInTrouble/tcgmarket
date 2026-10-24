@@ -252,6 +252,7 @@ export const nl: Partial<Record<Key, string>> = {
   "pr.freeLeft": "{n} gratis pack beschikbaar|{n} gratis packs beschikbaar",
   "pr.noFree": "Nu geen gratis pack",
   "pr.nextFree": "Volgende gratis pack over {d}",
+  "pr.freeStock": "1 gratis pakje per 12 u, tot 2 bewaard",
   "pr.openFree": "Gratis pack openen",
   "pr.openPaid": "Openen · {n} munten",
   "pr.odds": "Kansen bekijken",
