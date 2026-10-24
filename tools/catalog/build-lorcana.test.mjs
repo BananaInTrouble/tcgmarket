@@ -51,4 +51,7 @@ test('Lorcana : choix du logo sur la page officielle', () => {
   assert.ok(logoScore(logo, { width: 648, height: 300, transparent: 0.7 }) > logoScore('https://ravensburger.cloud/x/en/abc_en.png', { width: 648, height: 300, transparent: 0.7 }));
   assert.equal(logoScore('https://ravensburger.cloud/x/cards/en_1.png', { width: 648, height: 300, transparent: 1 }), -1);
   assert.equal(logoScore(logo, { width: 537, height: 750, transparent: 1 }), -1);
+  assert.ok(logoScore('https://ravensburger.cloud/x/heroes-logos-and-backgrounds/dlc_s13_logo_en.png', { width: 648, height: 300, transparent: 0.6 }) > 10);
+  assert.equal(logoScore('https://ravensburger.cloud/x/products/pre-release/3pjwqt9fva_en-1.png', { width: 1920, height: 1080, transparent: 0.5 }), -1);
+  assert.equal(logoScore('https://ravensburger.cloud/x/abc_en.png', { width: 648, height: 300, transparent: 0.1 }), -1);
 });

@@ -29,8 +29,11 @@ const OFFICIAL_PAGES = {
 export function logoScore(url, { width, height, transparent }) {
   const ratio = width / height;
   if (width < 300 || ratio < 1.6 || ratio > 4.2) return -1;
-  if (/card|background|header|teaser|product-shot|playmat|photo|glimmer|vineling|encounter|snow|spill/i.test(url)) return -1;
-  return (/logo/i.test(url) ? 10 : 0) + (/_en[._-]|\/en\//i.test(url) ? 3 : 0) + (width === 648 ? 4 : 0) + transparent * 5;
+  const file = url.split('/').pop();
+  const named = /logo/i.test(file);
+  // Bandeaux, visuels de cartes, photos de produits : écartés, sauf fichier nommé « logo ».
+  if (!named && (/card|background|header|teaser|product|playmat|photo|glimmer|vineling|encounter|snow|spill/i.test(url) || transparent < 0.3)) return -1;
+  return (named ? 10 : 0) + (/_en[._-]|\/en\//i.test(url) ? 3 : 0) + (width === 648 ? 4 : 0) + transparent * 5;
 }
 
 /** Logo d'une extension trouvé sur sa page produit officielle (anglaise), ou null. */
@@ -40,7 +43,8 @@ async function officialLogo(setId) {
   const html = await getText(`https://www.disneylorcana.com/en-US/product/${slug}`).catch(() => null);
   if (!html) return null;
   const urls = [...new Set([...html.matchAll(/https:\/\/ravensburger\.cloud\/[^"' )]+?\.png/g)].map((m) => m[0]))]
-    .filter((u) => logoScore(u, { width: 648, height: 300, transparent: 0 }) >= 0);
+    .filter((u) => logoScore(u, { width: 648, height: 300, transparent: 1 }) >= 0)
+    .sort((a, b) => Number(/logo/i.test(b.split('/').pop())) - Number(/logo/i.test(a.split('/').pop())));
   let best = null, bestScore = 0;
   for (const u of urls.slice(0, 30)) {
     const buf = await getBuffer(u).catch(() => null);
