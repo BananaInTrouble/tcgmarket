@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { AccountSection } from '../../components/AccountPanel';
 import { PublicProfilePanel } from '../../components/PublicProfilePanel';
 import { disablePush } from '../../lib/push';
@@ -34,11 +34,9 @@ function confirm(message: string, onYes: () => void, cancel = 'Cancel') {
 }
 
 export default function Account() {
-  const { settings, setSettings, collection, clear, t, langLabel, user, username, wishlist } = useStore();
-  const [name, setName] = useState(settings.profileName ?? '');
+  const { settings, setSettings, collection, clear, t, langLabel, user, username, displayName, wishlist } = useStore();
   const [picking, setPicking] = useState(false);
   const count = collection.reduce((n, e) => n + e.quantity, 0);
-  const saveName = () => setSettings({ profileName: name.trim() || undefined });
 
   return (
     <ScrollView style={s.screen} contentContainerStyle={[s.pad, { gap: 14, maxWidth: 700, width: '100%', alignSelf: 'center', paddingBottom: 48 }]}>
@@ -50,24 +48,11 @@ export default function Account() {
           </View>
         </Pressable>
         <AvatarPicker visible={picking} onClose={() => setPicking(false)} />
-        <Text style={s.h2}>{settings.profileName || (username ? `@${username}` : t('acc.trainer'))}</Text>
-        {!!username && !!settings.profileName && <Text style={[s.meta, { color: colors.accent }]}>@{username}</Text>}
+        <Text style={s.h2}>{displayName || (username ? `@${username}` : t('acc.trainer'))}</Text>
+        {!!username && !!displayName && <Text style={[s.meta, { color: colors.accent }]}>@{username}</Text>}
         <Text style={s.muted}>{t('acc.inCollection', { n: count })}</Text>
         {user?.email ? <Text style={[s.muted, { fontSize: 12 }]}>{user.email}</Text> : null}
       </View>
-
-      <Panel title={t('acc.profile')}>
-        <TextInput
-          style={s.input}
-          placeholder={t('acc.nickname')}
-          placeholderTextColor={colors.muted}
-          value={name}
-          onChangeText={setName}
-          onBlur={saveName}
-          onSubmitEditing={saveName}
-          returnKeyType="done"
-        />
-      </Panel>
 
       <AccountSection />
 

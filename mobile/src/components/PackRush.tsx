@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Modal, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from './ui';
@@ -226,10 +227,12 @@ export function Opening({ result, byId, total, setId, title, onClose }: { result
 
   const glow = cur ? RARITY_STYLE[cur.rarity].glow : '#fff';
   const curCard = cur && byId.get(cur.id);
+  // Plein écran : rien sous la barre d'état (floutée sur iPhone) ni sous la barre d'accueil.
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={{ ...NO_TOUCH_SCROLL, flex: 1, backgroundColor: 'rgba(7,5,18,0.96)', alignItems: 'center', justifyContent: 'center', padding: 20, gap: 16 }}>
+      <View style={{ ...NO_TOUCH_SCROLL, flex: 1, backgroundColor: 'rgba(7,5,18,0.96)', alignItems: 'center', justifyContent: 'center', padding: 20, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20, gap: 16 }}>
         {phase === 'pack' && (
           <>
             <Animated.View {...packPan.panHandlers} style={{ ...NO_TOUCH_SCROLL, width: packW, height: packH, transform: [{ translateY: bob.interpolate({ inputRange: [0, 1], outputRange: [-6, 6] }) }] }}>

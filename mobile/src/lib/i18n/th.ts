@@ -252,6 +252,7 @@ export const th: Partial<Record<Key, string>> = {
   "pr.freeLeft": "มีซองฟรี {n} ซอง",
   "pr.noFree": "ตอนนี้ไม่มีซองฟรี",
   "pr.nextFree": "ซองฟรีถัดไปในอีก {d}",
+  "pr.freeStock": "แพ็กฟรี 1 แพ็กทุก 12 ชม. เก็บสะสมได้สูงสุด 2",
   "pr.openFree": "เปิดซองฟรี",
   "pr.openPaid": "เปิด · {n} เหรียญ",
   "pr.odds": "ดูโอกาส",

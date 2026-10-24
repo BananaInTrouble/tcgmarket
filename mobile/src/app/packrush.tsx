@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
 import { colors, fonts, s } from '../components/ui';
@@ -41,6 +42,7 @@ export default function PackRush() {
   const [showOdds, setShowOdds] = useState(false);
   const [opening, setOpening] = useState<PrOpening | null>(null);
   const [detail, setDetail] = useState<PrCard | null>(null);
+  const insets = useSafeAreaInsets();
   // « ?view=shop » ouvre la boutique de Fragments, « ?view=collection » descend jusqu'à la collection (lien du profil).
   const { view } = useLocalSearchParams<{ view?: string }>();
   const [shop, setShop] = useState(view === 'shop');
@@ -153,7 +155,8 @@ export default function PackRush() {
           <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 16 }}>
             {status.free > 0 ? t('pr.freeLeft', { n: status.free }) : t('pr.noFree')}
           </Text>
-          {status.free < 1 && nextFree && <Text style={s.muted}>{t('pr.nextFree', { d: nextFree })}</Text>}
+          {status.free < 2 && nextFree && <Text style={s.muted}>{t('pr.nextFree', { d: nextFree })}</Text>}
+          <Text style={[s.muted, { fontSize: 12 }]}>{t('pr.freeStock')}</Text>
           <View style={{ gap: 8, alignSelf: 'stretch' }}>
             <Pressable disabled={busy || status.free < 1} onPress={() => doOpen(true)} style={[s.button, { opacity: status.free < 1 ? 0.45 : 1 }]}>
               <Text style={[s.buttonText, { textAlign: 'center' }]}>🎁 {t('pr.openFree')}</Text>
@@ -238,7 +241,7 @@ export default function PackRush() {
       {/* Fiche d'une carte. */}
       <Modal visible={!!detail} transparent animationType="fade" onRequestClose={() => setDetail(null)}>
         {detail && (
-          <Pressable onPress={() => setDetail(null)} style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.88)', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+          <Pressable onPress={() => setDetail(null)} style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.88)', alignItems: 'center', justifyContent: 'center', padding: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 12 }}>
             <PrCardPic card={detail} total={cards.length} owned={owned(detail) > 0} width={250} />
             <Text style={{ color: colors.text, fontFamily: fonts.heavy, fontSize: 18 }}>{owned(detail) > 0 ? detail.name : '???'}</Text>
             <Text style={s.muted}>{t(`pr.r.${detail.rarity}` as TKey)} · {owned(detail) > 0 ? t('pr.owned', { n: owned(detail) }) : t('pr.missing')}</Text>
@@ -302,11 +305,12 @@ function Shop({ set, cards, total, fragments, busy, note, onBuy, onClose }: {
 }) {
   const { t } = useStore();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const order = [...PR_RARITIES].reverse();
   const sorted = [...cards].sort((a, b) => order.indexOf(a.rarity) - order.indexOf(b.rarity) || a.number - b.number);
   const pic = Math.min(72, (Math.min(width, 700) - 32) / 5);
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.92)', paddingTop: 48 }}>
+    <View style={{ flex: 1, backgroundColor: 'rgba(5,12,9,0.92)', paddingTop: insets.top + 16 }}>
       <View style={{ flex: 1, backgroundColor: colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, borderWidth: 1, borderColor: colors.line, maxWidth: 700, width: '100%', alignSelf: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderBottomWidth: 1, borderColor: colors.line }}>
           <FragmentIcon size={26} />
@@ -318,7 +322,7 @@ function Shop({ set, cards, total, fragments, busy, note, onBuy, onClose }: {
             <Ionicons name="close" size={26} color={colors.text} />
           </Pressable>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: insets.bottom + 40 }}>
           <Text style={s.muted}>{t('pr.shopIntro')}</Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {PR_RARITIES.map((r) => (

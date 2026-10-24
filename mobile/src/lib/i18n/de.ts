@@ -252,6 +252,7 @@ export const de: Partial<Record<Key, string>> = {
   "pr.freeLeft": "{n} Gratis-Pack verfügbar|{n} Gratis-Packs verfügbar",
   "pr.noFree": "Gerade kein Gratis-Pack",
   "pr.nextFree": "Nächstes Gratis-Pack in {d}",
+  "pr.freeStock": "1 Gratis-Pack alle 12 Std., bis zu 2 gespeichert",
   "pr.openFree": "Gratis-Pack öffnen",
   "pr.openPaid": "Öffnen · {n} Münzen",
   "pr.odds": "Wahrscheinlichkeiten ansehen",
